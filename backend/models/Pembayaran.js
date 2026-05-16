@@ -7,7 +7,7 @@
 const { pool } = require('../config/database');
 
 class Pembayaran {
-  static async findAll({ page = 1, limit = 10, search = '', status = '', tahun_ajaran = '', jenis = '' } = {}) {
+  static async findAll({ page = 1, limit = 10, search = '', status = '', tahun_ajaran = '', jenis = '', nim = '' } = {}) {
     let query = `SELECT p.*, m.nama as nama_mahasiswa, m.jurusan, m.program_studi
       FROM pembayaran p LEFT JOIN mahasiswa m ON p.nim = m.nim WHERE 1=1`;
     let countQuery = `SELECT COUNT(*) as total FROM pembayaran p
@@ -32,6 +32,10 @@ class Pembayaran {
     if (jenis) {
       query += ' AND p.jenis_pembayaran = ?'; countQuery += ' AND p.jenis_pembayaran = ?';
       params.push(jenis); countParams.push(jenis);
+    }
+    if (nim) {
+      query += ' AND p.nim = ?'; countQuery += ' AND p.nim = ?';
+      params.push(nim); countParams.push(nim);
     }
 
     const [countRows] = await pool.execute(countQuery, countParams);

@@ -2,6 +2,7 @@ package com.siakad.views.panels;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.siakad.services.MahasiswaService;
 import com.siakad.services.PembayaranService;
 import com.siakad.utils.JwtHelper;
 
@@ -46,7 +47,10 @@ public class PembayaranPanel extends JPanel {
         JLabel lblTitle = new JLabel("Pembayaran UKT");
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 22));
         lblTitle.setForeground(new Color(248, 250, 252));
-        JLabel lblSub = new JLabel("Input & verifikasi pembayaran mahasiswa");
+        boolean isAdmin = JwtHelper.getInstance().isAdmin();
+        JLabel lblSub = new JLabel(isAdmin
+                ? "Input & verifikasi pembayaran mahasiswa"
+                : "Riwayat & status pembayaran UKT Anda");
         lblSub.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         lblSub.setForeground(new Color(100, 116, 139));
         titleBlock.add(lblTitle);
@@ -75,24 +79,34 @@ public class PembayaranPanel extends JPanel {
 
         JButton btnTambah = makeBtn("➕ Input Pembayaran", new Color(34,197,94));
         btnTambah.addActionListener(e -> showInputForm());
-        btnTambah.setVisible(JwtHelper.getInstance().isAdmin());
+        btnTambah.setVisible(isAdmin);
+
+        JButton btnStatus = makeBtn("📋 Cek Status UKT", new Color(168, 85, 247));
+        btnStatus.addActionListener(e -> showStatusPembayaran());
+        btnStatus.setVisible(!isAdmin);
 
         actions.add(txtSearch); actions.add(cmbStatus); actions.add(cmbTahunAjaran);
-        actions.add(btnSearch); actions.add(btnTambah);
+        actions.add(btnSearch);
+        if (isAdmin) actions.add(btnTambah);
+        else actions.add(btnStatus);
         header.add(actions, BorderLayout.EAST);
 
         // === TABLE ===
-        String[] cols = {"ID","NIM","Nama","Jenis","Jumlah","Tanggal","Metode","Semester","Status","Aksi"};
+        String[] cols = isAdmin
+                ? new String[]{"ID","NIM","Nama","Jenis","Jumlah","Tanggal","Metode","Semester","Status","Aksi"}
+                : new String[]{"ID","NIM","Nama","Jenis","Jumlah","Tanggal","Metode","Semester","Status"};
         tableModel = new DefaultTableModel(cols, 0) {
-            public boolean isCellEditable(int r, int c) { return c == 9; }
+            public boolean isCellEditable(int r, int c) { return isAdmin && c == 9; }
         };
         table = new JTable(tableModel);
         styleTable(table);
         table.getColumnModel().getColumn(0).setMaxWidth(50);
-        table.getColumnModel().getColumn(9).setMinWidth(140);
-        table.getColumnModel().getColumn(9).setMaxWidth(140);
-        table.getColumnModel().getColumn(9).setCellRenderer(new PembayaranActionRenderer());
-        table.getColumnModel().getColumn(9).setCellEditor(new PembayaranActionEditor());
+        if (isAdmin) {
+            table.getColumnModel().getColumn(9).setMinWidth(140);
+            table.getColumnModel().getColumn(9).setMaxWidth(140);
+            table.getColumnModel().getColumn(9).setCellRenderer(new PembayaranActionRenderer());
+            table.getColumnModel().getColumn(9).setCellEditor(new PembayaranActionEditor());
+        }
 
         JScrollPane sp = new JScrollPane(table);
         sp.setBorder(null);
@@ -145,20 +159,28 @@ public class PembayaranPanel extends JPanel {
                         JsonObject pg = resp.getAsJsonObject("pagination");
                         lblTotal.setText("Total: "+pg.get("total").getAsInt()+" | Hal "+currentPage+"/"+pg.get("totalPages").getAsInt());
 
+                        boolean admin = JwtHelper.getInstance().isAdmin();
                         for (int i=0; i<data.size(); i++) {
                             JsonObject p = data.get(i).getAsJsonObject();
-                            tableModel.addRow(new Object[]{
-                                p.get("id").getAsInt(),
-                                p.get("nim").getAsString(),
-                                safe(p,"nama_mahasiswa"),
-                                p.get("jenis_pembayaran").getAsString(),
-                                RUPIAH.format(p.get("jumlah").getAsDouble()),
-                                p.get("tanggal_bayar").getAsString().substring(0,10),
-                                p.get("metode_pembayaran").getAsString(),
-                                p.get("semester").getAsInt(),
-                                p.get("status").getAsString(),
-                                "aksi"
-                            });
+                            if (admin) {
+                                tableModel.addRow(new Object[]{
+                                    p.get("id").getAsInt(), p.get("nim").getAsString(),
+                                    safe(p,"nama_mahasiswa"), p.get("jenis_pembayaran").getAsString(),
+                                    RUPIAH.format(p.get("jumlah").getAsDouble()),
+                                    p.get("tanggal_bayar").getAsString().substring(0,10),
+                                    p.get("metode_pembayaran").getAsString(),
+                                    p.get("semester").getAsInt(), p.get("status").getAsString(), "aksi"
+                                });
+                            } else {
+                                tableModel.addRow(new Object[]{
+                                    p.get("id").getAsInt(), p.get("nim").getAsString(),
+                                    safe(p,"nama_mahasiswa"), p.get("jenis_pembayaran").getAsString(),
+                                    RUPIAH.format(p.get("jumlah").getAsDouble()),
+                                    p.get("tanggal_bayar").getAsString().substring(0,10),
+                                    p.get("metode_pembayaran").getAsString(),
+                                    p.get("semester").getAsInt(), p.get("status").getAsString()
+                                });
+                            }
                         }
                     }
                 } catch (Exception e) {
@@ -181,6 +203,10 @@ public class PembayaranPanel extends JPanel {
 
         JTextField fNim = makeField("",0), fJumlah = makeField("",0),
                    fTanggal = makeField("YYYY-MM-DD",0), fSemester = makeField("",0), fTA = makeField("2024/2025",0);
+        JLabel lblMhsInfo = new JLabel("Ketik NIM lalu tekan Enter untuk validasi ke API Kelompok 1");
+        lblMhsInfo.setFont(new Font("Segoe UI", Font.ITALIC, 10));
+        lblMhsInfo.setForeground(new Color(34, 197, 94));
+        fNim.addActionListener(e -> lookupMahasiswa(fNim, lblMhsInfo, d));
         JComboBox<String> cJenis = new JComboBox<>(new String[]{"ukt","spp","praktikum","wisuda","lainnya"});
         JComboBox<String> cMetode = new JComboBox<>(new String[]{"transfer_bank","virtual_account","tunai","qris"});
         styleCombo(cJenis); styleCombo(cMetode);
@@ -188,7 +214,9 @@ public class PembayaranPanel extends JPanel {
         fKet.setBackground(new Color(30,41,59)); fKet.setForeground(Color.WHITE); fKet.setCaretColor(Color.WHITE);
 
         int r=0;
-        addRow(p,g,r++,"NIM Mahasiswa *",fNim); addRow(p,g,r++,"Jenis",cJenis);
+        addRow(p,g,r++,"NIM Mahasiswa *",fNim);
+        g.gridx=1; g.gridy=r++; g.insets=new Insets(0,4,8,4); p.add(lblMhsInfo,g); g.insets=new Insets(5,4,5,4);
+        addRow(p,g,r++,"Jenis",cJenis);
         addRow(p,g,r++,"Jumlah (Rp) *",fJumlah); addRow(p,g,r++,"Tanggal Bayar *",fTanggal);
         addRow(p,g,r++,"Metode",cMetode); addRow(p,g,r++,"Semester *",fSemester);
         addRow(p,g,r++,"Tahun Ajaran *",fTA);
@@ -201,13 +229,24 @@ public class PembayaranPanel extends JPanel {
                 JOptionPane.showMessageDialog(d,"Isi semua field wajib (*).","Validasi",JOptionPane.WARNING_MESSAGE);
                 return;
             }
+            double jumlah;
+            int semester;
+            try {
+                jumlah = Double.parseDouble(fJumlah.getText().trim());
+                semester = Integer.parseInt(fSemester.getText().trim());
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(d,
+                        "Jumlah harus berupa angka dan semester harus berupa bilangan bulat.",
+                        "Validasi", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
             JsonObject body = new JsonObject();
             body.addProperty("nim", fNim.getText().trim());
             body.addProperty("jenis_pembayaran", (String)cJenis.getSelectedItem());
-            body.addProperty("jumlah", Double.parseDouble(fJumlah.getText().trim()));
+            body.addProperty("jumlah", jumlah);
             body.addProperty("tanggal_bayar", fTanggal.getText().trim());
             body.addProperty("metode_pembayaran", (String)cMetode.getSelectedItem());
-            body.addProperty("semester", Integer.parseInt(fSemester.getText().trim()));
+            body.addProperty("semester", semester);
             body.addProperty("tahun_ajaran", fTA.getText().trim());
             body.addProperty("keterangan", fKet.getText().trim());
 
@@ -231,6 +270,82 @@ public class PembayaranPanel extends JPanel {
 
         d.add(new JScrollPane(p){{setBorder(null);}});
         d.setVisible(true);
+    }
+
+    private void lookupMahasiswa(JTextField fNim, JLabel lblInfo, JDialog parent) {
+        String nim = fNim.getText().trim();
+        if (nim.isEmpty()) return;
+        lblInfo.setText("Memvalidasi NIM...");
+        lblInfo.setForeground(new Color(234, 179, 8));
+        new SwingWorker<JsonObject, Void>() {
+            protected JsonObject doInBackground() throws Exception {
+                return MahasiswaService.getByNim(nim);
+            }
+            protected void done() {
+                try {
+                    JsonObject resp = get();
+                    if (resp.get("success").getAsBoolean()) {
+                        JsonObject m = resp.getAsJsonObject("data");
+                        lblInfo.setText("✓ " + m.get("nama").getAsString() + " — " + m.get("jurusan").getAsString());
+                        lblInfo.setForeground(new Color(34, 197, 94));
+                    } else {
+                        lblInfo.setText("✗ " + resp.get("message").getAsString());
+                        lblInfo.setForeground(new Color(239, 68, 68));
+                    }
+                } catch (Exception ex) {
+                    lblInfo.setText("✗ Gagal hubungi API mahasiswa: " + ex.getMessage());
+                    lblInfo.setForeground(new Color(239, 68, 68));
+                }
+            }
+        }.execute();
+    }
+
+    private void showStatusPembayaran() {
+        String nim = JwtHelper.getInstance().getNim();
+        if (nim == null || nim.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "NIM tidak ditemukan di token login.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        JTextField fSem = makeField("2", 0);
+        JTextField fTA = makeField("2024/2025", 0);
+        JPanel panel = new JPanel(new GridLayout(2, 2, 8, 8));
+        panel.setBackground(new Color(22, 33, 54));
+        panel.add(lbl("Semester")); panel.add(fSem);
+        panel.add(lbl("Tahun Ajaran")); panel.add(fTA);
+
+        int ok = JOptionPane.showConfirmDialog(this, panel, "Cek Status UKT — NIM " + nim,
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (ok != JOptionPane.OK_OPTION) return;
+
+        new SwingWorker<JsonObject, Void>() {
+            protected JsonObject doInBackground() throws Exception {
+                return PembayaranService.cekStatus(nim,
+                        Integer.parseInt(fSem.getText().trim()), fTA.getText().trim());
+            }
+            protected void done() {
+                try {
+                    JsonObject resp = get();
+                    if (!resp.get("success").getAsBoolean()) {
+                        JOptionPane.showMessageDialog(PembayaranPanel.this, resp.get("message").getAsString(),
+                                "Gagal", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+                    JsonObject data = resp.getAsJsonObject("data");
+                    String status = data.get("status_pembayaran").getAsString();
+                    String mhs = data.getAsJsonObject("mahasiswa").get("nama").getAsString();
+                    String msg = "Mahasiswa: " + mhs + "\nNIM: " + nim + "\nStatus UKT: " + status.toUpperCase();
+                    if (data.has("detail") && !data.get("detail").isJsonNull()) {
+                        JsonObject d = data.getAsJsonObject("detail");
+                        msg += "\nReferensi: " + d.get("nomor_referensi").getAsString();
+                        msg += "\nJumlah: " + RUPIAH.format(d.get("jumlah").getAsDouble());
+                    }
+                    JOptionPane.showMessageDialog(PembayaranPanel.this, msg, "Status Pembayaran",
+                            JOptionPane.INFORMATION_MESSAGE);
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(PembayaranPanel.this, "Error: " + ex.getMessage());
+                }
+            }
+        }.execute();
     }
 
     private void verifyPembayaran(int id, String newStatus) {

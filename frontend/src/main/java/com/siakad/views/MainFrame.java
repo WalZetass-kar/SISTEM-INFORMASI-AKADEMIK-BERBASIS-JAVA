@@ -55,8 +55,12 @@ public class MainFrame extends JFrame {
 
         add(contentPanel, BorderLayout.CENTER);
 
-        // Show dashboard by default
-        showPanel(PANEL_DASHBOARD);
+        // Default panel sesuai role
+        if (JwtHelper.getInstance().isAdmin()) {
+            showPanel(PANEL_DASHBOARD);
+        } else {
+            showPanel(PANEL_PEMBAYARAN);
+        }
     }
 
     private JPanel createSidebar() {
@@ -124,14 +128,15 @@ public class MainFrame extends JFrame {
         JButton btnPembayaran = createNavButton("💳  Pembayaran",   PANEL_PEMBAYARAN);
         JButton btnLaporan    = createNavButton("📋  Laporan",      PANEL_LAPORAN);
 
-        navPanel.add(btnDashboard);
-        navPanel.add(Box.createVerticalStrut(4));
-        navPanel.add(btnMahasiswa);
-        navPanel.add(Box.createVerticalStrut(4));
+        if (jwt.isAdmin()) {
+            navPanel.add(btnDashboard);
+            navPanel.add(Box.createVerticalStrut(4));
+            navPanel.add(btnMahasiswa);
+            navPanel.add(Box.createVerticalStrut(4));
+        }
         navPanel.add(btnPembayaran);
         navPanel.add(Box.createVerticalStrut(4));
 
-        // Laporan hanya untuk admin
         if (jwt.isAdmin()) {
             navPanel.add(btnLaporan);
             navPanel.add(Box.createVerticalStrut(4));

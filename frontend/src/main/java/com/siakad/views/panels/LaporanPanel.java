@@ -3,11 +3,13 @@ package com.siakad.views.panels;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.siakad.services.LaporanService;
+import com.siakad.utils.ReportExporter;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.*;
 import java.awt.*;
+import java.io.File;
 
 /**
  * LaporanPanel - Generate & Cetak Laporan (Admin only)
@@ -75,8 +77,8 @@ public class LaporanPanel extends JPanel {
         table = new JTable(tableModel);
         styleTable(table);
         table.getColumnModel().getColumn(0).setMaxWidth(50);
-        table.getColumnModel().getColumn(8).setMinWidth(100);
-        table.getColumnModel().getColumn(8).setMaxWidth(100);
+        table.getColumnModel().getColumn(8).setMinWidth(150);
+        table.getColumnModel().getColumn(8).setMaxWidth(150);
         table.getColumnModel().getColumn(8).setCellRenderer(new LaporanActionRenderer());
         table.getColumnModel().getColumn(8).setCellEditor(new LaporanActionEditor());
 
@@ -222,21 +224,67 @@ public class LaporanPanel extends JPanel {
                 try {
                     JsonObject resp = get();
                     if (resp.get("success").getAsBoolean()) {
-                        JsonObject d = resp.getAsJsonObject("data");
-                        String info = "Judul: " + d.get("judul").getAsString() + "\n"
-                                + "Jenis: " + d.get("jenis_laporan").getAsString() + "\n"
-                                + "Total Records: " + d.get("total_records").getAsInt() + "\n"
-                                + "Status: " + d.get("status").getAsString() + "\n"
-                                + "Dibuat: " + d.get("created_at").getAsString() + "\n";
-                        if (d.has("deskripsi") && !d.get("deskripsi").isJsonNull())
-                            info += "Deskripsi: " + d.get("deskripsi").getAsString();
-                        JTextArea area = new JTextArea(info);
-                        area.setEditable(false);
-                        area.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-                        area.setBackground(new Color(22, 33, 54));
-                        area.setForeground(Color.WHITE);
-                        JOptionPane.showMessageDialog(LaporanPanel.this, new JScrollPane(area),
-                                "Detail Laporan #" + id, JOptionPane.PLAIN_MESSAGE);
+                        showDetailDialog(resp.getAsJsonObject("data"));
+                    }
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(LaporanPanel.this, "Error: " + ex.getMessage());
+                }
+            }
+        }.execute();
+    }
+
+    private void showDetailDialog(JsonObject d) {
+        int id = d.get("id").getAsInt();
+        String info = "Judul: " + d.get("judul").getAsString() + "\n"
+                + "Jenis: " + d.get("jenis_laporan").getAsString() + "\n"
+                + "Total Records: " + d.get("total_records").getAsInt() + "\n"
+                + "Status: " + d.get("status").getAsString() + "\n"
+                + "Dibuat: " + d.get("created_at").getAsString() + "\n";
+        if (d.has("deskripsi") && !d.get("deskripsi").isJsonNull())
+            info += "Deskripsi: " + d.get("deskripsi").getAsString();
+
+        JTextArea area = new JTextArea(info);
+        area.setEditable(false);
+        area.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        area.setBackground(new Color(22, 33, 54));
+        area.setForeground(Color.WHITE);
+
+        JButton btnCetak = makeBtn("🖨 Cetak PDF", new Color(59, 130, 246));
+        btnCetak.addActionListener(e -> cetakLaporan(d));
+
+        JPanel panel = new JPanel(new BorderLayout(0, 12));
+        panel.setBackground(new Color(22, 33, 54));
+        panel.add(new JScrollPane(area), BorderLayout.CENTER);
+        panel.add(btnCetak, BorderLayout.SOUTH);
+        panel.setPreferredSize(new Dimension(480, 220));
+
+        JOptionPane.showMessageDialog(this, panel, "Detail Laporan #" + id, JOptionPane.PLAIN_MESSAGE);
+    }
+
+    private void cetakLaporan(JsonObject laporan) {
+        new SwingWorker<File, Void>() {
+            protected File doInBackground() throws Exception {
+                return ReportExporter.exportToPdf(laporan, LaporanPanel.this);
+            }
+            protected void done() {
+                try {
+                    get();
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(LaporanPanel.this,
+                            "Gagal cetak laporan: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }.execute();
+    }
+
+    private void cetakLaporanById(int id) {
+        new SwingWorker<JsonObject, Void>() {
+            protected JsonObject doInBackground() throws Exception { return LaporanService.getById(id); }
+            protected void done() {
+                try {
+                    JsonObject resp = get();
+                    if (resp.get("success").getAsBoolean()) {
+                        cetakLaporan(resp.getAsJsonObject("data"));
                     }
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(LaporanPanel.this, "Error: " + ex.getMessage());
@@ -284,14 +332,17 @@ public class LaporanPanel extends JPanel {
 
     // Action renderer & editor
     class LaporanActionRenderer extends JPanel implements TableCellRenderer {
-        JButton b1 = new JButton("👁"), b2 = new JButton("🗑");
+        JButton b1 = new JButton("👁"), b2 = new JButton("🖨"), b3 = new JButton("🗑");
         LaporanActionRenderer() {
             setLayout(new FlowLayout(FlowLayout.CENTER, 2, 4)); setOpaque(true);
-            b1.setFont(new Font("Segoe UI", Font.PLAIN, 12)); b1.setBackground(new Color(59, 130, 246));
-            b1.setForeground(Color.WHITE); b1.setBorderPainted(false); b1.setFocusPainted(false);
-            b2.setFont(new Font("Segoe UI", Font.PLAIN, 12)); b2.setBackground(new Color(239, 68, 68));
-            b2.setForeground(Color.WHITE); b2.setBorderPainted(false); b2.setFocusPainted(false);
-            add(b1); add(b2);
+            for (JButton b : new JButton[]{b1, b2, b3}) {
+                b.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+                b.setForeground(Color.WHITE); b.setBorderPainted(false); b.setFocusPainted(false);
+            }
+            b1.setBackground(new Color(59, 130, 246));
+            b2.setBackground(new Color(34, 197, 94));
+            b3.setBackground(new Color(239, 68, 68));
+            add(b1); add(b2); add(b3);
         }
         public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) {
             setBackground(s ? new Color(37, 99, 235, 40) : new Color(22, 33, 54)); return this;
@@ -299,16 +350,20 @@ public class LaporanPanel extends JPanel {
     }
     class LaporanActionEditor extends DefaultCellEditor {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 2, 4));
-        JButton bView = new JButton("👁 Detail"), bDel = new JButton("🗑");
+        JButton bView = new JButton("👁"), bPrint = new JButton("🖨"), bDel = new JButton("🗑");
         int rowId;
         LaporanActionEditor() {
             super(new JCheckBox()); panel.setBackground(new Color(22, 33, 54));
-            bView.setFont(new Font("Segoe UI", Font.PLAIN, 10)); bView.setBackground(new Color(59, 130, 246));
-            bView.setForeground(Color.WHITE); bView.setBorderPainted(false); bView.setFocusPainted(false);
-            bDel.setFont(new Font("Segoe UI", Font.PLAIN, 10)); bDel.setBackground(new Color(239, 68, 68));
-            bDel.setForeground(Color.WHITE); bDel.setBorderPainted(false); bDel.setFocusPainted(false);
-            panel.add(bView); panel.add(bDel);
+            for (JButton b : new JButton[]{bView, bPrint, bDel}) {
+                b.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+                b.setForeground(Color.WHITE); b.setBorderPainted(false); b.setFocusPainted(false);
+            }
+            bView.setBackground(new Color(59, 130, 246));
+            bPrint.setBackground(new Color(34, 197, 94));
+            bDel.setBackground(new Color(239, 68, 68));
+            panel.add(bView); panel.add(bPrint); panel.add(bDel);
             bView.addActionListener(e -> { fireEditingStopped(); viewDetail(rowId); });
+            bPrint.addActionListener(e -> { fireEditingStopped(); cetakLaporanById(rowId); });
             bDel.addActionListener(e -> { fireEditingStopped(); deleteLaporan(rowId); });
         }
         public Component getTableCellEditorComponent(JTable t, Object v, boolean s, int r, int c) {

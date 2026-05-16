@@ -5,7 +5,7 @@
 // ============================================================
 
 const Pembayaran = require('../models/Pembayaran');
-const Mahasiswa = require('../models/Mahasiswa');
+const MahasiswaApiClient = require('../services/mahasiswaApiClient');
 const { v4: uuidv4 } = require('uuid');
 
 const pembayaranController = {
@@ -13,7 +13,11 @@ const pembayaranController = {
   getAll: async (req, res) => {
     try {
       const { page, limit, search, status, tahun_ajaran, jenis } = req.query;
-      const result = await Pembayaran.findAll({ page, limit, search, status, tahun_ajaran, jenis });
+      // Mahasiswa hanya melihat pembayaran milik sendiri (relasi nim)
+      const nimFilter = req.user.role === 'mahasiswa' ? req.user.nim : null;
+      const result = await Pembayaran.findAll({
+        page, limit, search, status, tahun_ajaran, jenis, nim: nimFilter
+      });
       res.json({ success: true, ...result });
     } catch (error) {
       console.error('Get pembayaran error:', error);
@@ -26,6 +30,9 @@ const pembayaranController = {
     try {
       const pembayaran = await Pembayaran.findById(req.params.id);
       if (!pembayaran) return res.status(404).json({ success: false, message: 'Pembayaran tidak ditemukan.' });
+      if (req.user.role === 'mahasiswa' && pembayaran.nim !== req.user.nim) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak. Anda hanya dapat melihat pembayaran milik sendiri.' });
+      }
       res.json({ success: true, data: pembayaran });
     } catch (error) {
       console.error('Get pembayaran by ID error:', error);
@@ -37,8 +44,8 @@ const pembayaranController = {
   getByNim: async (req, res) => {
     try {
       // Validasi NIM dari API Kelompok 1
-      const mhs = await Mahasiswa.findByNim(req.params.nim);
-      if (!mhs) return res.status(404).json({ success: false, message: 'Mahasiswa tidak ditemukan.' });
+      const mhs = await MahasiswaApiClient.getByNim(req.params.nim);
+      if (!mhs) return res.status(404).json({ success: false, message: 'Mahasiswa tidak ditemukan di API Kelompok 1.' });
 
       const pembayaran = await Pembayaran.findByNim(req.params.nim);
       res.json({ success: true, data: { mahasiswa: mhs, pembayaran } });
@@ -62,11 +69,11 @@ const pembayaranController = {
       }
 
       // Validasi NIM - ambil data mahasiswa dari Kelompok 1
-      const mhs = await Mahasiswa.findByNim(nim);
+      const mhs = await MahasiswaApiClient.getByNim(nim);
       if (!mhs) {
         return res.status(404).json({
           success: false,
-          message: 'NIM tidak ditemukan di data mahasiswa. Pastikan data mahasiswa sudah diinput oleh Kelompok 1.'
+          message: 'NIM tidak ditemukan di API mahasiswa (Kelompok 1). Pastikan data mahasiswa sudah terdaftar.'
         });
       }
 
@@ -151,8 +158,12 @@ const pembayaranController = {
   cekStatus: async (req, res) => {
     try {
       const { semester, tahun_ajaran } = req.query;
-      const mhs = await Mahasiswa.findByNim(req.params.nim);
-      if (!mhs) return res.status(404).json({ success: false, message: 'Mahasiswa tidak ditemukan.' });
+      const mhs = await MahasiswaApiClient.getByNim(req.params.nim);
+      if (!mhs) return res.status(404).json({ success: false, message: 'Mahasiswa tidak ditemukan di API Kelompok 1.' });
+
+      if (req.user.role === 'mahasiswa' && req.user.nim !== req.params.nim) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak. Anda hanya dapat cek status pembayaran sendiri.' });
+      }
 
       if (semester && tahun_ajaran) {
         const status = await Pembayaran.getStatusByNimSemester(req.params.nim, semester, tahun_ajaran);

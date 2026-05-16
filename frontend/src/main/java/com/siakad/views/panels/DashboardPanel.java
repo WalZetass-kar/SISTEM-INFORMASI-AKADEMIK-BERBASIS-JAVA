@@ -19,6 +19,7 @@ public class DashboardPanel extends JPanel {
 
     private JLabel lblTotalPendapatan, lblLunas, lblPending, lblGagal, lblPersentase;
     private JPanel chartPanel;
+    private JPanel statusSummaryPanel;
     private JComboBox<String> cmbTahunAjaran;
     private static final NumberFormat RUPIAH = NumberFormat.getCurrencyInstance(new Locale("id", "ID"));
 
@@ -160,7 +161,12 @@ public class DashboardPanel extends JPanel {
 
         // Right: status summary
         JPanel statusCard = createCard("📈 Ringkasan Status");
-        statusCard.setLayout(new BoxLayout(statusCard, BoxLayout.Y_AXIS));
+        statusCard.setLayout(new BorderLayout());
+        statusSummaryPanel = new JPanel();
+        statusSummaryPanel.setOpaque(false);
+        statusSummaryPanel.setLayout(new BoxLayout(statusSummaryPanel, BoxLayout.Y_AXIS));
+        statusSummaryPanel.setBorder(new EmptyBorder(8, 0, 0, 0));
+        statusCard.add(statusSummaryPanel, BorderLayout.CENTER);
 
         chartsRow.add(chartCard);
         chartsRow.add(statusCard);
@@ -236,6 +242,21 @@ public class DashboardPanel extends JPanel {
         return card;
     }
 
+    private JPanel makeStatusRow(String label, String value, Color accent) {
+        JPanel row = new JPanel(new BorderLayout());
+        row.setOpaque(false);
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
+        JLabel lbl = new JLabel(label);
+        lbl.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        lbl.setForeground(new Color(148, 163, 184));
+        JLabel val = new JLabel(value);
+        val.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        val.setForeground(accent);
+        row.add(lbl, BorderLayout.WEST);
+        row.add(val, BorderLayout.EAST);
+        return row;
+    }
+
     private JButton createIconButton(String text) {
         JButton btn = new JButton(text);
         btn.setFont(new Font("Segoe UI", Font.PLAIN, 12));
@@ -288,6 +309,23 @@ public class DashboardPanel extends JPanel {
                         try { chartPanel.getClass().getMethod("setData", int[].class, String[].class)
                                 .invoke(chartPanel, vals, lbls); } catch (Exception ignored) {}
                         chartPanel.repaint();
+
+                        // Status breakdown
+                        statusSummaryPanel.removeAll();
+                        statusSummaryPanel.add(makeStatusRow("Persentase Lunas", pct + "%", new Color(34, 197, 94)));
+                        statusSummaryPanel.add(Box.createVerticalStrut(8));
+                        JsonArray statusDetail = data.getAsJsonArray("status_detail");
+                        Color[] colors = {new Color(34,197,94), new Color(234,179,8),
+                                new Color(239,68,68), new Color(168,85,247)};
+                        for (int i = 0; i < statusDetail.size(); i++) {
+                            JsonObject s = statusDetail.get(i).getAsJsonObject();
+                            String label = s.get("status").getAsString() + " (" + s.get("total").getAsInt() + ")";
+                            String val = RUPIAH.format(s.get("total_jumlah").getAsDouble());
+                            statusSummaryPanel.add(makeStatusRow(label, val, colors[i % colors.length]));
+                            statusSummaryPanel.add(Box.createVerticalStrut(6));
+                        }
+                        statusSummaryPanel.revalidate();
+                        statusSummaryPanel.repaint();
                     }
                 } catch (Exception e) {
                     // Show zero state silently
