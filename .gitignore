@@ -1,0 +1,15 @@
+node_modules/
+.env
+*.log
+uploads/
+dist/
+
+# Java
+frontend/target/
+*.class
+*.jar
+.idea/
+*.iml
+.settings/
+.classpath
+.project
