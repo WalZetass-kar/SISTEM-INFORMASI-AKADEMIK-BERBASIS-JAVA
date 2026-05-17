@@ -24,6 +24,11 @@ public class MahasiswaPanel extends JPanel {
     private final int PAGE_SIZE = 15;
     private JButton btnPrev, btnNext;
 
+    // Skeleton
+    private CardLayout rootCard;
+    private JPanel rootPanel;
+    private SkeletonPanel skeleton;
+
     // Warna tema
     private static final Color BG           = new Color(13, 19, 38);
     private static final Color CARD_BG      = new Color(18, 26, 48);
@@ -42,11 +47,23 @@ public class MahasiswaPanel extends JPanel {
     public MahasiswaPanel() {
         setBackground(BG);
         setLayout(new BorderLayout());
-        initUI();
+
+        rootCard = new CardLayout();
+        rootPanel = new JPanel(rootCard);
+        rootPanel.setBackground(BG);
+        skeleton = new SkeletonPanel(SkeletonPanel.Type.TABLE);
+        rootPanel.add(skeleton, "skeleton");
+
+        JPanel content = new JPanel(new BorderLayout());
+        content.setBackground(BG);
+        initUI(content);
+        rootPanel.add(content, "content");
+        add(rootPanel, BorderLayout.CENTER);
+
         loadData();
     }
 
-    private void initUI() {
+    private void initUI(JPanel target) {
         // ── Header ──
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
@@ -187,12 +204,15 @@ public class MahasiswaPanel extends JPanel {
         footer.add(lblTotal, BorderLayout.WEST);
         footer.add(pagination, BorderLayout.EAST);
 
-        add(header, BorderLayout.NORTH);
-        add(tableCard, BorderLayout.CENTER);
-        add(footer, BorderLayout.SOUTH);
+        target.add(header, BorderLayout.NORTH);
+        target.add(tableCard, BorderLayout.CENTER);
+        target.add(footer, BorderLayout.SOUTH);
     }
 
     private void loadData() {
+        skeleton.start();
+        rootCard.show(rootPanel, "skeleton");
+
         String search = txtSearch.getText().trim();
         new SwingWorker<JsonObject, Void>() {
             @Override protected JsonObject doInBackground() throws Exception {
@@ -228,6 +248,9 @@ public class MahasiswaPanel extends JPanel {
                 } catch (Exception e) {
                     JOptionPane.showMessageDialog(MahasiswaPanel.this,
                             "Gagal memuat data: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                } finally {
+                    skeleton.stop();
+                    rootCard.show(rootPanel, "content");
                 }
             }
         }.execute();
@@ -251,8 +274,27 @@ public class MahasiswaPanel extends JPanel {
         JTextField fNama     = makeField();
         JTextField fEmail    = makeField();
         JTextField fTelp     = makeField();
-        JTextField fJurusan  = makeField();
-        JTextField fProdi    = makeField();
+
+        // Jurusan dropdown
+        String[] jurusanList = {"Komputerisasi Akuntansi", "Hubungan Masyarakat", "Administrasi Bisnis", "Management Informatika"};
+        JComboBox<String> cmbJurusan = new JComboBox<>(jurusanList);
+        styleCombo(cmbJurusan);
+
+        // Program Studi per jurusan
+        String[][] prodiMap = {
+            {"D3 Komputerisasi Akuntansi", "D4 Akuntansi Digital"},
+            {"D3 Hubungan Masyarakat", "D4 Komunikasi Strategis"},
+            {"D3 Administrasi Bisnis", "D4 Manajemen Pemasaran"},
+            {"D3 Manajemen Informatika", "D4 Rekayasa Perangkat Lunak"}
+        };
+        JComboBox<String> cmbProdi = new JComboBox<>(prodiMap[0]);
+        styleCombo(cmbProdi);
+        cmbJurusan.addActionListener(e -> {
+            int idx = cmbJurusan.getSelectedIndex();
+            cmbProdi.removeAllItems();
+            for (String p : prodiMap[idx]) cmbProdi.addItem(p);
+        });
+
         JTextField fAngkatan = makeField();
         JTextField fSemester = makeField();
         JComboBox<String> cmbStatus = new JComboBox<>(new String[]{"aktif", "cuti", "lulus", "drop_out"});
@@ -271,8 +313,8 @@ public class MahasiswaPanel extends JPanel {
                             fNama.setText(d.get("nama").getAsString());
                             if (!d.get("email").isJsonNull()) fEmail.setText(d.get("email").getAsString());
                             if (!d.get("no_telp").isJsonNull()) fTelp.setText(d.get("no_telp").getAsString());
-                            if (!d.get("jurusan").isJsonNull()) fJurusan.setText(d.get("jurusan").getAsString());
-                            if (!d.get("program_studi").isJsonNull()) fProdi.setText(d.get("program_studi").getAsString());
+                            if (!d.get("jurusan").isJsonNull()) cmbJurusan.setSelectedItem(d.get("jurusan").getAsString());
+                            if (!d.get("program_studi").isJsonNull()) cmbProdi.setSelectedItem(d.get("program_studi").getAsString());
                             if (!d.get("angkatan").isJsonNull()) fAngkatan.setText(d.get("angkatan").getAsString());
                             fSemester.setText(d.get("semester").getAsString());
                             cmbStatus.setSelectedItem(d.get("status").getAsString());
@@ -287,8 +329,8 @@ public class MahasiswaPanel extends JPanel {
         addRow(panel, gbc, r++, "Nama Lengkap *", fNama);
         addRow(panel, gbc, r++, "Email", fEmail);
         addRow(panel, gbc, r++, "No. Telp", fTelp);
-        addRow(panel, gbc, r++, "Jurusan", fJurusan);
-        addRow(panel, gbc, r++, "Program Studi", fProdi);
+        addRow(panel, gbc, r++, "Jurusan", cmbJurusan);
+        addRow(panel, gbc, r++, "Program Studi", cmbProdi);
         addRow(panel, gbc, r++, "Angkatan", fAngkatan);
         addRow(panel, gbc, r++, "Semester", fSemester);
         gbc.gridx = 0; gbc.gridy = r; panel.add(makeLabel("Status"), gbc);
@@ -300,13 +342,17 @@ public class MahasiswaPanel extends JPanel {
         panel.add(btnSave, gbc);
 
         btnSave.addActionListener(e -> {
+            if (fNim.getText().trim().isEmpty() || fNama.getText().trim().isEmpty()) {
+                JOptionPane.showMessageDialog(dialog, "NIM dan Nama wajib diisi!", "Validasi", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
             JsonObject body = new JsonObject();
             body.addProperty("nim", fNim.getText().trim());
             body.addProperty("nama", fNama.getText().trim());
             body.addProperty("email", fEmail.getText().trim());
             body.addProperty("no_telp", fTelp.getText().trim());
-            body.addProperty("jurusan", fJurusan.getText().trim());
-            body.addProperty("program_studi", fProdi.getText().trim());
+            body.addProperty("jurusan", (String) cmbJurusan.getSelectedItem());
+            body.addProperty("program_studi", (String) cmbProdi.getSelectedItem());
             body.addProperty("angkatan", fAngkatan.getText().trim());
             body.addProperty("semester", fSemester.getText().trim());
             body.addProperty("status", (String) cmbStatus.getSelectedItem());
@@ -396,24 +442,14 @@ public class MahasiswaPanel extends JPanel {
     }
 
     private JButton buildBtn(String text, Color bg) {
-        JButton btn = new JButton(text) {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                Color c = getModel().isRollover() ? bg.brighter() : bg;
-                g2.setColor(c);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
-                g2.setColor(Color.WHITE);
-                g2.setFont(new Font("Segoe UI", Font.BOLD, 12));
-                FontMetrics fm = g2.getFontMetrics();
-                g2.drawString(getText(), (getWidth() - fm.stringWidth(getText())) / 2,
-                        (getHeight() + fm.getAscent() - fm.getDescent()) / 2);
-                g2.dispose();
-            }
-        };
-        btn.setPreferredSize(new Dimension(text.length() > 4 ? 160 : 50, 36));
-        btn.setBorderPainted(false);
-        btn.setContentAreaFilled(false);
+        JButton btn = new JButton(text);
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btn.setForeground(Color.WHITE);
+        btn.setBackground(bg);
+        btn.setOpaque(true);
+        btn.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(bg.darker(), 1),
+                BorderFactory.createEmptyBorder(7, 16, 7, 16)));
         btn.setFocusPainted(false);
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         return btn;

@@ -4,36 +4,63 @@ import com.siakad.utils.JwtHelper;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.geom.RoundRectangle2D;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
 
 /**
- * SplashTransition - Animasi transisi dari Login ke Dashboard
- * Urutan: LoginFrame fade-out → Splash screen (logo + loading bar) → MainFrame slide-in
+ * SplashTransition - Animasi loading saat login berhasil ke dashboard.
+ * Menggunakan JDialog undecorated agar robust di semua platform Linux.
  */
-public class SplashTransition extends JWindow {
+public class SplashTransition extends JDialog {
 
-    private float alpha = 0f;
+    private float alpha       = 0f;
     private float barProgress = 0f;
-    private int dotFrame = 0;
+    private float pulseRadius = 0f;
+    private float pulseAlpha  = 0f;
+    private int   counter     = 0;
+    private int   tick        = 0;
     private final String username;
 
-    private static final Color BG       = new Color(10, 15, 30);
-    private static final Color BLUE     = new Color(59, 130, 246);
-    private static final Color INDIGO   = new Color(99, 102, 241);
-    private static final Color CYAN     = new Color(34, 211, 238);
-    private static final Color TEXT     = new Color(248, 250, 252);
-    private static final Color MUTED    = new Color(148, 163, 184);
+    private final List<Particle> particles = new ArrayList<>();
+    private static final Random RNG = new Random();
 
-    public SplashTransition() {
+    private static final Color BG     = new Color(10, 15, 30);
+    private static final Color BLUE   = new Color(59, 130, 246);
+    private static final Color INDIGO = new Color(99, 102, 241);
+    private static final Color CYAN   = new Color(34, 211, 238);
+    private static final Color GREEN  = new Color(34, 197, 94);
+    private static final Color TEXT   = new Color(248, 250, 252);
+    private static final Color MUTED  = new Color(148, 163, 184);
+
+    private static class Particle {
+        float x, y, vx, vy, size, life, maxLife;
+        Color color;
+        Particle(int w, int cy) {
+            x = w / 2f + RNG.nextFloat() * 80 - 40;
+            y = cy + RNG.nextFloat() * 80 - 40;
+            float angle = RNG.nextFloat() * (float)(Math.PI * 2);
+            float speed = 0.5f + RNG.nextFloat() * 1.5f;
+            vx = (float) Math.cos(angle) * speed;
+            vy = (float) Math.sin(angle) * speed - 0.6f;
+            size = 3f + RNG.nextFloat() * 4f;
+            maxLife = 50 + RNG.nextFloat() * 70;
+            life = maxLife;
+            Color[] palette = {BLUE, INDIGO, CYAN, GREEN, new Color(168, 85, 247)};
+            color = palette[RNG.nextInt(palette.length)];
+        }
+        boolean update() { x += vx; y += vy; vy += 0.03f; life--; return life > 0; }
+        float alpha() { return life / maxLife; }
+    }
+
+    public SplashTransition(Frame owner) {
+        super(owner, true);
         this.username = JwtHelper.getInstance().getUsername();
-        setSize(480, 320);
-        setLocationRelativeTo(null);
-        setBackground(new Color(0, 0, 0, 0));
-
-        // Rounded window shape
-        try {
-            setShape(new RoundRectangle2D.Double(0, 0, 480, 320, 24, 24));
-        } catch (Exception ignored) {}
+        setUndecorated(true);
+        Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
+        setSize(screen.width, screen.height);
+        setLocation(0, 0);
+        setBackground(BG);
     }
 
     @Override public void paint(Graphics g) {
@@ -43,125 +70,159 @@ public class SplashTransition extends JWindow {
 
         int w = getWidth(), h = getHeight();
 
-        // Background with alpha
-        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+        // Background
         g2.setColor(BG);
-        g2.fillRoundRect(0, 0, w, h, 24, 24);
+        g2.fillRect(0, 0, w, h);
 
-        // Decorative circles
-        g2.setColor(new Color(59, 130, 246, 20));
-        g2.fillOval(-40, -40, 200, 200);
-        g2.setColor(new Color(99, 102, 241, 15));
-        g2.fillOval(w - 120, h - 120, 220, 220);
+        // Decorative blobs
+        g2.setColor(new Color(59, 130, 246, 25));
+        g2.fillOval(-80, -80, 500, 500);
+        g2.setColor(new Color(99, 102, 241, 18));
+        g2.fillOval(w - 400, h - 400, 600, 600);
+        g2.setColor(new Color(34, 211, 238, 12));
+        g2.fillOval(w / 2 - 200, h / 2 - 200, 500, 500);
 
-        // Logo circle
-        int cx = w / 2, cy = h / 2 - 40;
-        g2.setColor(new Color(59, 130, 246, 30));
-        g2.fillOval(cx - 44, cy - 44, 88, 88);
-        GradientPaint gp = new GradientPaint(cx - 36, cy - 36, BLUE, cx + 36, cy + 36, INDIGO);
-        g2.setPaint(gp);
-        g2.fillOval(cx - 36, cy - 36, 72, 72);
+        // Grid dots
+        g2.setColor(new Color(255, 255, 255, 7));
+        for (int x = 16; x < w; x += 28)
+            for (int y = 16; y < h; y += 28)
+                g2.fillOval(x, y, 2, 2);
 
-        // Graduation icon
+        // Particles
+        for (Particle p : particles) {
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, p.alpha() * alpha));
+            g2.setColor(p.color);
+            g2.fillOval((int) p.x, (int) p.y, (int) p.size, (int) p.size);
+        }
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f));
+
+        int cx = w / 2, cy = h / 2 - 60;
+
+        // Pulse ring
+        if (pulseAlpha > 0 && alpha > 0.5f) {
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, pulseAlpha));
+            g2.setColor(BLUE);
+            int pr = (int) pulseRadius;
+            g2.setStroke(new BasicStroke(2.5f));
+            g2.drawOval(cx - pr, cy - pr, pr * 2, pr * 2);
+            g2.setStroke(new BasicStroke(1f));
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f));
+        }
+
+        // Logo outer glow
+        g2.setColor(new Color(59, 130, 246, 35));
+        g2.fillOval(cx - 80, cy - 80, 160, 160);
+        // Logo gradient circle
+        GradientPaint logoGp = new GradientPaint(cx - 64, cy - 64, BLUE, cx + 64, cy + 64, INDIGO);
+        g2.setPaint(logoGp);
+        g2.fillOval(cx - 64, cy - 64, 128, 128);
+        // Shine
+        g2.setColor(new Color(255, 255, 255, 30));
+        g2.fillOval(cx - 50, cy - 62, 80, 48);
+
+        // Icon
         g2.setColor(Color.WHITE);
-        g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 32));
+        g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 56));
         FontMetrics fm = g2.getFontMetrics();
-        g2.drawString("🎓", cx - fm.stringWidth("🎓") / 2, cy + 12);
+        g2.drawString("🎓", cx - fm.stringWidth("🎓") / 2, cy + 20);
 
         // App name
         g2.setColor(TEXT);
-        g2.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        g2.setFont(new Font("Segoe UI", Font.BOLD, 42));
         fm = g2.getFontMetrics();
-        g2.drawString("SIAKAD", cx - fm.stringWidth("SIAKAD") / 2, cy + 60);
+        g2.drawString("SIAKAD", cx - fm.stringWidth("SIAKAD") / 2, cy + 110);
 
-        // Welcome text
+        // Welcome
         String welcome = "Selamat datang, " + username + "!";
         g2.setColor(MUTED);
-        g2.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        g2.setFont(new Font("Segoe UI", Font.PLAIN, 18));
         fm = g2.getFontMetrics();
-        g2.drawString(welcome, cx - fm.stringWidth(welcome) / 2, cy + 82);
+        g2.drawString(welcome, cx - fm.stringWidth(welcome) / 2, cy + 142);
 
-        // Loading bar background
-        int barW = 280, barH = 4;
-        int bx = cx - barW / 2, by = cy + 100;
+        // Bar track
+        int barW = 480, barH = 6;
+        int bx = cx - barW / 2, by = cy + 168;
         g2.setColor(new Color(30, 41, 70));
         g2.fillRoundRect(bx, by, barW, barH, barH, barH);
 
-        // Loading bar fill (animated)
+        // Bar fill
         int fillW = (int)(barW * barProgress);
         if (fillW > 0) {
             GradientPaint barGp = new GradientPaint(bx, by, BLUE, bx + fillW, by, CYAN);
             g2.setPaint(barGp);
             g2.fillRoundRect(bx, by, fillW, barH, barH, barH);
-
-            // Glow at tip
-            if (fillW > 6) {
-                g2.setColor(new Color(34, 211, 238, 80));
-                g2.fillOval(bx + fillW - 6, by - 4, 12, 12);
+            if (fillW > 8) {
+                g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.6f));
+                g2.setColor(CYAN);
+                g2.fillOval(bx + fillW - 9, by - 6, 18, 18);
+                g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f));
             }
         }
 
+        // Counter
+        g2.setColor(new Color(59, 130, 246, 200));
+        g2.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        String pct = counter + "%";
+        fm = g2.getFontMetrics();
+        g2.drawString(pct, cx - fm.stringWidth(pct) / 2, by + 24);
+
         // Loading dots
         String[] dots = {"Memuat dashboard", "Memuat dashboard.", "Memuat dashboard..", "Memuat dashboard..."};
-        String loadingText = dots[dotFrame % 4];
-        g2.setColor(new Color(100, 116, 139));
-        g2.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        g2.setColor(new Color(71, 85, 105));
+        g2.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        String loadTxt = dots[tick / 8 % 4];
         fm = g2.getFontMetrics();
-        g2.drawString(loadingText, cx - fm.stringWidth(loadingText) / 2, by + 22);
+        g2.drawString(loadTxt, cx - fm.stringWidth(loadTxt) / 2, by + 44);
 
         g2.dispose();
     }
 
     /**
-     * Jalankan animasi lengkap: fade-in → loading bar → fade-out → callback
+     * Jalankan animasi lalu panggil onComplete di EDT setelah selesai.
+     * Dipanggil dari LoginFrame setelah login sukses.
      */
     public void animate(LoginFrame loginFrame, Runnable onComplete) {
-        setVisible(true);
+        // Sembunyikan login dulu
+        loginFrame.setVisible(false);
 
-        // Phase 1: Fade in splash + fade out login (0 → 400ms)
-        Timer fadeIn = new Timer(16, null);
-        fadeIn.addActionListener(e -> {
-            alpha = Math.min(1f, alpha + 0.06f);
-            // Fade out login frame simultaneously
-            float loginAlpha = 1f - alpha;
-            loginFrame.setOpacity(Math.max(0f, loginAlpha));
-            repaint();
-            if (alpha >= 1f) {
-                fadeIn.stop();
-                loginFrame.setVisible(false);
-                startLoadingBar(onComplete);
+        Timer masterTimer = new Timer(16, null);
+        masterTimer.addActionListener(e -> {
+            tick++;
+
+            // Fade in (tick 1-20)
+            if (tick <= 20) alpha = Math.min(1f, tick / 20f);
+
+            // Loading bar + particles (tick 20-100)
+            if (tick > 20 && tick <= 100) {
+                barProgress = Math.min(1f, (tick - 20f) / 80f);
+                counter = (int)(barProgress * 100);
+
+                pulseRadius += 2.5f;
+                pulseAlpha = Math.max(0f, 0.5f - pulseRadius / 160f);
+                if (pulseRadius > 160) { pulseRadius = 0; pulseAlpha = 0.5f; }
+
+                if (tick % 2 == 0 && particles.size() < 80)
+                    particles.add(new Particle(getWidth(), getHeight() / 2 - 60));
             }
-        });
-        fadeIn.start();
-    }
 
-    private void startLoadingBar(Runnable onComplete) {
-        // Phase 2: Loading bar progress (400ms → 1200ms)
-        Timer loadBar = new Timer(16, null);
-        loadBar.addActionListener(e -> {
-            barProgress = Math.min(1f, barProgress + 0.012f);
-            dotFrame++;
-            repaint();
-            if (barProgress >= 1f) {
-                loadBar.stop();
-                fadeOut(onComplete);
-            }
-        });
-        loadBar.start();
-    }
+            particles.removeIf(p -> !p.update());
 
-    private void fadeOut(Runnable onComplete) {
-        // Phase 3: Fade out splash (1200ms → 1600ms)
-        Timer fadeOut = new Timer(16, null);
-        fadeOut.addActionListener(e -> {
-            alpha = Math.max(0f, alpha - 0.07f);
+            // Fade out (tick 100-120)
+            if (tick > 100) alpha = Math.max(0f, 1f - (tick - 100f) / 20f);
+
             repaint();
-            if (alpha <= 0f) {
-                fadeOut.stop();
+
+            if (tick > 120) {
+                masterTimer.stop();
                 dispose();
                 onComplete.run();
             }
         });
-        fadeOut.start();
+
+        // Tampilkan dialog lalu mulai timer
+        SwingUtilities.invokeLater(() -> {
+            masterTimer.start();
+            setVisible(true); // blocking karena modal, timer tetap jalan di EDT
+        });
     }
 }

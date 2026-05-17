@@ -43,14 +43,31 @@ public class PembayaranPanel extends JPanel {
     private static final Color RED          = new Color(239, 68, 68);
     private static final Color PURPLE       = new Color(168, 85, 247);
 
+    // Skeleton
+    private CardLayout rootCard;
+    private JPanel rootPanel;
+    private SkeletonPanel skeleton;
+
     public PembayaranPanel() {
         setBackground(BG);
         setLayout(new BorderLayout());
-        initUI();
+
+        rootCard = new CardLayout();
+        rootPanel = new JPanel(rootCard);
+        rootPanel.setBackground(BG);
+        skeleton = new SkeletonPanel(SkeletonPanel.Type.TABLE);
+        rootPanel.add(skeleton, "skeleton");
+
+        JPanel content = new JPanel(new BorderLayout());
+        content.setBackground(BG);
+        initUI(content);
+        rootPanel.add(content, "content");
+        add(rootPanel, BorderLayout.CENTER);
+
         loadData();
     }
 
-    private void initUI() {
+    private void initUI(JPanel target) {
         // ── Header ──
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
@@ -148,9 +165,9 @@ public class PembayaranPanel extends JPanel {
         footer.add(lblTotal, BorderLayout.WEST);
         footer.add(pag, BorderLayout.EAST);
 
-        add(header, BorderLayout.NORTH);
-        add(tableCard, BorderLayout.CENTER);
-        add(footer, BorderLayout.SOUTH);
+        target.add(header, BorderLayout.NORTH);
+        target.add(tableCard, BorderLayout.CENTER);
+        target.add(footer, BorderLayout.SOUTH);
     }
 
     private JPanel buildSearchBox() {
@@ -193,6 +210,9 @@ public class PembayaranPanel extends JPanel {
     }
 
     private void loadData() {
+        skeleton.start();
+        rootCard.show(rootPanel, "skeleton");
+
         String search = txtSearch.getText().trim();
         String status = cmbStatus.getSelectedIndex() == 0 ? null : (String) cmbStatus.getSelectedItem();
         String ta = cmbTahunAjaran.getSelectedIndex() == 0 ? null : (String) cmbTahunAjaran.getSelectedItem();
@@ -229,6 +249,9 @@ public class PembayaranPanel extends JPanel {
                     }
                 } catch (Exception e) {
                     JOptionPane.showMessageDialog(PembayaranPanel.this, "Error: " + e.getMessage());
+                } finally {
+                    skeleton.stop();
+                    rootCard.show(rootPanel, "content");
                 }
             }
         }.execute();

@@ -239,6 +239,10 @@ public class DashboardPanel extends JPanel {
     }
 
     private void loadData() {
+        // Show skeleton
+        skeleton.start();
+        rootCard.show(rootPanel, "skeleton");
+
         String ta = cmbTahunAjaran.getSelectedIndex() == 0 ? null : (String) cmbTahunAjaran.getSelectedItem();
         new SwingWorker<JsonObject, Void>() {
             @Override protected JsonObject doInBackground() throws Exception {
@@ -256,7 +260,6 @@ public class DashboardPanel extends JPanel {
                         lblPending.setText(String.valueOf(ring.get("pending").getAsInt()));
                         lblGagal.setText(String.valueOf(ring.get("gagal").getAsInt()));
 
-                        // Bar chart data
                         JsonArray bulanan = data.getAsJsonArray("chart_pendapatan_bulanan");
                         int[] vals = new int[bulanan.size()];
                         String[] lbls = new String[bulanan.size()];
@@ -267,7 +270,6 @@ public class DashboardPanel extends JPanel {
                         }
                         chartPanel.setData(vals, lbls);
 
-                        // Donut chart data
                         int lunas   = ring.get("lunas").getAsInt();
                         int pending = ring.get("pending").getAsInt();
                         int gagal   = ring.get("gagal").getAsInt();
@@ -278,6 +280,10 @@ public class DashboardPanel extends JPanel {
                         );
                     }
                 } catch (Exception ignored) {}
+                finally {
+                    skeleton.stop();
+                    rootCard.show(rootPanel, "content");
+                }
             }
         }.execute();
     }

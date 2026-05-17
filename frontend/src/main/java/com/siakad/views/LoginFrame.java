@@ -37,9 +37,10 @@ public class LoginFrame extends JFrame {
     public LoginFrame() {
         setTitle(Config.APP_NAME + " — Login");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(960, 620);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
+        setMinimumSize(new Dimension(1024, 680));
         setLocationRelativeTo(null);
-        setResizable(false);
+        setResizable(true);
         initUI();
     }
 
@@ -495,31 +496,33 @@ public class LoginFrame extends JFrame {
 
         if (username.isEmpty() || password.isEmpty()) {
             setStatus("❌ Username dan password wajib diisi.", false);
+            shakeFrame();
             return;
         }
 
         btnLogin.setEnabled(false);
-        btnLogin.setText("Memproses...");
+        btnLogin.setText("Memverifikasi...");
         lblStatus.setText(" ");
 
         SwingWorker<String, Void> worker = new SwingWorker<>() {
             @Override protected String doInBackground() {
-                try {
-                    return AuthService.loginWithMessage(username, password);
-                } catch (Exception e) {
-                    return "Koneksi gagal: " + e.getMessage();
-                }
+                try { return AuthService.loginWithMessage(username, password); }
+                catch (Exception e) { return "Koneksi gagal: " + e.getMessage(); }
             }
             @Override protected void done() {
                 try {
                     String result = get();
                     if ("success".equals(result)) {
-                        dispose();
-                        new MainFrame().setVisible(true);
+                        // Animasi transisi splash
+                        SplashTransition splash = new SplashTransition(LoginFrame.this);
+                        splash.animate(LoginFrame.this, () -> {
+                            new MainFrame().setVisible(true);
+                        });
                     } else {
                         setStatus("❌ " + result, false);
                         btnLogin.setEnabled(true);
                         btnLogin.setText("Masuk ke Sistem");
+                        shakeFrame();
                     }
                 } catch (Exception e) {
                     setStatus("❌ Terjadi kesalahan.", false);
@@ -529,6 +532,20 @@ public class LoginFrame extends JFrame {
             }
         };
         worker.execute();
+    }
+
+    /** Animasi shake frame saat login gagal */
+    private void shakeFrame() {
+        Point origin = getLocation();
+        int[] offsets = {-8, 8, -6, 6, -4, 4, -2, 2, 0};
+        Timer shake = new Timer(30, null);
+        int[] idx = {0};
+        shake.addActionListener(e -> {
+            setLocation(origin.x + offsets[idx[0]], origin.y);
+            idx[0]++;
+            if (idx[0] >= offsets.length) { shake.stop(); setLocation(origin); }
+        });
+        shake.start();
     }
 
     private void setStatus(String msg, boolean success) {
