@@ -20,6 +20,7 @@ public class SplashTransition extends JDialog {
     private float pulseAlpha  = 0f;
     private int   counter     = 0;
     private int   tick        = 0;
+    private String loadingMessage = "Menyiapkan sesi";
     private final String username;
 
     private final List<Particle> particles = new ArrayList<>();
@@ -32,6 +33,20 @@ public class SplashTransition extends JDialog {
     private static final Color GREEN  = new Color(34, 197, 94);
     private static final Color TEXT   = new Color(248, 250, 252);
     private static final Color MUTED  = new Color(148, 163, 184);
+
+    private static float clamp(float value) {
+        return Math.max(0f, Math.min(1f, value));
+    }
+
+    private static float easeOutCubic(float value) {
+        float t = clamp(value);
+        return 1f - (float) Math.pow(1f - t, 3);
+    }
+
+    private static float easeInCubic(float value) {
+        float t = clamp(value);
+        return t * t * t;
+    }
 
     private static class Particle {
         float x, y, vx, vy, size, life, maxLife;
@@ -73,14 +88,18 @@ public class SplashTransition extends JDialog {
         // Background
         g2.setColor(BG);
         g2.fillRect(0, 0, w, h);
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, clamp(alpha)));
 
-        // Decorative blobs
-        g2.setColor(new Color(59, 130, 246, 25));
-        g2.fillOval(-80, -80, 500, 500);
+        int drift = (int) (Math.sin(tick * 0.035) * 28);
+        int slowDrift = (int) (Math.cos(tick * 0.022) * 34);
+
+        // Soft moving light fields
+        g2.setColor(new Color(59, 130, 246, 24));
+        g2.fillOval(-90 + drift, -80 + slowDrift, 500, 500);
         g2.setColor(new Color(99, 102, 241, 18));
-        g2.fillOval(w - 400, h - 400, 600, 600);
-        g2.setColor(new Color(34, 211, 238, 12));
-        g2.fillOval(w / 2 - 200, h / 2 - 200, 500, 500);
+        g2.fillOval(w - 420 - slowDrift, h - 420 + drift, 640, 640);
+        g2.setColor(new Color(34, 197, 94, 12));
+        g2.fillOval(w / 2 - 240 + slowDrift, h / 2 - 210, 520, 520);
 
         // Grid dots
         g2.setColor(new Color(255, 255, 255, 7));
@@ -90,23 +109,24 @@ public class SplashTransition extends JDialog {
 
         // Particles
         for (Particle p : particles) {
-            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, p.alpha() * alpha));
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, p.alpha() * clamp(alpha)));
             g2.setColor(p.color);
             g2.fillOval((int) p.x, (int) p.y, (int) p.size, (int) p.size);
         }
-        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f));
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, clamp(alpha)));
 
-        int cx = w / 2, cy = h / 2 - 60;
+        float reveal = easeOutCubic(tick / 32f);
+        int cx = w / 2, cy = h / 2 - 60 + (int) ((1f - reveal) * 28);
 
         // Pulse ring
         if (pulseAlpha > 0 && alpha > 0.5f) {
-            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, pulseAlpha));
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, pulseAlpha * clamp(alpha)));
             g2.setColor(BLUE);
             int pr = (int) pulseRadius;
             g2.setStroke(new BasicStroke(2.5f));
             g2.drawOval(cx - pr, cy - pr, pr * 2, pr * 2);
             g2.setStroke(new BasicStroke(1f));
-            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f));
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, clamp(alpha)));
         }
 
         // Logo outer glow
@@ -151,11 +171,16 @@ public class SplashTransition extends JDialog {
             GradientPaint barGp = new GradientPaint(bx, by, BLUE, bx + fillW, by, CYAN);
             g2.setPaint(barGp);
             g2.fillRoundRect(bx, by, fillW, barH, barH, barH);
+            int shimmerX = bx + (int) ((barW + 80) * ((tick % 70) / 70f)) - 80;
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.35f * clamp(alpha)));
+            g2.setColor(Color.WHITE);
+            g2.fillRoundRect(shimmerX, by, 70, barH, barH, barH);
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, clamp(alpha)));
             if (fillW > 8) {
-                g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.6f));
+                g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.6f * clamp(alpha)));
                 g2.setColor(CYAN);
                 g2.fillOval(bx + fillW - 9, by - 6, 18, 18);
-                g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f));
+                g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, clamp(alpha)));
             }
         }
 
@@ -167,7 +192,7 @@ public class SplashTransition extends JDialog {
         g2.drawString(pct, cx - fm.stringWidth(pct) / 2, by + 24);
 
         // Loading dots
-        String[] dots = {"Memuat dashboard", "Memuat dashboard.", "Memuat dashboard..", "Memuat dashboard..."};
+        String[] dots = {loadingMessage, loadingMessage + ".", loadingMessage + "..", loadingMessage + "..."};
         g2.setColor(new Color(71, 85, 105));
         g2.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         String loadTxt = dots[tick / 8 % 4];
@@ -189,13 +214,18 @@ public class SplashTransition extends JDialog {
         masterTimer.addActionListener(e -> {
             tick++;
 
-            // Fade in (tick 1-20)
-            if (tick <= 20) alpha = Math.min(1f, tick / 20f);
+            // Fade in (tick 1-24)
+            if (tick <= 24) alpha = easeOutCubic(tick / 24f);
 
-            // Loading bar + particles (tick 20-100)
-            if (tick > 20 && tick <= 100) {
-                barProgress = Math.min(1f, (tick - 20f) / 80f);
-                counter = (int)(barProgress * 100);
+            // Loading bar + particles (tick 24-110)
+            if (tick > 24 && tick <= 110) {
+                float progress = easeOutCubic((tick - 24f) / 86f);
+                barProgress = Math.min(1f, progress);
+                counter = Math.min(100, (int)(barProgress * 100));
+
+                if (counter < 35) loadingMessage = "Menyiapkan sesi";
+                else if (counter < 72) loadingMessage = "Menyusun dashboard";
+                else loadingMessage = "Membuka aplikasi";
 
                 pulseRadius += 2.5f;
                 pulseAlpha = Math.max(0f, 0.5f - pulseRadius / 160f);
@@ -207,12 +237,16 @@ public class SplashTransition extends JDialog {
 
             particles.removeIf(p -> !p.update());
 
-            // Fade out (tick 100-120)
-            if (tick > 100) alpha = Math.max(0f, 1f - (tick - 100f) / 20f);
+            // Fade out (tick 110-136)
+            if (tick > 110) {
+                counter = 100;
+                barProgress = 1f;
+                alpha = Math.max(0f, 1f - easeInCubic((tick - 110f) / 26f));
+            }
 
             repaint();
 
-            if (tick > 120) {
+            if (tick > 136) {
                 masterTimer.stop();
                 dispose();
                 onComplete.run();

@@ -7,6 +7,8 @@ import com.siakad.utils.JwtHelper;
 
 import java.io.*;
 import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.URLEncoder;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
@@ -17,6 +19,10 @@ import java.nio.charset.StandardCharsets;
 public class ApiService {
     private static final Gson gson = new Gson();
     private static final int TIMEOUT = 10000; // 10 detik
+
+    public static String encodeQueryParam(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    }
 
     /**
      * HTTP GET Request
@@ -56,7 +62,7 @@ public class ApiService {
      * Buat koneksi HTTP dengan header yang diperlukan
      */
     private static HttpURLConnection createConnection(String urlString, String method) throws Exception {
-        URL url = new URL(urlString);
+        URL url = URI.create(urlString).toURL();
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod(method);
         conn.setRequestProperty("Content-Type", "application/json");
@@ -117,6 +123,22 @@ public class ApiService {
         }
 
         conn.disconnect();
-        return JsonParser.parseString(response.toString()).getAsJsonObject();
+
+        String responseBody = response.toString();
+        if (responseBody.isBlank()) {
+            JsonObject error = new JsonObject();
+            error.addProperty("success", false);
+            error.addProperty("message", "Response server kosong (code: " + responseCode + ")");
+            return error;
+        }
+
+        try {
+            return JsonParser.parseString(responseBody).getAsJsonObject();
+        } catch (Exception e) {
+            JsonObject error = new JsonObject();
+            error.addProperty("success", false);
+            error.addProperty("message", "Response server tidak valid (code: " + responseCode + ")");
+            return error;
+        }
     }
 }

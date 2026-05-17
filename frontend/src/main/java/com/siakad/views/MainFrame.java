@@ -17,6 +17,7 @@ import java.awt.event.*;
 public class MainFrame extends JFrame {
 
     private JPanel contentPanel;
+    private AnimatedContentPanel animatedContentPanel;
     private CardLayout cardLayout;
     private JButton activeBtn;
 
@@ -51,7 +52,8 @@ public class MainFrame extends JFrame {
         add(buildSidebar(), BorderLayout.WEST);
 
         cardLayout = new CardLayout();
-        contentPanel = new JPanel(cardLayout);
+        animatedContentPanel = new AnimatedContentPanel(cardLayout);
+        contentPanel = animatedContentPanel;
         contentPanel.setBackground(CONTENT_BG);
         contentPanel.add(new DashboardPanel(), PANEL_DASHBOARD);
         contentPanel.add(new MahasiswaPanel(), PANEL_MAHASISWA);
@@ -60,6 +62,11 @@ public class MainFrame extends JFrame {
         add(contentPanel, BorderLayout.CENTER);
 
         showPanel(PANEL_DASHBOARD);
+    }
+
+    private static float easeOutCubic(float value) {
+        float t = Math.max(0f, Math.min(1f, value));
+        return 1f - (float) Math.pow(1f - t, 3);
     }
 
     private JPanel buildSidebar() {
@@ -171,6 +178,7 @@ public class MainFrame extends JFrame {
             navPanel.add(btnLaporan);
             navPanel.add(Box.createVerticalStrut(4));
         }
+        setActiveButton(btnDashboard);
 
         // ── Bottom: user card + logout ──
         JPanel bottomPanel = buildUserCard();
@@ -347,16 +355,129 @@ public class MainFrame extends JFrame {
 
     private void setActiveButton(JButton btn) {
         if (activeBtn != null) {
-            try { activeBtn.getClass().getMethod("setActive", boolean.class).invoke(activeBtn, false); }
+            try {
+                java.lang.reflect.Method method = activeBtn.getClass().getDeclaredMethod("setActive", boolean.class);
+                method.setAccessible(true);
+                method.invoke(activeBtn, false);
+            }
             catch (Exception ignored) {}
         }
-        try { btn.getClass().getMethod("setActive", boolean.class).invoke(btn, true); }
+        try {
+            java.lang.reflect.Method method = btn.getClass().getDeclaredMethod("setActive", boolean.class);
+            method.setAccessible(true);
+            method.invoke(btn, true);
+        }
         catch (Exception ignored) {}
         activeBtn = btn;
     }
 
     public void showPanel(String panelName) {
         cardLayout.show(contentPanel, panelName);
+        if (animatedContentPanel != null) {
+            animatedContentPanel.playReveal();
+        }
+    }
+
+    public void playEntranceAnimation() {
+        StartupGlassPane glass = new StartupGlassPane();
+        setGlassPane(glass);
+        glass.setVisible(true);
+        glass.play(() -> glass.setVisible(false));
+        if (animatedContentPanel != null) {
+            animatedContentPanel.playReveal();
+        }
+    }
+
+    private static class AnimatedContentPanel extends JPanel {
+        private float reveal = 1f;
+        private Timer timer;
+
+        AnimatedContentPanel(LayoutManager layout) {
+            super(layout);
+        }
+
+        void playReveal() {
+            if (timer != null) {
+                timer.stop();
+            }
+            reveal = 0f;
+            timer = new Timer(16, e -> {
+                reveal = Math.min(1f, reveal + 0.07f);
+                repaint();
+                if (reveal >= 1f) {
+                    timer.stop();
+                }
+            });
+            timer.start();
+        }
+
+        @Override protected void paintChildren(Graphics g) {
+            if (reveal >= 0.999f) {
+                super.paintChildren(g);
+                return;
+            }
+
+            float eased = easeOutCubic(reveal);
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0.12f, eased)));
+            g2.translate((int) ((1f - eased) * 30), 0);
+            super.paintChildren(g2);
+            g2.dispose();
+
+            Graphics2D overlay = (Graphics2D) g.create();
+            overlay.setColor(new Color(13, 19, 38, (int) (130 * (1f - eased))));
+            overlay.fillRect(0, 0, getWidth(), getHeight());
+            overlay.setColor(new Color(34, 211, 238, (int) (90 * (1f - eased))));
+            overlay.fillRoundRect(0, 0, 4, getHeight(), 4, 4);
+            overlay.dispose();
+        }
+    }
+
+    private static class StartupGlassPane extends JComponent {
+        private float progress = 0f;
+        private Timer timer;
+
+        void play(Runnable onDone) {
+            if (timer != null) {
+                timer.stop();
+            }
+            progress = 0f;
+            timer = new Timer(16, e -> {
+                progress = Math.min(1f, progress + 0.045f);
+                repaint();
+                if (progress >= 1f) {
+                    timer.stop();
+                    onDone.run();
+                }
+            });
+            timer.start();
+        }
+
+        @Override protected void paintComponent(Graphics g) {
+            float eased = easeOutCubic(progress);
+            float out = 1f - eased;
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, out));
+            g2.setColor(CONTENT_BG);
+            g2.fillRect(0, 0, getWidth(), getHeight());
+
+            int sweepX = 240 + (int) ((getWidth() - 240) * eased);
+            GradientPaint sweep = new GradientPaint(sweepX - 90, 0, new Color(34, 211, 238, 0),
+                    sweepX, 0, new Color(34, 211, 238, 105));
+            g2.setPaint(sweep);
+            g2.fillRect(Math.max(240, sweepX - 90), 0, 120, getHeight());
+
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.min(0.75f, out + 0.15f)));
+            g2.setColor(new Color(248, 250, 252));
+            g2.setFont(new Font("Segoe UI", Font.BOLD, 18));
+            String text = "Dashboard siap";
+            FontMetrics fm = g2.getFontMetrics();
+            g2.drawString(text, getWidth() - fm.stringWidth(text) - 34, getHeight() - 34);
+            g2.dispose();
+        }
     }
 
     private void doLogout() {

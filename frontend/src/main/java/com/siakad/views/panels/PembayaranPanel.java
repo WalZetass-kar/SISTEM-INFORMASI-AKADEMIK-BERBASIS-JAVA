@@ -23,6 +23,7 @@ public class PembayaranPanel extends JPanel {
     private JTextField txtSearch;
     private JComboBox<String> cmbStatus, cmbTahunAjaran;
     private JLabel lblTotal;
+    private JButton btnPrev, btnNext;
     private int currentPage = 1;
     private static final int PAGE_SIZE = 12;
     private static final NumberFormat RUPIAH = NumberFormat.getCurrencyInstance(new Locale("id", "ID"));
@@ -47,6 +48,7 @@ public class PembayaranPanel extends JPanel {
     private CardLayout rootCard;
     private JPanel rootPanel;
     private SkeletonPanel skeleton;
+    private StatePanel statePanel;
 
     public PembayaranPanel() {
         setBackground(BG);
@@ -56,18 +58,22 @@ public class PembayaranPanel extends JPanel {
         rootPanel = new JPanel(rootCard);
         rootPanel.setBackground(BG);
         skeleton = new SkeletonPanel(SkeletonPanel.Type.TABLE);
+        statePanel = new StatePanel();
         rootPanel.add(skeleton, "skeleton");
 
         JPanel content = new JPanel(new BorderLayout());
         content.setBackground(BG);
         initUI(content);
         rootPanel.add(content, "content");
+        rootPanel.add(statePanel, "state");
         add(rootPanel, BorderLayout.CENTER);
 
         loadData();
     }
 
     private void initUI(JPanel target) {
+        boolean admin = JwtHelper.getInstance().isAdmin();
+
         // ── Header ──
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
@@ -76,10 +82,12 @@ public class PembayaranPanel extends JPanel {
         JPanel titleBlock = new JPanel();
         titleBlock.setOpaque(false);
         titleBlock.setLayout(new BoxLayout(titleBlock, BoxLayout.Y_AXIS));
-        JLabel lblTitle = new JLabel("Pembayaran UKT");
+        JLabel lblTitle = new JLabel(admin ? "Pembayaran UKT" : "Riwayat Pembayaran");
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 26));
         lblTitle.setForeground(TEXT_PRIMARY);
-        JLabel lblSub = new JLabel("Input & verifikasi pembayaran mahasiswa");
+        JLabel lblSub = new JLabel(admin
+                ? "Input & verifikasi pembayaran mahasiswa"
+                : "Pantau status pembayaran yang terhubung dengan akun Anda");
         lblSub.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         lblSub.setForeground(TEXT_MUTED);
         titleBlock.add(lblTitle);
@@ -91,29 +99,33 @@ public class PembayaranPanel extends JPanel {
         JPanel filterBar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         filterBar.setOpaque(false);
 
-        // Search box
-        JPanel searchBox = buildSearchBox();
+        if (admin) {
+            JPanel searchBox = buildSearchBox();
 
-        cmbStatus = new JComboBox<>(new String[]{"Semua Status", "pending", "lunas", "gagal", "refund"});
-        styleCombo(cmbStatus, 140);
-        cmbStatus.addActionListener(e -> { currentPage = 1; loadData(); });
+            cmbStatus = new JComboBox<>(new String[]{"Semua Status", "pending", "lunas", "gagal", "refund"});
+            styleCombo(cmbStatus, 140);
+            cmbStatus.addActionListener(e -> { currentPage = 1; loadData(); });
 
-        cmbTahunAjaran = new JComboBox<>(new String[]{"Semua TA", "2024/2025", "2023/2024"});
-        styleCombo(cmbTahunAjaran, 120);
-        cmbTahunAjaran.addActionListener(e -> { currentPage = 1; loadData(); });
+            cmbTahunAjaran = new JComboBox<>(new String[]{"Semua TA", "2024/2025", "2023/2024"});
+            styleCombo(cmbTahunAjaran, 120);
+            cmbTahunAjaran.addActionListener(e -> { currentPage = 1; loadData(); });
 
-        JButton btnSearch = buildBtn("Cari", BLUE, 70);
-        btnSearch.addActionListener(e -> { currentPage = 1; loadData(); });
+            JButton btnSearch = buildBtn("Cari", BLUE, 70);
+            btnSearch.addActionListener(e -> { currentPage = 1; loadData(); });
 
-        JButton btnTambah = buildBtn("＋  Input Pembayaran", GREEN, 180);
-        btnTambah.addActionListener(e -> showInputForm());
-        btnTambah.setVisible(JwtHelper.getInstance().isAdmin());
+            JButton btnTambah = buildBtn("＋  Input Pembayaran", GREEN, 180);
+            btnTambah.addActionListener(e -> showInputForm());
 
-        filterBar.add(searchBox);
-        filterBar.add(cmbStatus);
-        filterBar.add(cmbTahunAjaran);
-        filterBar.add(btnSearch);
-        filterBar.add(btnTambah);
+            filterBar.add(searchBox);
+            filterBar.add(cmbStatus);
+            filterBar.add(cmbTahunAjaran);
+            filterBar.add(btnSearch);
+            filterBar.add(btnTambah);
+        } else {
+            JButton btnRefresh = buildBtn("Refresh", BLUE, 100);
+            btnRefresh.addActionListener(e -> loadData());
+            filterBar.add(btnRefresh);
+        }
         header.add(filterBar, BorderLayout.EAST);
 
         // ── Table ──
@@ -136,6 +148,11 @@ public class PembayaranPanel extends JPanel {
         table.getColumnModel().getColumn(9).setMaxWidth(150);
         table.getColumnModel().getColumn(9).setCellRenderer(new ActionRenderer());
         table.getColumnModel().getColumn(9).setCellEditor(new ActionEditor());
+        if (!admin) {
+            table.getColumnModel().getColumn(9).setMinWidth(0);
+            table.getColumnModel().getColumn(9).setMaxWidth(0);
+            table.getColumnModel().getColumn(9).setPreferredWidth(0);
+        }
 
         JScrollPane sp = new JScrollPane(table);
         sp.setBorder(null);
@@ -156,8 +173,8 @@ public class PembayaranPanel extends JPanel {
 
         JPanel pag = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
         pag.setOpaque(false);
-        JButton btnPrev = buildPagBtn("◀  Prev");
-        JButton btnNext = buildPagBtn("Next  ▶");
+        btnPrev = buildPagBtn("◀  Prev");
+        btnNext = buildPagBtn("Next  ▶");
         btnPrev.addActionListener(e -> { if (currentPage > 1) { currentPage--; loadData(); }});
         btnNext.addActionListener(e -> { currentPage++; loadData(); });
         pag.add(btnPrev); pag.add(btnNext);
@@ -213,48 +230,112 @@ public class PembayaranPanel extends JPanel {
         skeleton.start();
         rootCard.show(rootPanel, "skeleton");
 
-        String search = txtSearch.getText().trim();
-        String status = cmbStatus.getSelectedIndex() == 0 ? null : (String) cmbStatus.getSelectedItem();
-        String ta = cmbTahunAjaran.getSelectedIndex() == 0 ? null : (String) cmbTahunAjaran.getSelectedItem();
+        boolean admin = JwtHelper.getInstance().isAdmin();
+        String nim = JwtHelper.getInstance().getNim();
+        String search = admin ? txtSearch.getText().trim() : "";
+        String status = admin && cmbStatus.getSelectedIndex() != 0 ? (String) cmbStatus.getSelectedItem() : null;
+        String ta = admin && cmbTahunAjaran.getSelectedIndex() != 0 ? (String) cmbTahunAjaran.getSelectedItem() : null;
+
+        if (!admin && (nim == null || nim.isBlank())) {
+            skeleton.stop();
+            statePanel.showState("!", "Riwayat tidak tersedia",
+                    "Akun ini belum memiliki NIM, sehingga riwayat pembayaran tidak bisa ditampilkan.",
+                    "Coba lagi", this::loadData);
+            rootCard.show(rootPanel, "state");
+            return;
+        }
 
         new SwingWorker<JsonObject, Void>() {
             protected JsonObject doInBackground() throws Exception {
-                return PembayaranService.getAll(currentPage, PAGE_SIZE, search, status, ta);
+                return admin
+                        ? PembayaranService.getAll(currentPage, PAGE_SIZE, search, status, ta)
+                        : PembayaranService.getByNim(nim);
             }
             protected void done() {
                 try {
                     JsonObject resp = get();
                     tableModel.setRowCount(0);
                     if (resp.get("success").getAsBoolean()) {
-                        JsonArray data = resp.getAsJsonArray("data");
-                        JsonObject pg = resp.getAsJsonObject("pagination");
-                        lblTotal.setText("Menampilkan " + data.size() + " dari " + pg.get("total").getAsInt()
-                                + " transaksi  |  Hal " + currentPage + "/" + pg.get("totalPages").getAsInt());
-
-                        for (int i = 0; i < data.size(); i++) {
-                            JsonObject p = data.get(i).getAsJsonObject();
-                            tableModel.addRow(new Object[]{
-                                p.get("id").getAsInt(),
-                                p.get("nim").getAsString(),
-                                safe(p, "nama_mahasiswa"),
-                                p.get("jenis_pembayaran").getAsString(),
-                                RUPIAH.format(p.get("jumlah").getAsDouble()),
-                                p.get("tanggal_bayar").getAsString().substring(0, 10),
-                                p.get("metode_pembayaran").getAsString(),
-                                p.get("semester").getAsInt(),
-                                p.get("status").getAsString(),
-                                "aksi"
-                            });
+                        JsonArray data;
+                        if (admin) {
+                            data = resp.getAsJsonArray("data");
+                            JsonObject pg = resp.getAsJsonObject("pagination");
+                            int totalPages = pg.get("totalPages").getAsInt();
+                            if (data.size() == 0) {
+                                showEmptyState(search.isEmpty() ? "Belum ada transaksi pembayaran." :
+                                        "Tidak ada transaksi yang cocok dengan filter aktif.", true);
+                                return;
+                            }
+                            lblTotal.setText("Menampilkan " + data.size() + " dari " + pg.get("total").getAsInt()
+                                    + " transaksi  |  Hal " + currentPage + "/" + totalPages);
+                            btnPrev.setEnabled(currentPage > 1);
+                            btnNext.setEnabled(currentPage < totalPages);
+                        } else {
+                            data = resp.getAsJsonObject("data").getAsJsonArray("pembayaran");
+                            if (data.size() == 0) {
+                                showEmptyState("Belum ada riwayat pembayaran untuk akun ini.", false);
+                                return;
+                            }
+                            lblTotal.setText("Total: " + data.size() + " riwayat pembayaran");
+                            btnPrev.setEnabled(false);
+                            btnNext.setEnabled(false);
                         }
+                        fillRows(data);
+                        rootCard.show(rootPanel, "content");
+                    } else {
+                        showErrorState(resp.has("message") ? resp.get("message").getAsString() : "Gagal memuat pembayaran.");
                     }
                 } catch (Exception e) {
-                    JOptionPane.showMessageDialog(PembayaranPanel.this, "Error: " + e.getMessage());
+                    showErrorState("Gagal memuat pembayaran: " + e.getMessage());
                 } finally {
                     skeleton.stop();
-                    rootCard.show(rootPanel, "content");
                 }
             }
         }.execute();
+    }
+
+    private void fillRows(JsonArray data) {
+        for (int i = 0; i < data.size(); i++) {
+            JsonObject p = data.get(i).getAsJsonObject();
+            String tanggal = safe(p, "tanggal_bayar");
+            tableModel.addRow(new Object[]{
+                    p.get("id").getAsInt(),
+                    safe(p, "nim"),
+                    safe(p, "nama_mahasiswa"),
+                    safe(p, "jenis_pembayaran"),
+                    RUPIAH.format(p.get("jumlah").getAsDouble()),
+                    tanggal.length() >= 10 ? tanggal.substring(0, 10) : tanggal,
+                    safe(p, "metode_pembayaran"),
+                    p.get("semester").getAsInt(),
+                    safe(p, "status"),
+                    "aksi"
+            });
+        }
+    }
+
+    private void showEmptyState(String message, boolean resetFilters) {
+        btnPrev.setEnabled(false);
+        btnNext.setEnabled(false);
+        lblTotal.setText("Tidak ada data");
+        statePanel.showState("0", "Data pembayaran kosong", message,
+                resetFilters ? "Reset filter" : "Muat ulang",
+                () -> {
+                    if (resetFilters && txtSearch != null) {
+                        txtSearch.setText("");
+                        cmbStatus.setSelectedIndex(0);
+                        cmbTahunAjaran.setSelectedIndex(0);
+                        currentPage = 1;
+                    }
+                    loadData();
+                });
+        rootCard.show(rootPanel, "state");
+    }
+
+    private void showErrorState(String message) {
+        btnPrev.setEnabled(false);
+        btnNext.setEnabled(false);
+        statePanel.showState("!", "Pembayaran tidak bisa dimuat", message, "Muat ulang", this::loadData);
+        rootCard.show(rootPanel, "state");
     }
 
     private void showInputForm() {
@@ -307,13 +388,22 @@ public class PembayaranPanel extends JPanel {
                 JOptionPane.showMessageDialog(d, "Isi semua field wajib (*).", "Validasi", JOptionPane.WARNING_MESSAGE);
                 return;
             }
+            double jumlah;
+            int semester;
+            try {
+                jumlah = Double.parseDouble(fJumlah.getText().trim());
+                semester = Integer.parseInt(fSemester.getText().trim());
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(d, "Jumlah dan semester harus berupa angka.", "Validasi", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
             JsonObject body = new JsonObject();
             body.addProperty("nim", fNim.getText().trim());
             body.addProperty("jenis_pembayaran", (String) cJenis.getSelectedItem());
-            body.addProperty("jumlah", Double.parseDouble(fJumlah.getText().trim()));
+            body.addProperty("jumlah", jumlah);
             body.addProperty("tanggal_bayar", fTanggal.getText().trim());
             body.addProperty("metode_pembayaran", (String) cMetode.getSelectedItem());
-            body.addProperty("semester", Integer.parseInt(fSemester.getText().trim()));
+            body.addProperty("semester", semester);
             body.addProperty("tahun_ajaran", fTA.getText().trim());
             body.addProperty("keterangan", fKet.getText().trim());
 

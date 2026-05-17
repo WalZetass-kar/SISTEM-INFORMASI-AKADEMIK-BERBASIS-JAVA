@@ -11,7 +11,7 @@ public class MahasiswaService {
     public static JsonObject getAll(int page, int limit, String search) throws Exception {
         StringBuilder url = new StringBuilder(Config.MAHASISWA_URL);
         url.append("?page=").append(page).append("&limit=").append(limit);
-        if (search != null && !search.isEmpty()) url.append("&search=").append(search);
+        if (search != null && !search.isEmpty()) url.append("&search=").append(ApiService.encodeQueryParam(search));
         return ApiService.get(url.toString());
     }
 

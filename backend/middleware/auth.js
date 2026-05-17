@@ -24,9 +24,9 @@ const verifyToken = (req, res, next) => {
       });
     }
 
-    const token = authHeader.split(' ')[1]; // Bearer <token>
+    const [scheme, token] = authHeader.trim().split(/\s+/); // Bearer <token>
 
-    if (!token) {
+    if (scheme !== 'Bearer' || !token) {
       return res.status(401).json({
         success: false,
         message: 'Format token tidak valid. Gunakan: Bearer <token>'
@@ -42,7 +42,7 @@ const verifyToken = (req, res, next) => {
     }
 
     // Verifikasi token
-    const decoded = jwt.verify(token, jwtConfig.secret);
+    const decoded = jwt.verify(token, jwtConfig.secret, { algorithms: [jwtConfig.algorithm] });
     req.user = decoded; // { id, username, role, nim }
     req.token = token;
     next();

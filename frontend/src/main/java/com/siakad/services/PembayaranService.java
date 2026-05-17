@@ -16,9 +16,9 @@ public class PembayaranService {
     public static JsonObject getAll(int page, int limit, String search, String status, String tahunAjaran) throws Exception {
         StringBuilder url = new StringBuilder(Config.PEMBAYARAN_URL);
         url.append("?page=").append(page).append("&limit=").append(limit);
-        if (search != null && !search.isEmpty()) url.append("&search=").append(search);
-        if (status != null && !status.isEmpty()) url.append("&status=").append(status);
-        if (tahunAjaran != null && !tahunAjaran.isEmpty()) url.append("&tahun_ajaran=").append(tahunAjaran);
+        if (search != null && !search.isEmpty()) url.append("&search=").append(ApiService.encodeQueryParam(search));
+        if (status != null && !status.isEmpty()) url.append("&status=").append(ApiService.encodeQueryParam(status));
+        if (tahunAjaran != null && !tahunAjaran.isEmpty()) url.append("&tahun_ajaran=").append(ApiService.encodeQueryParam(tahunAjaran));
         return ApiService.get(url.toString());
     }
 
@@ -70,7 +70,9 @@ public class PembayaranService {
      * Cek status pembayaran mahasiswa
      */
     public static JsonObject cekStatus(String nim, int semester, String tahunAjaran) throws Exception {
-        String url = Config.PEMBAYARAN_URL + "/status/" + nim + "?semester=" + semester + "&tahun_ajaran=" + tahunAjaran;
+        String encodedTahunAjaran = tahunAjaran == null ? "" : ApiService.encodeQueryParam(tahunAjaran);
+        String url = Config.PEMBAYARAN_URL + "/status/" + nim + "?semester=" + semester
+                + "&tahun_ajaran=" + encodedTahunAjaran;
         return ApiService.get(url);
     }
 
@@ -79,7 +81,7 @@ public class PembayaranService {
      */
     public static JsonObject getDashboardStats(String tahunAjaran) throws Exception {
         String url = Config.PEMBAYARAN_URL + "/dashboard/stats";
-        if (tahunAjaran != null && !tahunAjaran.isEmpty()) url += "?tahun_ajaran=" + tahunAjaran;
+        if (tahunAjaran != null && !tahunAjaran.isEmpty()) url += "?tahun_ajaran=" + ApiService.encodeQueryParam(tahunAjaran);
         return ApiService.get(url);
     }
 

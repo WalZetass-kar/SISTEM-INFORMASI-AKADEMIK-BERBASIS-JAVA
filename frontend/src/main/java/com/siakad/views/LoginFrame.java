@@ -21,6 +21,11 @@ public class LoginFrame extends JFrame {
     private JButton btnLogin;
     private JLabel lblStatus;
     private JCheckBox chkShowPassword;
+    private Timer ambientTimer;
+    private Timer loginSpinnerTimer;
+    private float ambientPhase = 0f;
+    private int spinnerAngle = 0;
+    private boolean loginLoading = false;
 
     // Warna tema
     private static final Color BG_DARK      = new Color(10, 15, 30);
@@ -42,6 +47,7 @@ public class LoginFrame extends JFrame {
         setLocationRelativeTo(null);
         setResizable(true);
         initUI();
+        startAmbientAnimation();
     }
 
     private void initUI() {
@@ -60,6 +66,26 @@ public class LoginFrame extends JFrame {
         setContentPane(root);
     }
 
+    private void startAmbientAnimation() {
+        ambientTimer = new Timer(33, e -> {
+            ambientPhase += 0.018f;
+            repaint();
+        });
+        ambientTimer.start();
+    }
+
+    private void stopAmbientAnimation() {
+        if (ambientTimer != null) {
+            ambientTimer.stop();
+        }
+    }
+
+    @Override public void dispose() {
+        stopAmbientAnimation();
+        stopLoginLoading();
+        super.dispose();
+    }
+
     // ── Panel Kiri: Branding & Deskripsi ──────────────────────────────────────
     private JPanel buildLeftPanel() {
         JPanel panel = new JPanel() {
@@ -74,13 +100,21 @@ public class LoginFrame extends JFrame {
                 g2.setPaint(gp);
                 g2.fillRect(0, 0, getWidth(), getHeight());
 
-                // Decorative circles
-                g2.setColor(new Color(59, 130, 246, 18));
-                g2.fillOval(-60, -60, 280, 280);
+                int drift = (int) (Math.sin(ambientPhase) * 18);
+                int slowDrift = (int) (Math.cos(ambientPhase * 0.7f) * 22);
+
+                // Soft moving light fields
+                g2.setColor(new Color(34, 211, 238, 18));
+                g2.fillOval(-80 + drift, -60 + slowDrift, 300, 300);
                 g2.setColor(new Color(99, 102, 241, 12));
-                g2.fillOval(getWidth() - 150, getHeight() - 150, 300, 300);
-                g2.setColor(new Color(34, 211, 238, 10));
-                g2.fillOval(getWidth() / 2 - 80, getHeight() / 2 - 80, 200, 200);
+                g2.fillOval(getWidth() - 170 - slowDrift, getHeight() - 160 + drift, 320, 320);
+                g2.setColor(new Color(34, 197, 94, 10));
+                g2.fillOval(getWidth() / 2 - 120 + slowDrift, getHeight() / 2 - 80, 220, 220);
+
+                // Animated scan line
+                g2.setColor(new Color(34, 211, 238, 28));
+                int scanY = (int) ((Math.sin(ambientPhase * 0.55f) + 1) * 0.5f * getHeight());
+                g2.fillRoundRect(0, scanY, getWidth(), 2, 2, 2);
 
                 // Grid dots pattern
                 g2.setColor(new Color(255, 255, 255, 8));
@@ -268,10 +302,25 @@ public class LoginFrame extends JFrame {
         panel.setLayout(new GridBagLayout());
         panel.setOpaque(false);
 
-        JPanel form = new JPanel();
+        JPanel form = new JPanel() {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(7, 12, 28, 105));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 18, 18);
+                g2.setColor(new Color(255, 255, 255, 10));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 18, 18);
+                g2.setColor(new Color(34, 211, 238, 32));
+                int x = (int) ((Math.sin(ambientPhase * 0.8f) + 1f) * 0.5f * getWidth());
+                g2.fillRoundRect(Math.max(0, x - 60), 0, 120, 2, 2, 2);
+                g2.dispose();
+            }
+        };
         form.setOpaque(false);
         form.setLayout(new BoxLayout(form, BoxLayout.Y_AXIS));
-        form.setBorder(new EmptyBorder(0, 48, 0, 48));
+        form.setBorder(new EmptyBorder(32, 34, 30, 34));
+        form.setPreferredSize(new Dimension(430, 540));
 
         // Welcome text
         JLabel lblWelcome = new JLabel("Selamat Datang 👋");
@@ -473,9 +522,18 @@ public class LoginFrame extends JFrame {
                 g2.setColor(isEnabled() ? Color.WHITE : TEXT_DIM);
                 g2.setFont(new Font("Segoe UI", Font.BOLD, 14));
                 FontMetrics fm = g2.getFontMetrics();
-                int x = (getWidth() - fm.stringWidth(getText())) / 2;
+                String text = getText();
+                int textW = fm.stringWidth(text);
+                int x = (getWidth() - textW) / 2;
                 int y = (getHeight() + fm.getAscent() - fm.getDescent()) / 2;
-                g2.drawString(getText(), x, y);
+                if (loginLoading) {
+                    x += 12;
+                    g2.setStroke(new BasicStroke(2.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g2.setColor(new Color(219, 234, 254));
+                    g2.drawArc(x - 30, getHeight() / 2 - 8, 16, 16, spinnerAngle, 265);
+                    g2.setColor(Color.WHITE);
+                }
+                g2.drawString(text, x, y);
                 g2.dispose();
             }
         };
@@ -500,8 +558,7 @@ public class LoginFrame extends JFrame {
             return;
         }
 
-        btnLogin.setEnabled(false);
-        btnLogin.setText("Memverifikasi...");
+        startLoginLoading();
         lblStatus.setText(" ");
 
         SwingWorker<String, Void> worker = new SwingWorker<>() {
@@ -513,25 +570,52 @@ public class LoginFrame extends JFrame {
                 try {
                     String result = get();
                     if ("success".equals(result)) {
-                        // Animasi transisi splash
+                        stopLoginLoading();
+                        stopAmbientAnimation();
                         SplashTransition splash = new SplashTransition(LoginFrame.this);
                         splash.animate(LoginFrame.this, () -> {
-                            new MainFrame().setVisible(true);
+                            LoginFrame.this.dispose();
+                            MainFrame mainFrame = new MainFrame();
+                            mainFrame.setVisible(true);
+                            mainFrame.playEntranceAnimation();
                         });
                     } else {
                         setStatus("❌ " + result, false);
-                        btnLogin.setEnabled(true);
-                        btnLogin.setText("Masuk ke Sistem");
+                        stopLoginLoading();
                         shakeFrame();
                     }
                 } catch (Exception e) {
                     setStatus("❌ Terjadi kesalahan.", false);
-                    btnLogin.setEnabled(true);
-                    btnLogin.setText("Masuk ke Sistem");
+                    stopLoginLoading();
                 }
             }
         };
         worker.execute();
+    }
+
+    private void startLoginLoading() {
+        loginLoading = true;
+        btnLogin.setEnabled(false);
+        btnLogin.setText("Memverifikasi");
+        spinnerAngle = 0;
+        loginSpinnerTimer = new Timer(16, e -> {
+            spinnerAngle = (spinnerAngle + 12) % 360;
+            btnLogin.repaint();
+        });
+        loginSpinnerTimer.start();
+    }
+
+    private void stopLoginLoading() {
+        loginLoading = false;
+        if (loginSpinnerTimer != null) {
+            loginSpinnerTimer.stop();
+            loginSpinnerTimer = null;
+        }
+        if (btnLogin != null) {
+            btnLogin.setEnabled(true);
+            btnLogin.setText("Masuk ke Sistem");
+            btnLogin.repaint();
+        }
     }
 
     /** Animasi shake frame saat login gagal */

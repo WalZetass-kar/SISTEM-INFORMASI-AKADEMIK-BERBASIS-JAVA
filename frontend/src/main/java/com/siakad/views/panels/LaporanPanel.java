@@ -18,6 +18,9 @@ public class LaporanPanel extends JPanel {
     private DefaultTableModel tableModel;
     private JLabel lblTotal;
     private int currentPage = 1;
+    private CardLayout centerCard;
+    private JPanel centerPanel;
+    private StatePanel statePanel;
 
     // Warna tema
     private static final Color BG           = new Color(13, 19, 38);
@@ -147,13 +150,22 @@ public class LaporanPanel extends JPanel {
         body.add(tableCard);
         body.add(footer);
 
+        centerCard = new CardLayout();
+        centerPanel = new JPanel(centerCard);
+        centerPanel.setOpaque(false);
+        statePanel = new StatePanel();
+
+        JScrollPane scroll = new JScrollPane(body);
+        scroll.setBorder(null);
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(false);
+        scroll.getVerticalScrollBar().setUnitIncrement(16);
+
+        centerPanel.add(scroll, "content");
+        centerPanel.add(statePanel, "state");
+
         add(header, BorderLayout.NORTH);
-        add(new JScrollPane(body) {{
-            setBorder(null);
-            setOpaque(false);
-            getViewport().setOpaque(false);
-            getVerticalScrollBar().setUnitIncrement(16);
-        }}, BorderLayout.CENTER);
+        add(centerPanel, BorderLayout.CENTER);
     }
 
     private JPanel buildGenerateCard(String icon, String title, String desc, Color accent,
@@ -257,6 +269,11 @@ public class LaporanPanel extends JPanel {
                         JsonArray data = resp.getAsJsonArray("data");
                         JsonObject pg = resp.getAsJsonObject("pagination");
                         lblTotal.setText("Total: " + pg.get("total").getAsInt() + " laporan tersimpan");
+                        if (data.size() == 0) {
+                            lblTotal.setText("Belum ada laporan tersimpan. Gunakan kartu generate di atas untuk membuat laporan.");
+                            centerCard.show(centerPanel, "content");
+                            return;
+                        }
 
                         for (int i = 0; i < data.size(); i++) {
                             JsonObject l = data.get(i).getAsJsonObject();
@@ -278,10 +295,20 @@ public class LaporanPanel extends JPanel {
                                 "aksi"
                             });
                         }
+                        centerCard.show(centerPanel, "content");
+                    } else {
+                        showStateError(resp.has("message") ? resp.get("message").getAsString() : "Gagal memuat laporan.");
                     }
-                } catch (Exception ignored) {}
+                } catch (Exception e) {
+                    showStateError("Gagal memuat laporan: " + e.getMessage());
+                }
             }
         }.execute();
+    }
+
+    private void showStateError(String message) {
+        statePanel.showState("!", "Laporan tidak bisa dimuat", message, "Muat ulang", this::loadData);
+        centerCard.show(centerPanel, "state");
     }
 
     private void showGeneratePembayaranDialog() {

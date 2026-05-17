@@ -11,7 +11,7 @@ public class LaporanService {
     public static JsonObject getAll(int page, int limit, String jenis) throws Exception {
         StringBuilder url = new StringBuilder(Config.LAPORAN_URL);
         url.append("?page=").append(page).append("&limit=").append(limit);
-        if (jenis != null && !jenis.isEmpty()) url.append("&jenis=").append(jenis);
+        if (jenis != null && !jenis.isEmpty()) url.append("&jenis=").append(ApiService.encodeQueryParam(jenis));
         return ApiService.get(url.toString());
     }
 

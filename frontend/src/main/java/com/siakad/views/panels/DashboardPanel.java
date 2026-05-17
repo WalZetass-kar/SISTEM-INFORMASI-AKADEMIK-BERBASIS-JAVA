@@ -3,6 +3,7 @@ package com.siakad.views.panels;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.siakad.services.PembayaranService;
+import com.siakad.utils.JwtHelper;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -25,6 +26,7 @@ public class DashboardPanel extends JPanel {
     private CardLayout rootCard;
     private JPanel rootPanel;
     private SkeletonPanel skeleton;
+    private StatePanel statePanel;
 
     // Warna tema
     private static final Color BG           = new Color(13, 19, 38);
@@ -47,6 +49,7 @@ public class DashboardPanel extends JPanel {
         rootPanel.setBackground(BG);
 
         skeleton = new SkeletonPanel(SkeletonPanel.Type.DASHBOARD);
+        statePanel = new StatePanel();
 
         JPanel content = new JPanel(new BorderLayout());
         content.setBackground(BG);
@@ -54,12 +57,15 @@ public class DashboardPanel extends JPanel {
 
         rootPanel.add(skeleton, "skeleton");
         rootPanel.add(content, "content");
+        rootPanel.add(statePanel, "state");
         add(rootPanel, BorderLayout.CENTER);
 
         loadData();
     }
 
     private void initUI(JPanel target) {
+        boolean admin = JwtHelper.getInstance().isAdmin();
+
         // ── Header ──
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
@@ -69,11 +75,13 @@ public class DashboardPanel extends JPanel {
         titleBlock.setOpaque(false);
         titleBlock.setLayout(new BoxLayout(titleBlock, BoxLayout.Y_AXIS));
 
-        JLabel lblTitle = new JLabel("Dashboard");
+        JLabel lblTitle = new JLabel(admin ? "Dashboard" : "Dashboard Mahasiswa");
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 26));
         lblTitle.setForeground(TEXT_PRIMARY);
 
-        JLabel lblSub = new JLabel("Ringkasan statistik sistem pembayaran UKT");
+        JLabel lblSub = new JLabel(admin
+                ? "Ringkasan statistik sistem pembayaran UKT"
+                : "Ringkasan status pembayaran dan riwayat transaksi Anda");
         lblSub.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         lblSub.setForeground(TEXT_MUTED);
 
@@ -95,8 +103,10 @@ public class DashboardPanel extends JPanel {
         JButton btnRefresh = buildIconBtn("🔄  Refresh", CARD_BG);
         btnRefresh.addActionListener(e -> loadData());
 
-        controls.add(lblTA);
-        controls.add(cmbTahunAjaran);
+        if (admin) {
+            controls.add(lblTA);
+            controls.add(cmbTahunAjaran);
+        }
         controls.add(btnRefresh);
 
         header.add(titleBlock, BorderLayout.WEST);
@@ -112,10 +122,17 @@ public class DashboardPanel extends JPanel {
         lblPending         = new JLabel("0");
         lblGagal           = new JLabel("0");
 
-        statsRow.add(buildStatCard("💰", "Total Pendapatan", lblTotalPendapatan, BLUE,   "Akumulasi pembayaran lunas"));
-        statsRow.add(buildStatCard("✅", "Lunas",            lblLunas,           GREEN,  "Transaksi berhasil"));
-        statsRow.add(buildStatCard("⏳", "Pending",          lblPending,         YELLOW, "Menunggu verifikasi"));
-        statsRow.add(buildStatCard("❌", "Gagal / Refund",   lblGagal,           RED,    "Transaksi bermasalah"));
+        if (admin) {
+            statsRow.add(buildStatCard("💰", "Total Pendapatan", lblTotalPendapatan, BLUE, "Akumulasi pembayaran lunas"));
+            statsRow.add(buildStatCard("✅", "Lunas", lblLunas, GREEN, "Transaksi berhasil"));
+            statsRow.add(buildStatCard("⏳", "Pending", lblPending, YELLOW, "Menunggu verifikasi"));
+            statsRow.add(buildStatCard("❌", "Gagal / Refund", lblGagal, RED, "Transaksi bermasalah"));
+        } else {
+            statsRow.add(buildStatCard("💰", "Total Dibayar", lblTotalPendapatan, BLUE, "Akumulasi pembayaran lunas"));
+            statsRow.add(buildStatCard("✅", "Lunas", lblLunas, GREEN, "Pembayaran tervalidasi"));
+            statsRow.add(buildStatCard("⏳", "Pending", lblPending, YELLOW, "Menunggu verifikasi"));
+            statsRow.add(buildStatCard("❌", "Bermasalah", lblGagal, RED, "Gagal atau refund"));
+        }
 
         // ── Charts Row ──
         JPanel chartsRow = new JPanel(new GridLayout(1, 2, 14, 0));
@@ -125,7 +142,7 @@ public class DashboardPanel extends JPanel {
         chartPanel = new BarChartPanel();
         donutPanel = new DonutChartPanel();
 
-        chartsRow.add(buildChartCard("📊  Pembayaran per Bulan", chartPanel));
+        chartsRow.add(buildChartCard(admin ? "📊  Pembayaran per Bulan" : "📊  Riwayat Pembayaran Anda", chartPanel));
         chartsRow.add(buildChartCard("🍩  Distribusi Status", donutPanel));
 
         // ── Body ──
@@ -243,49 +260,119 @@ public class DashboardPanel extends JPanel {
         skeleton.start();
         rootCard.show(rootPanel, "skeleton");
 
+        boolean admin = JwtHelper.getInstance().isAdmin();
+        String nim = JwtHelper.getInstance().getNim();
         String ta = cmbTahunAjaran.getSelectedIndex() == 0 ? null : (String) cmbTahunAjaran.getSelectedItem();
+
+        if (!admin && (nim == null || nim.isBlank())) {
+            skeleton.stop();
+            statePanel.showState("!", "Akun belum terhubung NIM",
+                    "Profil mahasiswa Anda belum memiliki NIM, sehingga dashboard personal tidak bisa ditampilkan.",
+                    "Coba lagi", this::loadData);
+            rootCard.show(rootPanel, "state");
+            return;
+        }
+
         new SwingWorker<JsonObject, Void>() {
             @Override protected JsonObject doInBackground() throws Exception {
-                return PembayaranService.getDashboardStats(ta);
+                return admin ? PembayaranService.getDashboardStats(ta) : PembayaranService.getByNim(nim);
             }
             @Override protected void done() {
                 try {
                     JsonObject resp = get();
                     if (resp.get("success").getAsBoolean()) {
-                        JsonObject data = resp.getAsJsonObject("data");
-                        JsonObject ring = data.getAsJsonObject("ringkasan");
-
-                        lblTotalPendapatan.setText(RUPIAH.format(ring.get("total_pendapatan").getAsDouble()));
-                        lblLunas.setText(String.valueOf(ring.get("lunas").getAsInt()));
-                        lblPending.setText(String.valueOf(ring.get("pending").getAsInt()));
-                        lblGagal.setText(String.valueOf(ring.get("gagal").getAsInt()));
-
-                        JsonArray bulanan = data.getAsJsonArray("chart_pendapatan_bulanan");
-                        int[] vals = new int[bulanan.size()];
-                        String[] lbls = new String[bulanan.size()];
-                        for (int i = 0; i < bulanan.size(); i++) {
-                            JsonObject b = bulanan.get(i).getAsJsonObject();
-                            vals[i] = b.get("total_transaksi").getAsInt();
-                            lbls[i] = b.get("bulan").getAsString();
+                        if (admin) {
+                            renderAdminDashboard(resp.getAsJsonObject("data"));
+                        } else {
+                            renderMahasiswaDashboard(resp.getAsJsonObject("data").getAsJsonArray("pembayaran"));
                         }
-                        chartPanel.setData(vals, lbls);
-
-                        int lunas   = ring.get("lunas").getAsInt();
-                        int pending = ring.get("pending").getAsInt();
-                        int gagal   = ring.get("gagal").getAsInt();
-                        donutPanel.setData(
-                            new int[]{lunas, pending, gagal},
-                            new String[]{"Lunas", "Pending", "Gagal"},
-                            new Color[]{GREEN, YELLOW, RED}
-                        );
+                    } else {
+                        showErrorState(resp.has("message") ? resp.get("message").getAsString() : "Gagal memuat dashboard.");
                     }
-                } catch (Exception ignored) {}
+                } catch (Exception e) {
+                    showErrorState("Gagal memuat dashboard: " + e.getMessage());
+                }
                 finally {
                     skeleton.stop();
-                    rootCard.show(rootPanel, "content");
                 }
             }
         }.execute();
+    }
+
+    private void renderAdminDashboard(JsonObject data) {
+        JsonObject ring = data.getAsJsonObject("ringkasan");
+
+        lblTotalPendapatan.setText(RUPIAH.format(ring.get("total_pendapatan").getAsDouble()));
+        lblLunas.setText(String.valueOf(ring.get("lunas").getAsInt()));
+        lblPending.setText(String.valueOf(ring.get("pending").getAsInt()));
+        lblGagal.setText(String.valueOf(ring.get("gagal").getAsInt()));
+
+        JsonArray bulanan = data.getAsJsonArray("chart_pendapatan_bulanan");
+        int[] vals = new int[bulanan.size()];
+        String[] lbls = new String[bulanan.size()];
+        for (int i = 0; i < bulanan.size(); i++) {
+            JsonObject b = bulanan.get(i).getAsJsonObject();
+            vals[i] = b.get("total_transaksi").getAsInt();
+            lbls[i] = b.get("bulan").getAsString();
+        }
+        chartPanel.setData(vals, lbls);
+
+        int lunas = ring.get("lunas").getAsInt();
+        int pending = ring.get("pending").getAsInt();
+        int gagal = ring.get("gagal").getAsInt();
+        donutPanel.setData(
+                new int[]{lunas, pending, gagal},
+                new String[]{"Lunas", "Pending", "Gagal"},
+                new Color[]{GREEN, YELLOW, RED}
+        );
+        rootCard.show(rootPanel, "content");
+    }
+
+    private void renderMahasiswaDashboard(JsonArray pembayaran) {
+        double totalDibayar = 0;
+        int lunas = 0;
+        int pending = 0;
+        int gagal = 0;
+        int count = pembayaran == null ? 0 : pembayaran.size();
+        int[] vals = new int[count];
+        String[] lbls = new String[count];
+
+        for (int i = 0; i < count; i++) {
+            JsonObject p = pembayaran.get(i).getAsJsonObject();
+            String status = safe(p, "status").toLowerCase();
+            if ("lunas".equals(status)) {
+                lunas++;
+                totalDibayar += p.get("jumlah").getAsDouble();
+            } else if ("pending".equals(status)) {
+                pending++;
+            } else if ("gagal".equals(status) || "refund".equals(status)) {
+                gagal++;
+            }
+            vals[i] = 1;
+            String tanggal = safe(p, "tanggal_bayar");
+            lbls[i] = tanggal.length() >= 10 ? tanggal.substring(5, 10) : safe(p, "jenis_pembayaran");
+        }
+
+        lblTotalPendapatan.setText(RUPIAH.format(totalDibayar));
+        lblLunas.setText(String.valueOf(lunas));
+        lblPending.setText(String.valueOf(pending));
+        lblGagal.setText(String.valueOf(gagal));
+        chartPanel.setData(vals, lbls);
+        donutPanel.setData(
+                new int[]{lunas, pending, gagal},
+                new String[]{"Lunas", "Pending", "Bermasalah"},
+                new Color[]{GREEN, YELLOW, RED}
+        );
+        rootCard.show(rootPanel, "content");
+    }
+
+    private void showErrorState(String message) {
+        statePanel.showState("!", "Dashboard tidak bisa dimuat", message, "Muat ulang", this::loadData);
+        rootCard.show(rootPanel, "state");
+    }
+
+    private String safe(JsonObject o, String k) {
+        return o.has(k) && !o.get(k).isJsonNull() ? o.get(k).getAsString() : "-";
     }
 
     // ── Bar Chart ──────────────────────────────────────────────────────────────
@@ -309,7 +396,7 @@ public class DashboardPanel extends JPanel {
             if (values.length == 0) {
                 g2.setColor(new Color(71, 85, 105));
                 g2.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-                String msg = "Memuat data...";
+                String msg = "Tidak ada data";
                 FontMetrics fm = g2.getFontMetrics();
                 g2.drawString(msg, (getWidth() - fm.stringWidth(msg)) / 2, getHeight() / 2);
                 g2.dispose(); return;

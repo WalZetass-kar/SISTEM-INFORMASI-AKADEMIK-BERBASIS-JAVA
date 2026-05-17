@@ -187,8 +187,8 @@ CREATE TABLE IF NOT EXISTS laporan (
 
 -- Password: admin123 (bcrypt hash)
 INSERT INTO users (username, password, role, nim) VALUES
-  ('admin', '$2b$10$YourBcryptHashHere', 'admin', NULL)
-ON DUPLICATE KEY UPDATE username = username;
+  ('admin', '$2b$10$1u/G7PzFbGgx/HUu3mB.9e7eneGiWtXtVPBmdtFD.NPgwkTzD6tv6', 'admin', NULL)
+ON DUPLICATE KEY UPDATE password = VALUES(password), role = VALUES(role), nim = VALUES(nim);
 
 -- Sample mahasiswa
 INSERT INTO mahasiswa (nim, nama, email, jurusan, program_studi, angkatan, semester, status) VALUES
@@ -201,12 +201,12 @@ ON DUPLICATE KEY UPDATE nim = nim;
 
 -- Sample user mahasiswa (password: mhs123)
 INSERT INTO users (username, password, role, nim) VALUES
-  ('2024001', '$2b$10$YourBcryptHashHere', 'mahasiswa', '2024001'),
-  ('2024002', '$2b$10$YourBcryptHashHere', 'mahasiswa', '2024002'),
-  ('2024003', '$2b$10$YourBcryptHashHere', 'mahasiswa', '2024003'),
-  ('2024004', '$2b$10$YourBcryptHashHere', 'mahasiswa', '2024004'),
-  ('2024005', '$2b$10$YourBcryptHashHere', 'mahasiswa', '2024005')
-ON DUPLICATE KEY UPDATE username = username;
+  ('2024001', '$2b$10$l/rSkV59cHSqmzUFH1Zgee5.LTgmBIXDzdFP5Z3DUElE6cq5Gvhwe', 'mahasiswa', '2024001'),
+  ('2024002', '$2b$10$l/rSkV59cHSqmzUFH1Zgee5.LTgmBIXDzdFP5Z3DUElE6cq5Gvhwe', 'mahasiswa', '2024002'),
+  ('2024003', '$2b$10$l/rSkV59cHSqmzUFH1Zgee5.LTgmBIXDzdFP5Z3DUElE6cq5Gvhwe', 'mahasiswa', '2024003'),
+  ('2024004', '$2b$10$l/rSkV59cHSqmzUFH1Zgee5.LTgmBIXDzdFP5Z3DUElE6cq5Gvhwe', 'mahasiswa', '2024004'),
+  ('2024005', '$2b$10$l/rSkV59cHSqmzUFH1Zgee5.LTgmBIXDzdFP5Z3DUElE6cq5Gvhwe', 'mahasiswa', '2024005')
+ON DUPLICATE KEY UPDATE password = VALUES(password), role = VALUES(role), nim = VALUES(nim);
 
 -- Sample pembayaran
 INSERT INTO pembayaran (nim, jenis_pembayaran, jumlah, tanggal_bayar, metode_pembayaran, nomor_referensi, semester, tahun_ajaran, status) VALUES

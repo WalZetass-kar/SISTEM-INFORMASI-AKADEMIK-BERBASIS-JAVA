@@ -28,6 +28,10 @@ public class MahasiswaPanel extends JPanel {
     private CardLayout rootCard;
     private JPanel rootPanel;
     private SkeletonPanel skeleton;
+    private StatePanel statePanel;
+
+    private JLabel lblProfileName, lblProfileNim, lblProfileJurusan, lblProfileProdi;
+    private JLabel lblProfileEmail, lblProfileSemester, lblProfileAngkatan, lblProfileStatus;
 
     // Warna tema
     private static final Color BG           = new Color(13, 19, 38);
@@ -52,12 +56,18 @@ public class MahasiswaPanel extends JPanel {
         rootPanel = new JPanel(rootCard);
         rootPanel.setBackground(BG);
         skeleton = new SkeletonPanel(SkeletonPanel.Type.TABLE);
+        statePanel = new StatePanel();
         rootPanel.add(skeleton, "skeleton");
 
         JPanel content = new JPanel(new BorderLayout());
         content.setBackground(BG);
-        initUI(content);
+        if (JwtHelper.getInstance().isAdmin()) {
+            initUI(content);
+        } else {
+            initProfileUI(content);
+        }
         rootPanel.add(content, "content");
+        rootPanel.add(statePanel, "state");
         add(rootPanel, BorderLayout.CENTER);
 
         loadData();
@@ -209,9 +219,92 @@ public class MahasiswaPanel extends JPanel {
         target.add(footer, BorderLayout.SOUTH);
     }
 
+    private void initProfileUI(JPanel target) {
+        JPanel header = new JPanel(new BorderLayout());
+        header.setOpaque(false);
+        header.setBorder(new EmptyBorder(28, 28, 18, 28));
+
+        JPanel titleBlock = new JPanel();
+        titleBlock.setOpaque(false);
+        titleBlock.setLayout(new BoxLayout(titleBlock, BoxLayout.Y_AXIS));
+        JLabel lblTitle = new JLabel("Profil Mahasiswa");
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 26));
+        lblTitle.setForeground(TEXT_PRIMARY);
+        JLabel lblSub = new JLabel("Data akademik yang terhubung dengan akun Anda");
+        lblSub.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        lblSub.setForeground(TEXT_MUTED);
+        titleBlock.add(lblTitle);
+        titleBlock.add(Box.createVerticalStrut(2));
+        titleBlock.add(lblSub);
+
+        JButton btnRefresh = buildBtn("Refresh", BLUE);
+        btnRefresh.addActionListener(e -> loadData());
+        header.add(titleBlock, BorderLayout.WEST);
+        header.add(btnRefresh, BorderLayout.EAST);
+
+        JPanel card = new JPanel() {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(CARD_BG);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
+                g2.setColor(BORDER_COLOR);
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 14, 14);
+                g2.setColor(new Color(34, 211, 238, 70));
+                g2.fillRoundRect(0, 0, getWidth(), 3, 3, 3);
+                g2.dispose();
+            }
+        };
+        card.setOpaque(false);
+        card.setLayout(new GridBagLayout());
+        card.setBorder(new EmptyBorder(28, 30, 28, 30));
+
+        lblProfileName = profileValue("Memuat...");
+        lblProfileName.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        lblProfileNim = profileValue("-");
+        lblProfileJurusan = profileValue("-");
+        lblProfileProdi = profileValue("-");
+        lblProfileEmail = profileValue("-");
+        lblProfileSemester = profileValue("-");
+        lblProfileAngkatan = profileValue("-");
+        lblProfileStatus = profileValue("-");
+
+        GridBagConstraints g = new GridBagConstraints();
+        g.fill = GridBagConstraints.HORIZONTAL;
+        g.insets = new Insets(8, 10, 8, 10);
+        g.weightx = 1;
+        g.gridx = 0; g.gridy = 0; g.gridwidth = 2;
+        card.add(lblProfileName, g);
+        g.gridy++;
+        JLabel nimBadge = new JLabel();
+        nimBadge.setForeground(BLUE);
+        nimBadge.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblProfileNim = nimBadge;
+        card.add(lblProfileNim, g);
+        g.gridwidth = 1;
+
+        addProfileRow(card, g, 2, "Jurusan", lblProfileJurusan, "Program Studi", lblProfileProdi);
+        addProfileRow(card, g, 3, "Email", lblProfileEmail, "Status", lblProfileStatus);
+        addProfileRow(card, g, 4, "Semester", lblProfileSemester, "Angkatan", lblProfileAngkatan);
+
+        JPanel wrap = new JPanel(new BorderLayout());
+        wrap.setOpaque(false);
+        wrap.setBorder(new EmptyBorder(0, 28, 28, 28));
+        wrap.add(card, BorderLayout.NORTH);
+
+        target.add(header, BorderLayout.NORTH);
+        target.add(wrap, BorderLayout.CENTER);
+    }
+
     private void loadData() {
         skeleton.start();
         rootCard.show(rootPanel, "skeleton");
+
+        if (!JwtHelper.getInstance().isAdmin()) {
+            loadOwnProfile();
+            return;
+        }
 
         String search = txtSearch.getText().trim();
         new SwingWorker<JsonObject, Void>() {
@@ -227,6 +320,23 @@ public class MahasiswaPanel extends JPanel {
                         JsonObject pag = resp.getAsJsonObject("pagination");
                         int total = pag.get("total").getAsInt();
                         int totalPages = pag.get("totalPages").getAsInt();
+                        if (data.size() == 0) {
+                            lblTotal.setText("Tidak ada mahasiswa ditemukan");
+                            btnPrev.setEnabled(false);
+                            btnNext.setEnabled(false);
+                            statePanel.showState("0", "Data mahasiswa kosong",
+                                    search.isEmpty()
+                                            ? "Belum ada data mahasiswa yang tersimpan."
+                                            : "Tidak ada mahasiswa yang cocok dengan pencarian \"" + search + "\".",
+                                    search.isEmpty() ? "Muat ulang" : "Reset pencarian",
+                                    () -> {
+                                        txtSearch.setText("");
+                                        currentPage = 1;
+                                        loadData();
+                                    });
+                            rootCard.show(rootPanel, "state");
+                            return;
+                        }
                         lblTotal.setText("Menampilkan " + data.size() + " dari " + total + " mahasiswa  |  Halaman " + currentPage + " / " + totalPages);
                         btnPrev.setEnabled(currentPage > 1);
                         btnNext.setEnabled(currentPage < totalPages);
@@ -244,16 +354,63 @@ public class MahasiswaPanel extends JPanel {
                                 "aksi"
                             });
                         }
+                        rootCard.show(rootPanel, "content");
+                    } else {
+                        showStateError(resp.has("message") ? resp.get("message").getAsString() : "Gagal memuat data mahasiswa.");
                     }
                 } catch (Exception e) {
-                    JOptionPane.showMessageDialog(MahasiswaPanel.this,
-                            "Gagal memuat data: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                    showStateError("Gagal memuat data mahasiswa: " + e.getMessage());
                 } finally {
                     skeleton.stop();
-                    rootCard.show(rootPanel, "content");
                 }
             }
         }.execute();
+    }
+
+    private void loadOwnProfile() {
+        String nim = JwtHelper.getInstance().getNim();
+        if (nim == null || nim.isBlank()) {
+            skeleton.stop();
+            statePanel.showState("!", "Profil belum terhubung",
+                    "Akun ini belum memiliki NIM, sehingga profil mahasiswa tidak bisa ditampilkan.",
+                    "Coba lagi", this::loadData);
+            rootCard.show(rootPanel, "state");
+            return;
+        }
+
+        new SwingWorker<JsonObject, Void>() {
+            @Override protected JsonObject doInBackground() throws Exception {
+                return MahasiswaService.getByNim(nim);
+            }
+            @Override protected void done() {
+                try {
+                    JsonObject resp = get();
+                    if (resp.get("success").getAsBoolean()) {
+                        JsonObject d = resp.getAsJsonObject("data");
+                        lblProfileName.setText(safe(d, "nama"));
+                        lblProfileNim.setText("NIM " + safe(d, "nim"));
+                        lblProfileJurusan.setText(safe(d, "jurusan"));
+                        lblProfileProdi.setText(safe(d, "program_studi"));
+                        lblProfileEmail.setText(safe(d, "email"));
+                        lblProfileSemester.setText(safe(d, "semester"));
+                        lblProfileAngkatan.setText(safe(d, "angkatan"));
+                        lblProfileStatus.setText(safe(d, "status").toUpperCase());
+                        rootCard.show(rootPanel, "content");
+                    } else {
+                        showStateError(resp.has("message") ? resp.get("message").getAsString() : "Gagal memuat profil mahasiswa.");
+                    }
+                } catch (Exception e) {
+                    showStateError("Gagal memuat profil mahasiswa: " + e.getMessage());
+                } finally {
+                    skeleton.stop();
+                }
+            }
+        }.execute();
+    }
+
+    private void showStateError(String message) {
+        statePanel.showState("!", "Data tidak bisa dimuat", message, "Muat ulang", this::loadData);
+        rootCard.show(rootPanel, "state");
     }
 
     private void showForm(String nim) {
@@ -346,6 +503,19 @@ public class MahasiswaPanel extends JPanel {
                 JOptionPane.showMessageDialog(dialog, "NIM dan Nama wajib diisi!", "Validasi", JOptionPane.WARNING_MESSAGE);
                 return;
             }
+            Integer angkatan = null;
+            Integer semester = null;
+            try {
+                if (!fAngkatan.getText().trim().isEmpty()) {
+                    angkatan = Integer.parseInt(fAngkatan.getText().trim());
+                }
+                if (!fSemester.getText().trim().isEmpty()) {
+                    semester = Integer.parseInt(fSemester.getText().trim());
+                }
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(dialog, "Angkatan dan semester harus berupa angka.", "Validasi", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
             JsonObject body = new JsonObject();
             body.addProperty("nim", fNim.getText().trim());
             body.addProperty("nama", fNama.getText().trim());
@@ -353,8 +523,8 @@ public class MahasiswaPanel extends JPanel {
             body.addProperty("no_telp", fTelp.getText().trim());
             body.addProperty("jurusan", (String) cmbJurusan.getSelectedItem());
             body.addProperty("program_studi", (String) cmbProdi.getSelectedItem());
-            body.addProperty("angkatan", fAngkatan.getText().trim());
-            body.addProperty("semester", fSemester.getText().trim());
+            if (angkatan != null) body.addProperty("angkatan", angkatan);
+            if (semester != null) body.addProperty("semester", semester);
             body.addProperty("status", (String) cmbStatus.getSelectedItem());
             if (nim == null && fPassword != null) body.addProperty("password", fPassword.getText().trim());
 
@@ -382,9 +552,78 @@ public class MahasiswaPanel extends JPanel {
         dialog.setVisible(true);
     }
 
+    private void showDetailDialog(String nim) {
+        new SwingWorker<JsonObject, Void>() {
+            @Override protected JsonObject doInBackground() throws Exception {
+                return MahasiswaService.getByNim(nim);
+            }
+            @Override protected void done() {
+                try {
+                    JsonObject resp = get();
+                    if (!resp.get("success").getAsBoolean()) {
+                        JOptionPane.showMessageDialog(MahasiswaPanel.this,
+                                resp.has("message") ? resp.get("message").getAsString() : "Data mahasiswa tidak ditemukan.",
+                                "Gagal", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+                    JsonObject d = resp.getAsJsonObject("data");
+                    String info = "NIM              : " + safe(d, "nim") + "\n"
+                            + "Nama             : " + safe(d, "nama") + "\n"
+                            + "Email            : " + safe(d, "email") + "\n"
+                            + "No. Telp         : " + safe(d, "no_telp") + "\n"
+                            + "Jurusan          : " + safe(d, "jurusan") + "\n"
+                            + "Program Studi    : " + safe(d, "program_studi") + "\n"
+                            + "Angkatan         : " + safe(d, "angkatan") + "\n"
+                            + "Semester         : " + safe(d, "semester") + "\n"
+                            + "Status           : " + safe(d, "status").toUpperCase();
+                    JTextArea area = new JTextArea(info);
+                    area.setEditable(false);
+                    area.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+                    area.setBackground(CARD_BG);
+                    area.setForeground(TEXT_PRIMARY);
+                    area.setBorder(new EmptyBorder(12, 12, 12, 12));
+                    JOptionPane.showMessageDialog(MahasiswaPanel.this, new JScrollPane(area),
+                            "Detail Mahasiswa", JOptionPane.PLAIN_MESSAGE);
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(MahasiswaPanel.this, "Error: " + ex.getMessage(),
+                            "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }.execute();
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
     private String safe(JsonObject o, String k) {
         return o.has(k) && !o.get(k).isJsonNull() ? o.get(k).getAsString() : "-";
+    }
+
+    private JLabel profileValue(String text) {
+        JLabel label = new JLabel(text);
+        label.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        label.setForeground(TEXT_PRIMARY);
+        return label;
+    }
+
+    private void addProfileRow(JPanel card, GridBagConstraints g, int row,
+                               String leftLabel, JLabel leftValue, String rightLabel, JLabel rightValue) {
+        g.gridy = row;
+        g.gridx = 0;
+        card.add(profileBlock(leftLabel, leftValue), g);
+        g.gridx = 1;
+        card.add(profileBlock(rightLabel, rightValue), g);
+    }
+
+    private JPanel profileBlock(String label, JLabel value) {
+        JPanel panel = new JPanel();
+        panel.setOpaque(false);
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        JLabel l = new JLabel(label);
+        l.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        l.setForeground(TEXT_MUTED);
+        panel.add(l);
+        panel.add(Box.createVerticalStrut(4));
+        panel.add(value);
+        return panel;
     }
 
     private void styleTable(JTable t) {
@@ -539,7 +778,7 @@ public class MahasiswaPanel extends JPanel {
             panel.setBackground(TABLE_BG);
             panel.add(btnDetail);
             if (JwtHelper.getInstance().isAdmin()) panel.add(btnEdit);
-            btnDetail.addActionListener(e -> { fireEditingStopped(); if (nim != null) showForm(nim); });
+            btnDetail.addActionListener(e -> { fireEditingStopped(); if (nim != null) showDetailDialog(nim); });
             btnEdit.addActionListener(e -> { fireEditingStopped(); if (nim != null) showForm(nim); });
         }
 

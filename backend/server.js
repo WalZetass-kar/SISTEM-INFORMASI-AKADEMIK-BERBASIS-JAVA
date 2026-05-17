@@ -84,7 +84,9 @@ app.use((err, req, res, next) => {
 
 const startServer = async () => {
   await testConnection();
-  app.listen(PORT, () => {
+  const server = app.listen(PORT);
+
+  server.on('listening', () => {
     console.log('');
     console.log('============================================================');
     console.log('  🎓 SISTEM INFORMASI AKADEMIK - Backend API');
@@ -111,8 +113,22 @@ const startServer = async () => {
     console.log('  POST   /api/laporan/generate/*       - Generate Laporan');
     console.log('');
   });
+
+  server.on('error', (error) => {
+    if (error.code === 'EADDRINUSE') {
+      console.error(`❌ Port ${PORT} sudah digunakan. Ubah PORT di .env atau hentikan proses yang memakai port tersebut.`);
+    } else {
+      console.error('❌ Gagal menjalankan server:', error.message);
+    }
+    process.exit(1);
+  });
 };
 
-startServer();
+if (require.main === module) {
+  startServer().catch((error) => {
+    console.error('❌ Gagal menjalankan server:', error.message);
+    process.exit(1);
+  });
+}
 
 module.exports = app;

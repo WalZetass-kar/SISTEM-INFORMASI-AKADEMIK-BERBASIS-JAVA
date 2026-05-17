@@ -5,9 +5,11 @@
 // ============================================================
 
 const { pool } = require('../config/database');
+const { normalizePagination } = require('../utils/pagination');
 
 class Laporan {
   static async findAll({ page = 1, limit = 10, jenis = '', status = '' } = {}) {
+    const pagination = normalizePagination({ page, limit });
     let query = `SELECT l.*, u.username as generated_by_name FROM laporan l
       LEFT JOIN users u ON l.generated_by = u.id WHERE 1=1`;
     let countQuery = 'SELECT COUNT(*) as total FROM laporan WHERE 1=1';
@@ -24,12 +26,19 @@ class Laporan {
 
     const [countRows] = await pool.execute(countQuery, countParams);
     const total = countRows[0].total;
-    const offset = (page - 1) * limit;
     query += ' ORDER BY l.created_at DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), parseInt(offset));
+    params.push(pagination.limit, pagination.offset);
     const [rows] = await pool.execute(query, params);
 
-    return { data: rows, pagination: { page: parseInt(page), limit: parseInt(limit), total, totalPages: Math.ceil(total / limit) } };
+    return {
+      data: rows,
+      pagination: {
+        page: pagination.page,
+        limit: pagination.limit,
+        total,
+        totalPages: Math.ceil(total / pagination.limit)
+      }
+    };
   }
 
   static async findById(id) {

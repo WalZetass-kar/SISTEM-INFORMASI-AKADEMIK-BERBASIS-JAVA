@@ -5,12 +5,14 @@
 // ============================================================
 
 const { pool } = require('../config/database');
+const { normalizePagination } = require('../utils/pagination');
 
 class Mahasiswa {
   /**
    * Ambil semua mahasiswa dengan pagination & search
    */
   static async findAll({ page = 1, limit = 10, search = '', jurusan = '', status = '' } = {}) {
+    const pagination = normalizePagination({ page, limit });
     let query = 'SELECT * FROM mahasiswa WHERE 1=1';
     let countQuery = 'SELECT COUNT(*) as total FROM mahasiswa WHERE 1=1';
     const params = [];
@@ -44,19 +46,18 @@ class Mahasiswa {
     const total = countRows[0].total;
 
     // Pagination
-    const offset = (page - 1) * limit;
     query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), parseInt(offset));
+    params.push(pagination.limit, pagination.offset);
 
     const [rows] = await pool.execute(query, params);
 
     return {
       data: rows,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page: pagination.page,
+        limit: pagination.limit,
         total,
-        totalPages: Math.ceil(total / limit)
+        totalPages: Math.ceil(total / pagination.limit)
       }
     };
   }

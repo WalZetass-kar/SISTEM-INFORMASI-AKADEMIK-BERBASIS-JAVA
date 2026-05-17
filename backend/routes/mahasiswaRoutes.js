@@ -9,11 +9,15 @@ const mahasiswaController = require('../controllers/mahasiswaController');
 const { verifyToken, isAdmin } = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
+
+const uploadDir = path.join(__dirname, '..', 'uploads', 'mahasiswa');
+fs.mkdirSync(uploadDir, { recursive: true });
 
 // Konfigurasi Multer untuk Upload Foto
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/mahasiswa/');
+    cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
     const nim = req.params.nim || 'unknown';
@@ -58,9 +62,14 @@ router.post('/:nim/upload-foto', isAdmin, upload.single('foto'), (req, res) => {
   
   Mahasiswa.update(req.params.nim, { foto_url: fotoUrl })
     .then(updated => {
+      if (!updated) {
+        fs.unlink(req.file.path, () => {});
+        return res.status(404).json({ success: false, message: 'Mahasiswa tidak ditemukan.' });
+      }
       res.json({ success: true, message: 'Foto berhasil diupload!', foto_url: fotoUrl });
     })
     .catch(err => {
+      fs.unlink(req.file.path, () => {});
       res.status(500).json({ success: false, message: 'Gagal update database.' });
     });
 });
