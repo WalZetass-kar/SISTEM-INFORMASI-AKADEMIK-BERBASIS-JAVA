@@ -27,15 +27,31 @@ public class PembayaranPanel extends JPanel {
     private static final int PAGE_SIZE = 12;
     private static final NumberFormat RUPIAH = NumberFormat.getCurrencyInstance(new Locale("id", "ID"));
 
+    // Warna tema
+    private static final Color BG           = new Color(13, 19, 38);
+    private static final Color CARD_BG      = new Color(18, 26, 48);
+    private static final Color TABLE_BG     = new Color(15, 22, 42);
+    private static final Color HEADER_BG    = new Color(10, 15, 30);
+    private static final Color BORDER_COLOR = new Color(25, 36, 65);
+    private static final Color ROW_ALT      = new Color(20, 29, 52);
+    private static final Color TEXT_PRIMARY = new Color(248, 250, 252);
+    private static final Color TEXT_MUTED   = new Color(148, 163, 184);
+    private static final Color TEXT_DIM     = new Color(71, 85, 105);
+    private static final Color BLUE         = new Color(59, 130, 246);
+    private static final Color GREEN        = new Color(34, 197, 94);
+    private static final Color YELLOW       = new Color(234, 179, 8);
+    private static final Color RED          = new Color(239, 68, 68);
+    private static final Color PURPLE       = new Color(168, 85, 247);
+
     public PembayaranPanel() {
-        setBackground(new Color(15, 23, 42));
+        setBackground(BG);
         setLayout(new BorderLayout());
         initUI();
         loadData();
     }
 
     private void initUI() {
-        // === HEADER ===
+        // ── Header ──
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
         header.setBorder(new EmptyBorder(28, 28, 16, 28));
@@ -44,81 +60,91 @@ public class PembayaranPanel extends JPanel {
         titleBlock.setOpaque(false);
         titleBlock.setLayout(new BoxLayout(titleBlock, BoxLayout.Y_AXIS));
         JLabel lblTitle = new JLabel("Pembayaran UKT");
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 22));
-        lblTitle.setForeground(new Color(248, 250, 252));
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 26));
+        lblTitle.setForeground(TEXT_PRIMARY);
         JLabel lblSub = new JLabel("Input & verifikasi pembayaran mahasiswa");
         lblSub.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        lblSub.setForeground(new Color(100, 116, 139));
+        lblSub.setForeground(TEXT_MUTED);
         titleBlock.add(lblTitle);
+        titleBlock.add(Box.createVerticalStrut(2));
         titleBlock.add(lblSub);
         header.add(titleBlock, BorderLayout.WEST);
 
-        // Actions
-        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
-        actions.setOpaque(false);
+        // Filter bar
+        JPanel filterBar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        filterBar.setOpaque(false);
 
-        txtSearch = makeField("Cari NIM/Nama...", 14);
-        txtSearch.addKeyListener(new KeyAdapter() {
-            public void keyPressed(KeyEvent e) { if (e.getKeyCode()==KeyEvent.VK_ENTER) { currentPage=1; loadData(); }}
-        });
+        // Search box
+        JPanel searchBox = buildSearchBox();
 
-        cmbStatus = new JComboBox<>(new String[]{"Semua Status","pending","lunas","gagal","refund"});
-        styleCombo(cmbStatus);
-        cmbStatus.addActionListener(e -> { currentPage=1; loadData(); });
+        cmbStatus = new JComboBox<>(new String[]{"Semua Status", "pending", "lunas", "gagal", "refund"});
+        styleCombo(cmbStatus, 140);
+        cmbStatus.addActionListener(e -> { currentPage = 1; loadData(); });
 
-        cmbTahunAjaran = new JComboBox<>(new String[]{"Semua TA","2024/2025","2023/2024"});
-        styleCombo(cmbTahunAjaran);
-        cmbTahunAjaran.addActionListener(e -> { currentPage=1; loadData(); });
+        cmbTahunAjaran = new JComboBox<>(new String[]{"Semua TA", "2024/2025", "2023/2024"});
+        styleCombo(cmbTahunAjaran, 120);
+        cmbTahunAjaran.addActionListener(e -> { currentPage = 1; loadData(); });
 
-        JButton btnSearch = makeBtn("🔍", new Color(59,130,246));
-        btnSearch.addActionListener(e -> { currentPage=1; loadData(); });
+        JButton btnSearch = buildBtn("Cari", BLUE, 70);
+        btnSearch.addActionListener(e -> { currentPage = 1; loadData(); });
 
-        JButton btnTambah = makeBtn("➕ Input Pembayaran", new Color(34,197,94));
+        JButton btnTambah = buildBtn("＋  Input Pembayaran", GREEN, 180);
         btnTambah.addActionListener(e -> showInputForm());
         btnTambah.setVisible(JwtHelper.getInstance().isAdmin());
 
-        actions.add(txtSearch); actions.add(cmbStatus); actions.add(cmbTahunAjaran);
-        actions.add(btnSearch); actions.add(btnTambah);
-        header.add(actions, BorderLayout.EAST);
+        filterBar.add(searchBox);
+        filterBar.add(cmbStatus);
+        filterBar.add(cmbTahunAjaran);
+        filterBar.add(btnSearch);
+        filterBar.add(btnTambah);
+        header.add(filterBar, BorderLayout.EAST);
 
-        // === TABLE ===
-        String[] cols = {"ID","NIM","Nama","Jenis","Jumlah","Tanggal","Metode","Semester","Status","Aksi"};
+        // ── Table ──
+        String[] cols = {"ID", "NIM", "Nama", "Jenis", "Jumlah", "Tanggal", "Metode", "Smt", "Status", "Aksi"};
         tableModel = new DefaultTableModel(cols, 0) {
             public boolean isCellEditable(int r, int c) { return c == 9; }
         };
-        table = new JTable(tableModel);
+        table = new JTable(tableModel) {
+            @Override public Component prepareRenderer(TableCellRenderer renderer, int row, int col) {
+                Component c = super.prepareRenderer(renderer, row, col);
+                if (!isRowSelected(row)) c.setBackground(row % 2 == 0 ? TABLE_BG : ROW_ALT);
+                return c;
+            }
+        };
         styleTable(table);
-        table.getColumnModel().getColumn(0).setMaxWidth(50);
-        table.getColumnModel().getColumn(9).setMinWidth(140);
-        table.getColumnModel().getColumn(9).setMaxWidth(140);
-        table.getColumnModel().getColumn(9).setCellRenderer(new PembayaranActionRenderer());
-        table.getColumnModel().getColumn(9).setCellEditor(new PembayaranActionEditor());
+        table.getColumnModel().getColumn(0).setMaxWidth(45);
+        table.getColumnModel().getColumn(7).setMaxWidth(45);
+        table.getColumnModel().getColumn(8).setCellRenderer(new StatusBadgeRenderer());
+        table.getColumnModel().getColumn(9).setMinWidth(150);
+        table.getColumnModel().getColumn(9).setMaxWidth(150);
+        table.getColumnModel().getColumn(9).setCellRenderer(new ActionRenderer());
+        table.getColumnModel().getColumn(9).setCellEditor(new ActionEditor());
 
         JScrollPane sp = new JScrollPane(table);
         sp.setBorder(null);
-        sp.getViewport().setBackground(new Color(22,33,54));
+        sp.getViewport().setBackground(TABLE_BG);
 
-        JPanel tableCard = new JPanel(new BorderLayout());
-        tableCard.setBackground(new Color(22,33,54));
-        tableCard.setBorder(BorderFactory.createCompoundBorder(new EmptyBorder(0,28,0,28),
-                BorderFactory.createLineBorder(new Color(30,41,59),1)));
+        JPanel tableCard = buildCard();
+        tableCard.setBorder(new EmptyBorder(0, 28, 0, 28));
         tableCard.add(sp);
 
-        // === FOOTER ===
+        // ── Footer ──
         JPanel footer = new JPanel(new BorderLayout());
         footer.setOpaque(false);
-        footer.setBorder(new EmptyBorder(8,28,12,28));
-        lblTotal = new JLabel("Total: 0");
-        lblTotal.setFont(new Font("Segoe UI",Font.PLAIN,11));
-        lblTotal.setForeground(new Color(100,116,139));
+        footer.setBorder(new EmptyBorder(10, 28, 14, 28));
 
-        JPanel pag = new JPanel(new FlowLayout(FlowLayout.RIGHT,4,0));
+        lblTotal = new JLabel("Total: 0");
+        lblTotal.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        lblTotal.setForeground(TEXT_DIM);
+
+        JPanel pag = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
         pag.setOpaque(false);
-        JButton btnPrev = makeBtn("◀",new Color(30,41,59));
-        JButton btnNext = makeBtn("▶",new Color(30,41,59));
-        btnPrev.addActionListener(e -> { if(currentPage>1){currentPage--;loadData();}});
+        JButton btnPrev = buildPagBtn("◀  Prev");
+        JButton btnNext = buildPagBtn("Next  ▶");
+        btnPrev.addActionListener(e -> { if (currentPage > 1) { currentPage--; loadData(); }});
         btnNext.addActionListener(e -> { currentPage++; loadData(); });
         pag.add(btnPrev); pag.add(btnNext);
+
         footer.add(lblTotal, BorderLayout.WEST);
         footer.add(pag, BorderLayout.EAST);
 
@@ -127,12 +153,51 @@ public class PembayaranPanel extends JPanel {
         add(footer, BorderLayout.SOUTH);
     }
 
+    private JPanel buildSearchBox() {
+        JPanel box = new JPanel(new BorderLayout()) {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(CARD_BG);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.setColor(BORDER_COLOR);
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 8, 8);
+                g2.dispose();
+            }
+        };
+        box.setOpaque(false);
+        box.setPreferredSize(new Dimension(220, 36));
+
+        JLabel icon = new JLabel("🔍");
+        icon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 13));
+        icon.setBorder(new EmptyBorder(0, 10, 0, 4));
+
+        txtSearch = new JTextField();
+        txtSearch.setOpaque(false);
+        txtSearch.setBackground(new Color(0, 0, 0, 0));
+        txtSearch.setForeground(TEXT_PRIMARY);
+        txtSearch.setCaretColor(TEXT_PRIMARY);
+        txtSearch.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 8));
+        txtSearch.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        txtSearch.setToolTipText("Cari NIM atau nama...");
+        txtSearch.addKeyListener(new KeyAdapter() {
+            @Override public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_ENTER) { currentPage = 1; loadData(); }
+            }
+        });
+
+        box.add(icon, BorderLayout.WEST);
+        box.add(txtSearch, BorderLayout.CENTER);
+        return box;
+    }
+
     private void loadData() {
         String search = txtSearch.getText().trim();
-        String status = cmbStatus.getSelectedIndex()==0 ? null : (String)cmbStatus.getSelectedItem();
-        String ta = cmbTahunAjaran.getSelectedIndex()==0 ? null : (String)cmbTahunAjaran.getSelectedItem();
+        String status = cmbStatus.getSelectedIndex() == 0 ? null : (String) cmbStatus.getSelectedItem();
+        String ta = cmbTahunAjaran.getSelectedIndex() == 0 ? null : (String) cmbTahunAjaran.getSelectedItem();
 
-        new SwingWorker<JsonObject,Void>() {
+        new SwingWorker<JsonObject, Void>() {
             protected JsonObject doInBackground() throws Exception {
                 return PembayaranService.getAll(currentPage, PAGE_SIZE, search, status, ta);
             }
@@ -143,17 +208,18 @@ public class PembayaranPanel extends JPanel {
                     if (resp.get("success").getAsBoolean()) {
                         JsonArray data = resp.getAsJsonArray("data");
                         JsonObject pg = resp.getAsJsonObject("pagination");
-                        lblTotal.setText("Total: "+pg.get("total").getAsInt()+" | Hal "+currentPage+"/"+pg.get("totalPages").getAsInt());
+                        lblTotal.setText("Menampilkan " + data.size() + " dari " + pg.get("total").getAsInt()
+                                + " transaksi  |  Hal " + currentPage + "/" + pg.get("totalPages").getAsInt());
 
-                        for (int i=0; i<data.size(); i++) {
+                        for (int i = 0; i < data.size(); i++) {
                             JsonObject p = data.get(i).getAsJsonObject();
                             tableModel.addRow(new Object[]{
                                 p.get("id").getAsInt(),
                                 p.get("nim").getAsString(),
-                                safe(p,"nama_mahasiswa"),
+                                safe(p, "nama_mahasiswa"),
                                 p.get("jenis_pembayaran").getAsString(),
                                 RUPIAH.format(p.get("jumlah").getAsDouble()),
-                                p.get("tanggal_bayar").getAsString().substring(0,10),
+                                p.get("tanggal_bayar").getAsString().substring(0, 10),
                                 p.get("metode_pembayaran").getAsString(),
                                 p.get("semester").getAsInt(),
                                 p.get("status").getAsString(),
@@ -162,161 +228,323 @@ public class PembayaranPanel extends JPanel {
                         }
                     }
                 } catch (Exception e) {
-                    JOptionPane.showMessageDialog(PembayaranPanel.this, "Error: "+e.getMessage());
+                    JOptionPane.showMessageDialog(PembayaranPanel.this, "Error: " + e.getMessage());
                 }
             }
         }.execute();
     }
 
     private void showInputForm() {
-        JDialog d = new JDialog((Frame)SwingUtilities.getWindowAncestor(this), "Input Pembayaran UKT", true);
-        d.setSize(440, 480);
+        JDialog d = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Input Pembayaran UKT", true);
+        d.setSize(460, 500);
         d.setLocationRelativeTo(this);
 
         JPanel p = new JPanel(new GridBagLayout());
-        p.setBackground(new Color(22,33,54));
-        p.setBorder(new EmptyBorder(20,24,20,24));
+        p.setBackground(CARD_BG);
+        p.setBorder(new EmptyBorder(24, 28, 24, 28));
         GridBagConstraints g = new GridBagConstraints();
-        g.fill = GridBagConstraints.HORIZONTAL; g.insets = new Insets(5,4,5,4); g.weightx=1;
+        g.fill = GridBagConstraints.HORIZONTAL;
+        g.insets = new Insets(5, 4, 5, 4);
+        g.weightx = 1;
 
-        JTextField fNim = makeField("",0), fJumlah = makeField("",0),
-                   fTanggal = makeField("YYYY-MM-DD",0), fSemester = makeField("",0), fTA = makeField("2024/2025",0);
-        JComboBox<String> cJenis = new JComboBox<>(new String[]{"ukt","spp","praktikum","wisuda","lainnya"});
-        JComboBox<String> cMetode = new JComboBox<>(new String[]{"transfer_bank","virtual_account","tunai","qris"});
-        styleCombo(cJenis); styleCombo(cMetode);
-        JTextArea fKet = new JTextArea(2,20);
-        fKet.setBackground(new Color(30,41,59)); fKet.setForeground(Color.WHITE); fKet.setCaretColor(Color.WHITE);
+        JTextField fNim      = makeField();
+        JTextField fJumlah   = makeField();
+        JTextField fTanggal  = makeField(); fTanggal.setToolTipText("Format: YYYY-MM-DD");
+        JTextField fSemester = makeField();
+        JTextField fTA       = makeField(); fTA.setText("2024/2025");
+        JComboBox<String> cJenis  = new JComboBox<>(new String[]{"ukt", "spp", "praktikum", "wisuda", "lainnya"});
+        JComboBox<String> cMetode = new JComboBox<>(new String[]{"transfer_bank", "virtual_account", "tunai", "qris"});
+        styleCombo(cJenis, 0); styleCombo(cMetode, 0);
+        JTextArea fKet = new JTextArea(2, 20);
+        fKet.setBackground(new Color(13, 19, 38));
+        fKet.setForeground(TEXT_PRIMARY);
+        fKet.setCaretColor(TEXT_PRIMARY);
+        fKet.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BORDER_COLOR, 1), new EmptyBorder(6, 8, 6, 8)));
+        fKet.setFont(new Font("Segoe UI", Font.PLAIN, 12));
 
-        int r=0;
-        addRow(p,g,r++,"NIM Mahasiswa *",fNim); addRow(p,g,r++,"Jenis",cJenis);
-        addRow(p,g,r++,"Jumlah (Rp) *",fJumlah); addRow(p,g,r++,"Tanggal Bayar *",fTanggal);
-        addRow(p,g,r++,"Metode",cMetode); addRow(p,g,r++,"Semester *",fSemester);
-        addRow(p,g,r++,"Tahun Ajaran *",fTA);
-        g.gridx=0; g.gridy=r; p.add(lbl("Keterangan"),g); g.gridx=1; p.add(new JScrollPane(fKet),g);
+        int r = 0;
+        addRow(p, g, r++, "NIM Mahasiswa *", fNim);
+        addRow(p, g, r++, "Jenis Pembayaran", cJenis);
+        addRow(p, g, r++, "Jumlah (Rp) *", fJumlah);
+        addRow(p, g, r++, "Tanggal Bayar *", fTanggal);
+        addRow(p, g, r++, "Metode Pembayaran", cMetode);
+        addRow(p, g, r++, "Semester *", fSemester);
+        addRow(p, g, r++, "Tahun Ajaran *", fTA);
+        g.gridx = 0; g.gridy = r; p.add(makeLabel("Keterangan"), g);
+        g.gridx = 1; p.add(new JScrollPane(fKet) {{ setBorder(null); }}, g); r++;
 
-        JButton btnSave = makeBtn("💾 Simpan Pembayaran", new Color(59,130,246));
+        JButton btnSave = buildBtn("💾  Simpan Pembayaran", BLUE, 220);
+        g.gridx = 0; g.gridy = r; g.gridwidth = 2; g.insets = new Insets(18, 4, 4, 4);
+        p.add(btnSave, g);
+
         btnSave.addActionListener(e -> {
-            if (fNim.getText().isEmpty()||fJumlah.getText().isEmpty()||fTanggal.getText().isEmpty()
-                ||fSemester.getText().isEmpty()||fTA.getText().isEmpty()) {
-                JOptionPane.showMessageDialog(d,"Isi semua field wajib (*).","Validasi",JOptionPane.WARNING_MESSAGE);
+            if (fNim.getText().isEmpty() || fJumlah.getText().isEmpty()
+                    || fTanggal.getText().isEmpty() || fSemester.getText().isEmpty() || fTA.getText().isEmpty()) {
+                JOptionPane.showMessageDialog(d, "Isi semua field wajib (*).", "Validasi", JOptionPane.WARNING_MESSAGE);
                 return;
             }
             JsonObject body = new JsonObject();
             body.addProperty("nim", fNim.getText().trim());
-            body.addProperty("jenis_pembayaran", (String)cJenis.getSelectedItem());
+            body.addProperty("jenis_pembayaran", (String) cJenis.getSelectedItem());
             body.addProperty("jumlah", Double.parseDouble(fJumlah.getText().trim()));
             body.addProperty("tanggal_bayar", fTanggal.getText().trim());
-            body.addProperty("metode_pembayaran", (String)cMetode.getSelectedItem());
+            body.addProperty("metode_pembayaran", (String) cMetode.getSelectedItem());
             body.addProperty("semester", Integer.parseInt(fSemester.getText().trim()));
             body.addProperty("tahun_ajaran", fTA.getText().trim());
             body.addProperty("keterangan", fKet.getText().trim());
 
-            new SwingWorker<JsonObject,Void>() {
+            new SwingWorker<JsonObject, Void>() {
                 protected JsonObject doInBackground() throws Exception { return PembayaranService.create(body); }
                 protected void done() {
                     try {
-                        JsonObject r = get();
-                        if (r.get("success").getAsBoolean()) {
-                            JOptionPane.showMessageDialog(d, r.get("message").getAsString(), "Sukses", JOptionPane.INFORMATION_MESSAGE);
+                        JsonObject res = get();
+                        if (res.get("success").getAsBoolean()) {
+                            JOptionPane.showMessageDialog(d, res.get("message").getAsString(), "Sukses", JOptionPane.INFORMATION_MESSAGE);
                             d.dispose(); loadData();
                         } else {
-                            JOptionPane.showMessageDialog(d, r.get("message").getAsString(), "Gagal", JOptionPane.ERROR_MESSAGE);
+                            JOptionPane.showMessageDialog(d, res.get("message").getAsString(), "Gagal", JOptionPane.ERROR_MESSAGE);
                         }
-                    } catch (Exception ex) { JOptionPane.showMessageDialog(d, "Error: "+ex.getMessage()); }
+                    } catch (Exception ex) { JOptionPane.showMessageDialog(d, "Error: " + ex.getMessage()); }
                 }
             }.execute();
         });
-        g.gridx=0; g.gridy=r+1; g.gridwidth=2; g.insets=new Insets(16,4,4,4);
-        p.add(btnSave, g);
 
-        d.add(new JScrollPane(p){{setBorder(null);}});
+        d.add(new JScrollPane(p) {{ setBorder(null); getViewport().setBackground(CARD_BG); }});
         d.setVisible(true);
     }
 
     private void verifyPembayaran(int id, String newStatus) {
         int confirm = JOptionPane.showConfirmDialog(this,
-            "Ubah status pembayaran #"+id+" menjadi "+newStatus.toUpperCase()+"?",
-            "Konfirmasi", JOptionPane.YES_NO_OPTION);
+                "Ubah status pembayaran #" + id + " menjadi " + newStatus.toUpperCase() + "?",
+                "Konfirmasi", JOptionPane.YES_NO_OPTION);
         if (confirm != JOptionPane.YES_OPTION) return;
 
-        new SwingWorker<JsonObject,Void>() {
+        new SwingWorker<JsonObject, Void>() {
             protected JsonObject doInBackground() throws Exception { return PembayaranService.updateStatus(id, newStatus); }
             protected void done() {
                 try {
                     JsonObject r = get();
                     JOptionPane.showMessageDialog(PembayaranPanel.this, r.get("message").getAsString());
                     loadData();
-                } catch (Exception e) { JOptionPane.showMessageDialog(PembayaranPanel.this, "Error: "+e.getMessage()); }
+                } catch (Exception e) { JOptionPane.showMessageDialog(PembayaranPanel.this, "Error: " + e.getMessage()); }
             }
         }.execute();
     }
 
-    // === Helpers ===
+    // ── Helpers ──────────────────────────────────────────────────────────────
     private String safe(JsonObject o, String k) {
-        return o.has(k)&&!o.get(k).isJsonNull() ? o.get(k).getAsString() : "-";
-    }
-    private JTextField makeField(String hint, int cols) {
-        JTextField f = cols>0 ? new JTextField(cols) : new JTextField();
-        f.setBackground(new Color(30,41,59)); f.setForeground(Color.WHITE); f.setCaretColor(Color.WHITE);
-        f.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(new Color(51,65,85)),new EmptyBorder(6,10,6,10)));
-        f.setFont(new Font("Segoe UI",Font.PLAIN,12));
-        if (!hint.isEmpty()) f.setToolTipText(hint);
-        return f;
-    }
-    private JButton makeBtn(String text, Color bg) {
-        JButton b = new JButton(text);
-        b.setFont(new Font("Segoe UI",Font.BOLD,12)); b.setForeground(Color.WHITE); b.setBackground(bg);
-        b.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(bg.darker()),new EmptyBorder(7,14,7,14)));
-        b.setCursor(new Cursor(Cursor.HAND_CURSOR)); b.setFocusPainted(false);
-        return b;
-    }
-    private void styleCombo(JComboBox<String> c) {
-        c.setBackground(new Color(30,41,59)); c.setForeground(new Color(203,213,225));
-        c.setFont(new Font("Segoe UI",Font.PLAIN,12));
-    }
-    private void styleTable(JTable t) {
-        t.setBackground(new Color(22,33,54)); t.setForeground(new Color(203,213,225));
-        t.setSelectionBackground(new Color(37,99,235,80)); t.setGridColor(new Color(30,41,59));
-        t.setRowHeight(38); t.setFont(new Font("Segoe UI",Font.PLAIN,12)); t.setFillsViewportHeight(true);
-        JTableHeader h = t.getTableHeader();
-        h.setBackground(new Color(15,23,42)); h.setForeground(new Color(148,163,184));
-        h.setFont(new Font("Segoe UI",Font.BOLD,11)); h.setReorderingAllowed(false);
-    }
-    private JLabel lbl(String t) { JLabel l=new JLabel(t); l.setFont(new Font("Segoe UI",Font.BOLD,11)); l.setForeground(new Color(148,163,184)); return l; }
-    private void addRow(JPanel p, GridBagConstraints g, int row, String label, JComponent field) {
-        g.gridx=0; g.gridy=row; g.gridwidth=1; p.add(lbl(label),g); g.gridx=1; p.add(field,g);
+        return o.has(k) && !o.get(k).isJsonNull() ? o.get(k).getAsString() : "-";
     }
 
-    // === Action Renderer/Editor ===
-    class PembayaranActionRenderer extends JPanel implements TableCellRenderer {
-        JButton b1=new JButton("✅"),b2=new JButton("❌");
-        PembayaranActionRenderer(){
-            setLayout(new FlowLayout(FlowLayout.CENTER,2,4)); setOpaque(true);
-            for(JButton b:new JButton[]{b1,b2}){ b.setFont(new Font("Segoe UI",Font.PLAIN,11)); b.setBorderPainted(false); b.setFocusPainted(false); b.setForeground(Color.WHITE); add(b);}
-            b1.setBackground(new Color(34,197,94)); b2.setBackground(new Color(239,68,68));
+    private JPanel buildCard() {
+        JPanel card = new JPanel(new BorderLayout()) {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(CARD_BG);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
+                g2.setColor(BORDER_COLOR);
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 12, 12);
+                g2.dispose();
+            }
+        };
+        card.setOpaque(false);
+        return card;
+    }
+
+    private void styleTable(JTable t) {
+        t.setBackground(TABLE_BG);
+        t.setForeground(TEXT_PRIMARY);
+        t.setSelectionBackground(new Color(59, 130, 246, 60));
+        t.setSelectionForeground(Color.WHITE);
+        t.setGridColor(new Color(20, 30, 55));
+        t.setRowHeight(42);
+        t.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        t.setShowGrid(true);
+        t.setIntercellSpacing(new Dimension(0, 1));
+        t.setFillsViewportHeight(true);
+        JTableHeader h = t.getTableHeader();
+        h.setBackground(HEADER_BG);
+        h.setForeground(TEXT_MUTED);
+        h.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        h.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, BORDER_COLOR));
+        h.setReorderingAllowed(false);
+        h.setPreferredSize(new Dimension(0, 40));
+    }
+
+    private JTextField makeField() {
+        JTextField f = new JTextField();
+        f.setBackground(new Color(13, 19, 38));
+        f.setForeground(TEXT_PRIMARY);
+        f.setCaretColor(TEXT_PRIMARY);
+        f.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BORDER_COLOR, 1), new EmptyBorder(7, 10, 7, 10)));
+        f.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        f.setPreferredSize(new Dimension(240, 34));
+        return f;
+    }
+
+    private JLabel makeLabel(String text) {
+        JLabel l = new JLabel(text);
+        l.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        l.setForeground(TEXT_MUTED);
+        return l;
+    }
+
+    private void addRow(JPanel p, GridBagConstraints g, int row, String label, JComponent field) {
+        g.gridx = 0; g.gridy = row; g.gridwidth = 1;
+        p.add(makeLabel(label), g);
+        g.gridx = 1;
+        p.add(field, g);
+    }
+
+    private void styleCombo(JComboBox<String> c, int width) {
+        c.setBackground(CARD_BG);
+        c.setForeground(TEXT_MUTED);
+        c.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        if (width > 0) c.setPreferredSize(new Dimension(width, 36));
+    }
+
+    private JButton buildBtn(String text, Color bg, int width) {
+        JButton btn = new JButton(text) {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(getModel().isRollover() ? bg.brighter() : bg);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.setColor(Color.WHITE);
+                g2.setFont(new Font("Segoe UI", Font.BOLD, 12));
+                FontMetrics fm = g2.getFontMetrics();
+                g2.drawString(getText(), (getWidth() - fm.stringWidth(getText())) / 2,
+                        (getHeight() + fm.getAscent() - fm.getDescent()) / 2);
+                g2.dispose();
+            }
+        };
+        btn.setPreferredSize(new Dimension(width > 0 ? width : 80, 36));
+        btn.setBorderPainted(false);
+        btn.setContentAreaFilled(false);
+        btn.setFocusPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        return btn;
+    }
+
+    private JButton buildPagBtn(String text) {
+        JButton btn = new JButton(text);
+        btn.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        btn.setForeground(TEXT_MUTED);
+        btn.setBackground(CARD_BG);
+        btn.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BORDER_COLOR, 1), new EmptyBorder(5, 12, 5, 12)));
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setFocusPainted(false);
+        return btn;
+    }
+
+    // ── Status Badge Renderer ─────────────────────────────────────────────────
+    class StatusBadgeRenderer extends DefaultTableCellRenderer {
+        @Override public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean foc, int r, int c) {
+            String status = String.valueOf(v);
+            Color badgeColor = getBadgeColor(status);
+            JLabel lbl = new JLabel(getStatusLabel(status), SwingConstants.CENTER) {
+                @Override protected void paintComponent(Graphics g) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2.setColor(new Color(badgeColor.getRed(), badgeColor.getGreen(), badgeColor.getBlue(), 30));
+                    g2.fillRoundRect(2, 5, getWidth() - 4, getHeight() - 10, 10, 10);
+                    g2.setColor(new Color(badgeColor.getRed(), badgeColor.getGreen(), badgeColor.getBlue(), 80));
+                    g2.drawRoundRect(2, 5, getWidth() - 5, getHeight() - 11, 10, 10);
+                    super.paintComponent(g);
+                    g2.dispose();
+                }
+            };
+            lbl.setFont(new Font("Segoe UI", Font.BOLD, 10));
+            lbl.setForeground(badgeColor);
+            lbl.setOpaque(false);
+            lbl.setBackground(sel ? new Color(59, 130, 246, 60) : (r % 2 == 0 ? TABLE_BG : ROW_ALT));
+            return lbl;
         }
-        public Component getTableCellRendererComponent(JTable t,Object v,boolean s,boolean f,int r,int c){
-            setBackground(s?new Color(37,99,235,40):new Color(22,33,54)); return this;
+
+        private Color getBadgeColor(String s) {
+            return switch (s.toLowerCase()) {
+                case "lunas"  -> GREEN;
+                case "pending" -> YELLOW;
+                case "gagal"  -> RED;
+                case "refund" -> PURPLE;
+                default       -> TEXT_MUTED;
+            };
+        }
+
+        private String getStatusLabel(String s) {
+            return switch (s.toLowerCase()) {
+                case "lunas"   -> "✅ LUNAS";
+                case "pending" -> "⏳ PENDING";
+                case "gagal"   -> "❌ GAGAL";
+                case "refund"  -> "↩ REFUND";
+                default        -> s.toUpperCase();
+            };
         }
     }
-    class PembayaranActionEditor extends DefaultCellEditor {
-        JPanel panel=new JPanel(new FlowLayout(FlowLayout.CENTER,2,4));
-        JButton bLunas=new JButton("✅ Lunas"), bGagal=new JButton("❌ Gagal");
-        int rowId;
-        PembayaranActionEditor(){
+
+    // ── Action Renderer ───────────────────────────────────────────────────────
+    class ActionRenderer extends JPanel implements TableCellRenderer {
+        ActionRenderer() {
+            setLayout(new FlowLayout(FlowLayout.CENTER, 4, 6));
+            setOpaque(false);
+        }
+        @Override public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean foc, int r, int c) {
+            removeAll();
+            if (JwtHelper.getInstance().isAdmin()) {
+                add(makeSmallBtn("✅ Lunas", GREEN));
+                add(makeSmallBtn("❌ Gagal", RED));
+            }
+            setBackground(sel ? new Color(59, 130, 246, 40) : (r % 2 == 0 ? TABLE_BG : ROW_ALT));
+            return this;
+        }
+        private JButton makeSmallBtn(String text, Color bg) {
+            JButton b = new JButton(text);
+            b.setFont(new Font("Segoe UI", Font.BOLD, 10));
+            b.setForeground(Color.WHITE);
+            b.setBackground(bg);
+            b.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(bg.darker(), 1), new EmptyBorder(3, 6, 3, 6)));
+            b.setFocusPainted(false);
+            return b;
+        }
+    }
+
+    // ── Action Editor ─────────────────────────────────────────────────────────
+    class ActionEditor extends DefaultCellEditor {
+        private final JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 6));
+        private final JButton bLunas = makeSmallBtn("✅ Lunas", GREEN);
+        private final JButton bGagal = makeSmallBtn("❌ Gagal", RED);
+        private int rowId;
+
+        ActionEditor() {
             super(new JCheckBox());
-            panel.setBackground(new Color(22,33,54));
-            bLunas.setFont(new Font("Segoe UI",Font.PLAIN,10)); bLunas.setBackground(new Color(34,197,94));
-            bLunas.setForeground(Color.WHITE); bLunas.setBorderPainted(false); bLunas.setFocusPainted(false);
-            bGagal.setFont(new Font("Segoe UI",Font.PLAIN,10)); bGagal.setBackground(new Color(239,68,68));
-            bGagal.setForeground(Color.WHITE); bGagal.setBorderPainted(false); bGagal.setFocusPainted(false);
-            panel.add(bLunas); panel.add(bGagal);
-            bLunas.addActionListener(e->{ fireEditingStopped(); verifyPembayaran(rowId,"lunas"); });
-            bGagal.addActionListener(e->{ fireEditingStopped(); verifyPembayaran(rowId,"gagal"); });
+            panel.setBackground(TABLE_BG);
+            panel.add(bLunas);
+            panel.add(bGagal);
+            bLunas.addActionListener(e -> { fireEditingStopped(); verifyPembayaran(rowId, "lunas"); });
+            bGagal.addActionListener(e -> { fireEditingStopped(); verifyPembayaran(rowId, "gagal"); });
         }
-        public Component getTableCellEditorComponent(JTable t,Object v,boolean s,int r,int c){
-            rowId=(int)t.getValueAt(r,0); return panel;
+
+        private JButton makeSmallBtn(String text, Color bg) {
+            JButton b = new JButton(text);
+            b.setFont(new Font("Segoe UI", Font.BOLD, 10));
+            b.setForeground(Color.WHITE);
+            b.setBackground(bg);
+            b.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(bg.darker(), 1), new EmptyBorder(3, 6, 3, 6)));
+            b.setFocusPainted(false);
+            return b;
         }
-        public Object getCellEditorValue(){ return "aksi"; }
+
+        @Override public Component getTableCellEditorComponent(JTable t, Object v, boolean sel, int r, int c) {
+            rowId = (int) t.getValueAt(r, 0);
+            return panel;
+        }
+        @Override public Object getCellEditorValue() { return "aksi"; }
     }
 }

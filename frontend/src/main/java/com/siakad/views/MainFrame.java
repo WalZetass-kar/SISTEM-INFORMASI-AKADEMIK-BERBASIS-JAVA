@@ -12,23 +12,33 @@ import java.awt.event.*;
 
 /**
  * MainFrame - Frame utama aplikasi setelah login
- * Berisi sidebar navigasi + content panel
+ * Sidebar navigasi modern + content panel
  */
 public class MainFrame extends JFrame {
 
     private JPanel contentPanel;
     private CardLayout cardLayout;
-    private JLabel lblUserInfo;
     private JButton activeBtn;
 
-    // Panel names
     public static final String PANEL_DASHBOARD  = "dashboard";
     public static final String PANEL_MAHASISWA  = "mahasiswa";
     public static final String PANEL_PEMBAYARAN = "pembayaran";
     public static final String PANEL_LAPORAN    = "laporan";
 
+    // Warna tema
+    private static final Color SIDEBAR_BG    = new Color(10, 15, 30);
+    private static final Color SIDEBAR_HOVER = new Color(255, 255, 255, 10);
+    private static final Color SIDEBAR_ACTIVE = new Color(59, 130, 246, 25);
+    private static final Color ACCENT_BLUE   = new Color(59, 130, 246);
+    private static final Color ACCENT_INDIGO = new Color(99, 102, 241);
+    private static final Color TEXT_PRIMARY  = new Color(248, 250, 252);
+    private static final Color TEXT_MUTED    = new Color(148, 163, 184);
+    private static final Color TEXT_DIM      = new Color(71, 85, 105);
+    private static final Color BORDER_COLOR  = new Color(20, 30, 55);
+    private static final Color CONTENT_BG    = new Color(13, 19, 38);
+
     public MainFrame() {
-        setTitle(Config.APP_NAME + " - " + JwtHelper.getInstance().getUsername().toUpperCase());
+        setTitle(Config.APP_NAME + " — " + JwtHelper.getInstance().getUsername().toUpperCase());
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(Config.DEFAULT_WIDTH, Config.DEFAULT_HEIGHT);
         setLocationRelativeTo(null);
@@ -38,91 +48,117 @@ public class MainFrame extends JFrame {
 
     private void initUI() {
         setLayout(new BorderLayout());
+        add(buildSidebar(), BorderLayout.WEST);
 
-        // === SIDEBAR ===
-        JPanel sidebar = createSidebar();
-        add(sidebar, BorderLayout.WEST);
-
-        // === CONTENT ===
         cardLayout = new CardLayout();
         contentPanel = new JPanel(cardLayout);
-        contentPanel.setBackground(new Color(15, 23, 42));
-
+        contentPanel.setBackground(CONTENT_BG);
         contentPanel.add(new DashboardPanel(), PANEL_DASHBOARD);
         contentPanel.add(new MahasiswaPanel(), PANEL_MAHASISWA);
         contentPanel.add(new PembayaranPanel(), PANEL_PEMBAYARAN);
         contentPanel.add(new LaporanPanel(), PANEL_LAPORAN);
-
         add(contentPanel, BorderLayout.CENTER);
 
-        // Show dashboard by default
         showPanel(PANEL_DASHBOARD);
     }
 
-    private JPanel createSidebar() {
+    private JPanel buildSidebar() {
         JPanel sidebar = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g;
-                g2.setColor(new Color(15, 23, 42));
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                // Background gradient
+                GradientPaint gp = new GradientPaint(0, 0, new Color(10, 15, 30),
+                        0, getHeight(), new Color(8, 12, 25));
+                g2.setPaint(gp);
                 g2.fillRect(0, 0, getWidth(), getHeight());
-                // Right border accent
-                g2.setColor(new Color(30, 41, 59));
+
+                // Right border
+                GradientPaint border = new GradientPaint(0, 0, ACCENT_BLUE,
+                        0, getHeight(), ACCENT_INDIGO);
+                g2.setPaint(border);
                 g2.fillRect(getWidth() - 1, 0, 1, getHeight());
+
+                // Subtle dot pattern
+                g2.setColor(new Color(255, 255, 255, 5));
+                for (int x = 10; x < getWidth(); x += 20) {
+                    for (int y = 10; y < getHeight(); y += 20) {
+                        g2.fillOval(x, y, 1, 1);
+                    }
+                }
+                g2.dispose();
             }
         };
-        sidebar.setPreferredSize(new Dimension(220, 0));
+        sidebar.setPreferredSize(new Dimension(240, 0));
         sidebar.setLayout(new BorderLayout());
 
-        // Logo area
-        JPanel logoPanel = new JPanel();
+        // ── Logo area ──
+        JPanel logoPanel = new JPanel() {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setColor(BORDER_COLOR);
+                g2.fillRect(0, getHeight() - 1, getWidth(), 1);
+                g2.dispose();
+            }
+        };
         logoPanel.setOpaque(false);
         logoPanel.setLayout(new BoxLayout(logoPanel, BoxLayout.Y_AXIS));
-        logoPanel.setBorder(new EmptyBorder(24, 20, 20, 20));
+        logoPanel.setBorder(new EmptyBorder(28, 20, 20, 20));
 
-        JLabel lblLogo = new JLabel("🎓");
-        lblLogo.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 32));
-        lblLogo.setAlignmentX(Component.CENTER_ALIGNMENT);
+        // Logo icon with gradient circle
+        JLabel lblLogo = new JLabel() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(59, 130, 246, 25));
+                g2.fillOval(0, 0, 56, 56);
+                GradientPaint gp = new GradientPaint(6, 6, ACCENT_BLUE, 50, 50, ACCENT_INDIGO);
+                g2.setPaint(gp);
+                g2.fillOval(6, 6, 44, 44);
+                g2.setColor(Color.WHITE);
+                g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 22));
+                FontMetrics fm = g2.getFontMetrics();
+                g2.drawString("🎓", (56 - fm.stringWidth("🎓")) / 2, 36);
+                g2.dispose();
+            }
+            @Override public Dimension getPreferredSize() { return new Dimension(56, 56); }
+            @Override public Dimension getMaximumSize() { return new Dimension(56, 56); }
+        };
+        lblLogo.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JLabel lblAppName = new JLabel("SIAKAD");
-        lblAppName.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        lblAppName.setForeground(new Color(248, 250, 252));
-        lblAppName.setAlignmentX(Component.CENTER_ALIGNMENT);
+        lblAppName.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        lblAppName.setForeground(TEXT_PRIMARY);
+        lblAppName.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel lblVersion = new JLabel("v" + Config.APP_VERSION);
-        lblVersion.setFont(new Font("Segoe UI", Font.PLAIN, 10));
-        lblVersion.setForeground(new Color(100, 116, 139));
-        lblVersion.setAlignmentX(Component.CENTER_ALIGNMENT);
+        JLabel lblFullName = new JLabel("Sistem Informasi Akademik");
+        lblFullName.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+        lblFullName.setForeground(TEXT_MUTED);
+        lblFullName.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         logoPanel.add(lblLogo);
-        logoPanel.add(Box.createVerticalStrut(6));
+        logoPanel.add(Box.createVerticalStrut(12));
         logoPanel.add(lblAppName);
         logoPanel.add(Box.createVerticalStrut(2));
-        logoPanel.add(lblVersion);
+        logoPanel.add(lblFullName);
 
-        // Divider
-        JSeparator sep = new JSeparator();
-        sep.setForeground(new Color(30, 41, 59));
-        sep.setBackground(new Color(30, 41, 59));
-
-        // Nav menu
+        // ── Nav menu ──
         JPanel navPanel = new JPanel();
         navPanel.setOpaque(false);
         navPanel.setLayout(new BoxLayout(navPanel, BoxLayout.Y_AXIS));
         navPanel.setBorder(new EmptyBorder(16, 12, 16, 12));
 
-        JLabel lblMenu = new JLabel("  MENU");
-        lblMenu.setFont(new Font("Segoe UI", Font.BOLD, 10));
-        lblMenu.setForeground(new Color(100, 116, 139));
-        lblMenu.setAlignmentX(Component.LEFT_ALIGNMENT);
-        navPanel.add(lblMenu);
+        JLabel lblMenuSection = makeMenuSection("NAVIGASI");
+        navPanel.add(lblMenuSection);
         navPanel.add(Box.createVerticalStrut(8));
 
-        JwtHelper jwt = JwtHelper.getInstance();
-        JButton btnDashboard  = createNavButton("📊  Dashboard",    PANEL_DASHBOARD);
-        JButton btnMahasiswa  = createNavButton("👨‍🎓  Data Mahasiswa", PANEL_MAHASISWA);
-        JButton btnPembayaran = createNavButton("💳  Pembayaran",   PANEL_PEMBAYARAN);
-        JButton btnLaporan    = createNavButton("📋  Laporan",      PANEL_LAPORAN);
+        JButton btnDashboard  = buildNavButton("📊", "Dashboard",       PANEL_DASHBOARD);
+        JButton btnMahasiswa  = buildNavButton("👨‍🎓", "Data Mahasiswa",  PANEL_MAHASISWA);
+        JButton btnPembayaran = buildNavButton("💳", "Pembayaran UKT",  PANEL_PEMBAYARAN);
+        JButton btnLaporan    = buildNavButton("📋", "Laporan & Cetak", PANEL_LAPORAN);
 
         navPanel.add(btnDashboard);
         navPanel.add(Box.createVerticalStrut(4));
@@ -131,97 +167,66 @@ public class MainFrame extends JFrame {
         navPanel.add(btnPembayaran);
         navPanel.add(Box.createVerticalStrut(4));
 
-        // Laporan hanya untuk admin
-        if (jwt.isAdmin()) {
+        if (JwtHelper.getInstance().isAdmin()) {
             navPanel.add(btnLaporan);
             navPanel.add(Box.createVerticalStrut(4));
         }
 
-        // User info + logout
-        JPanel bottomPanel = new JPanel();
-        bottomPanel.setOpaque(false);
-        bottomPanel.setLayout(new BorderLayout());
-        bottomPanel.setBorder(new EmptyBorder(12, 12, 16, 12));
-
-        JSeparator sep2 = new JSeparator();
-        sep2.setForeground(new Color(30, 41, 59));
-
-        JPanel userCard = new JPanel();
-        userCard.setOpaque(false);
-        userCard.setLayout(new BoxLayout(userCard, BoxLayout.Y_AXIS));
-        userCard.setBorder(new EmptyBorder(10, 0, 10, 0));
-
-        lblUserInfo = new JLabel("👤 " + jwt.getUsername());
-        lblUserInfo.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        lblUserInfo.setForeground(new Color(203, 213, 225));
-        lblUserInfo.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JLabel lblRole = new JLabel("  " + jwt.getRole().toUpperCase());
-        lblRole.setFont(new Font("Segoe UI", Font.PLAIN, 10));
-        lblRole.setForeground(new Color(59, 130, 246));
-        lblRole.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        userCard.add(lblUserInfo);
-        userCard.add(Box.createVerticalStrut(2));
-        userCard.add(lblRole);
-
-        JButton btnLogout = new JButton("  Keluar") {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g;
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(getModel().isRollover() ? new Color(127, 29, 29) : new Color(69, 10, 10));
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
-                g2.setColor(new Color(252, 165, 165));
-                g2.setFont(new Font("Segoe UI", Font.BOLD, 12));
-                FontMetrics fm = g2.getFontMetrics();
-                g2.drawString(getText().trim(), 12, (getHeight() + fm.getAscent() - fm.getDescent()) / 2);
-            }
-        };
-        btnLogout.setPreferredSize(new Dimension(196, 36));
-        btnLogout.setMaximumSize(new Dimension(196, 36));
-        btnLogout.setBorderPainted(false);
-        btnLogout.setContentAreaFilled(false);
-        btnLogout.setFocusPainted(false);
-        btnLogout.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnLogout.setAlignmentX(Component.LEFT_ALIGNMENT);
-        btnLogout.addActionListener(e -> doLogout());
-
-        bottomPanel.add(sep2, BorderLayout.NORTH);
-        bottomPanel.add(userCard, BorderLayout.CENTER);
-        bottomPanel.add(btnLogout, BorderLayout.SOUTH);
+        // ── Bottom: user card + logout ──
+        JPanel bottomPanel = buildUserCard();
 
         sidebar.add(logoPanel, BorderLayout.NORTH);
         sidebar.add(navPanel, BorderLayout.CENTER);
         sidebar.add(bottomPanel, BorderLayout.SOUTH);
-
         return sidebar;
     }
 
-    private JButton createNavButton(String text, String panelName) {
-        JButton btn = new JButton(text) {
-            boolean isActive = false;
+    private JLabel makeMenuSection(String text) {
+        JLabel l = new JLabel("  " + text);
+        l.setFont(new Font("Segoe UI", Font.BOLD, 9));
+        l.setForeground(TEXT_DIM);
+        l.setAlignmentX(Component.LEFT_ALIGNMENT);
+        return l;
+    }
+
+    private JButton buildNavButton(String icon, String label, String panelName) {
+        JButton btn = new JButton() {
+            boolean active = false;
+
             @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g;
+                Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                if (isActive) {
-                    g2.setColor(new Color(37, 99, 235, 60));
-                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
-                    g2.setColor(new Color(59, 130, 246));
-                    g2.fillRoundRect(0, 4, 3, getHeight() - 8, 4, 4);
+
+                if (active) {
+                    // Active state: blue tinted background + left accent bar
+                    g2.setColor(SIDEBAR_ACTIVE);
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                    GradientPaint gp = new GradientPaint(0, 0, ACCENT_BLUE, 0, getHeight(), ACCENT_INDIGO);
+                    g2.setPaint(gp);
+                    g2.fillRoundRect(0, 2, 3, getHeight() - 4, 3, 3);
                 } else if (getModel().isRollover()) {
-                    g2.setColor(new Color(51, 65, 85, 80));
-                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                    g2.setColor(SIDEBAR_HOVER);
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
                 }
-                g2.setColor(isActive ? new Color(147, 197, 253) : new Color(148, 163, 184));
-                g2.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-                FontMetrics fm = g2.getFontMetrics();
-                g2.drawString(getText(), 14, (getHeight() + fm.getAscent() - fm.getDescent()) / 2);
+
+                // Icon
+                g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 16));
+                g2.setColor(active ? new Color(147, 197, 253) : TEXT_MUTED);
+                g2.drawString(icon, 14, getHeight() / 2 + 6);
+
+                // Label
+                g2.setFont(new Font("Segoe UI", Font.PLAIN + (active ? Font.BOLD : 0), 13));
+                g2.setColor(active ? new Color(219, 234, 254) : TEXT_MUTED);
+                g2.drawString(label, 42, getHeight() / 2 + 5);
+
+                g2.dispose();
             }
-            public void setActive(boolean a) { isActive = a; repaint(); }
-            public boolean getActiveState() { return isActive; }
+
+            public void setActive(boolean a) { active = a; repaint(); }
+            public boolean isActive() { return active; }
         };
-        btn.setPreferredSize(new Dimension(196, 40));
-        btn.setMaximumSize(new Dimension(196, 40));
+        btn.setPreferredSize(new Dimension(216, 42));
+        btn.setMaximumSize(new Dimension(216, 42));
         btn.setBorderPainted(false);
         btn.setContentAreaFilled(false);
         btn.setFocusPainted(false);
@@ -234,15 +239,119 @@ public class MainFrame extends JFrame {
         return btn;
     }
 
+    private JPanel buildUserCard() {
+        JwtHelper jwt = JwtHelper.getInstance();
+
+        JPanel panel = new JPanel() {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setColor(BORDER_COLOR);
+                g2.fillRect(0, 0, getWidth(), 1);
+                g2.dispose();
+            }
+        };
+        panel.setOpaque(false);
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setBorder(new EmptyBorder(12, 14, 16, 14));
+
+        // User avatar + info
+        JPanel userRow = new JPanel(new BorderLayout(10, 0));
+        userRow.setOpaque(false);
+        userRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        userRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
+
+        // Avatar circle
+        JLabel avatar = new JLabel() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                Color avatarColor = jwt.isAdmin() ? new Color(59, 130, 246) : new Color(34, 197, 94);
+                g2.setColor(avatarColor.darker());
+                g2.fillOval(0, 0, 38, 38);
+                g2.setColor(avatarColor);
+                g2.fillOval(2, 2, 34, 34);
+                g2.setColor(Color.WHITE);
+                g2.setFont(new Font("Segoe UI", Font.BOLD, 14));
+                String initial = jwt.getUsername().substring(0, 1).toUpperCase();
+                FontMetrics fm = g2.getFontMetrics();
+                g2.drawString(initial, (38 - fm.stringWidth(initial)) / 2, 25);
+                g2.dispose();
+            }
+            @Override public Dimension getPreferredSize() { return new Dimension(38, 38); }
+            @Override public Dimension getMinimumSize() { return new Dimension(38, 38); }
+        };
+
+        JPanel userInfo = new JPanel();
+        userInfo.setOpaque(false);
+        userInfo.setLayout(new BoxLayout(userInfo, BoxLayout.Y_AXIS));
+
+        JLabel lblUsername = new JLabel(jwt.getUsername());
+        lblUsername.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblUsername.setForeground(TEXT_PRIMARY);
+
+        // Role badge
+        JLabel lblRole = new JLabel("  " + jwt.getRole().toUpperCase() + "  ") {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                Color roleColor = jwt.isAdmin() ? new Color(59, 130, 246) : new Color(34, 197, 94);
+                g2.setColor(new Color(roleColor.getRed(), roleColor.getGreen(), roleColor.getBlue(), 30));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                super.paintComponent(g);
+                g2.dispose();
+            }
+        };
+        lblRole.setFont(new Font("Segoe UI", Font.BOLD, 9));
+        lblRole.setForeground(jwt.isAdmin() ? ACCENT_BLUE : new Color(34, 197, 94));
+        lblRole.setOpaque(false);
+
+        userInfo.add(lblUsername);
+        userInfo.add(Box.createVerticalStrut(2));
+        userInfo.add(lblRole);
+
+        userRow.add(avatar, BorderLayout.WEST);
+        userRow.add(userInfo, BorderLayout.CENTER);
+
+        // Logout button
+        JButton btnLogout = new JButton("Keluar") {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                Color bg = getModel().isRollover() ? new Color(185, 28, 28) : new Color(127, 29, 29, 180);
+                g2.setColor(bg);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.setColor(new Color(252, 165, 165));
+                g2.setFont(new Font("Segoe UI", Font.BOLD, 11));
+                FontMetrics fm = g2.getFontMetrics();
+                String txt = "⏻  Keluar";
+                g2.drawString(txt, (getWidth() - fm.stringWidth(txt)) / 2,
+                        (getHeight() + fm.getAscent() - fm.getDescent()) / 2);
+                g2.dispose();
+            }
+        };
+        btnLogout.setPreferredSize(new Dimension(212, 34));
+        btnLogout.setMaximumSize(new Dimension(Integer.MAX_VALUE, 34));
+        btnLogout.setBorderPainted(false);
+        btnLogout.setContentAreaFilled(false);
+        btnLogout.setFocusPainted(false);
+        btnLogout.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnLogout.setAlignmentX(Component.LEFT_ALIGNMENT);
+        btnLogout.addActionListener(e -> doLogout());
+
+        panel.add(userRow);
+        panel.add(Box.createVerticalStrut(10));
+        panel.add(btnLogout);
+        return panel;
+    }
+
     private void setActiveButton(JButton btn) {
         if (activeBtn != null) {
-            try {
-                activeBtn.getClass().getMethod("setActive", boolean.class).invoke(activeBtn, false);
-            } catch (Exception ignored) {}
+            try { activeBtn.getClass().getMethod("setActive", boolean.class).invoke(activeBtn, false); }
+            catch (Exception ignored) {}
         }
-        try {
-            btn.getClass().getMethod("setActive", boolean.class).invoke(btn, true);
-        } catch (Exception ignored) {}
+        try { btn.getClass().getMethod("setActive", boolean.class).invoke(btn, true); }
+        catch (Exception ignored) {}
         activeBtn = btn;
     }
 

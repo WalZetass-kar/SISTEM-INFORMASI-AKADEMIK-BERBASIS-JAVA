@@ -13,7 +13,6 @@ import java.awt.event.*;
 
 /**
  * MahasiswaPanel - CRUD Data Mahasiswa
- * Menampilkan tabel mahasiswa dengan search & CRUD form
  */
 public class MahasiswaPanel extends JPanel {
 
@@ -25,15 +24,30 @@ public class MahasiswaPanel extends JPanel {
     private final int PAGE_SIZE = 15;
     private JButton btnPrev, btnNext;
 
+    // Warna tema
+    private static final Color BG           = new Color(13, 19, 38);
+    private static final Color CARD_BG      = new Color(18, 26, 48);
+    private static final Color TABLE_BG     = new Color(15, 22, 42);
+    private static final Color HEADER_BG    = new Color(10, 15, 30);
+    private static final Color BORDER_COLOR = new Color(25, 36, 65);
+    private static final Color ROW_ALT      = new Color(20, 29, 52);
+    private static final Color TEXT_PRIMARY = new Color(248, 250, 252);
+    private static final Color TEXT_MUTED   = new Color(148, 163, 184);
+    private static final Color TEXT_DIM     = new Color(71, 85, 105);
+    private static final Color BLUE         = new Color(59, 130, 246);
+    private static final Color GREEN        = new Color(34, 197, 94);
+    private static final Color YELLOW       = new Color(234, 179, 8);
+    private static final Color RED          = new Color(239, 68, 68);
+
     public MahasiswaPanel() {
-        setBackground(new Color(15, 23, 42));
+        setBackground(BG);
         setLayout(new BorderLayout());
         initUI();
         loadData();
     }
 
     private void initUI() {
-        // Header
+        // ── Header ──
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
         header.setBorder(new EmptyBorder(28, 28, 16, 28));
@@ -42,44 +56,66 @@ public class MahasiswaPanel extends JPanel {
         titleBlock.setOpaque(false);
         titleBlock.setLayout(new BoxLayout(titleBlock, BoxLayout.Y_AXIS));
         JLabel lblTitle = new JLabel("Data Mahasiswa");
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 22));
-        lblTitle.setForeground(new Color(248, 250, 252));
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 26));
+        lblTitle.setForeground(TEXT_PRIMARY);
         JLabel lblSub = new JLabel("Kelola data mahasiswa terdaftar");
         lblSub.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        lblSub.setForeground(new Color(100, 116, 139));
+        lblSub.setForeground(TEXT_MUTED);
         titleBlock.add(lblTitle);
+        titleBlock.add(Box.createVerticalStrut(2));
         titleBlock.add(lblSub);
 
         // Search & actions
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         actions.setOpaque(false);
 
-        txtSearch = new JTextField(18);
-        txtSearch.setBackground(new Color(30, 41, 59));
-        txtSearch.setForeground(new Color(203, 213, 225));
-        txtSearch.setCaretColor(Color.WHITE);
-        txtSearch.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(51, 65, 85), 1),
-                new EmptyBorder(6, 10, 6, 10)));
+        // Search box with icon
+        JPanel searchBox = new JPanel(new BorderLayout()) {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(CARD_BG);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.setColor(BORDER_COLOR);
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 8, 8);
+                g2.dispose();
+            }
+        };
+        searchBox.setOpaque(false);
+        searchBox.setPreferredSize(new Dimension(240, 36));
+
+        JLabel searchIcon = new JLabel("🔍");
+        searchIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 13));
+        searchIcon.setBorder(new EmptyBorder(0, 10, 0, 4));
+
+        txtSearch = new JTextField();
+        txtSearch.setOpaque(false);
+        txtSearch.setBackground(new Color(0, 0, 0, 0));
+        txtSearch.setForeground(TEXT_PRIMARY);
+        txtSearch.setCaretColor(TEXT_PRIMARY);
+        txtSearch.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 8));
         txtSearch.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         txtSearch.setToolTipText("Cari NIM, nama, atau email...");
-
-        JButton btnSearch = createBtn("🔍 Cari", new Color(59, 130, 246));
-        btnSearch.addActionListener(e -> { currentPage = 1; loadData(); });
         txtSearch.addKeyListener(new KeyAdapter() {
             @Override public void keyPressed(KeyEvent e) {
                 if (e.getKeyCode() == KeyEvent.VK_ENTER) { currentPage = 1; loadData(); }
             }
         });
 
-        JButton btnRefresh = createBtn("🔄", new Color(30, 41, 59));
-        btnRefresh.addActionListener(e -> { txtSearch.setText(""); currentPage = 1; loadData(); });
+        searchBox.add(searchIcon, BorderLayout.WEST);
+        searchBox.add(txtSearch, BorderLayout.CENTER);
 
-        JButton btnTambah = createBtn("➕ Tambah", new Color(34, 197, 94));
+        JButton btnSearch  = buildBtn("Cari", BLUE);
+        JButton btnRefresh = buildBtn("🔄", CARD_BG);
+        JButton btnTambah  = buildBtn("＋  Tambah Mahasiswa", GREEN);
+
+        btnSearch.addActionListener(e -> { currentPage = 1; loadData(); });
+        btnRefresh.addActionListener(e -> { txtSearch.setText(""); currentPage = 1; loadData(); });
         btnTambah.addActionListener(e -> showForm(null));
         btnTambah.setVisible(JwtHelper.getInstance().isAdmin());
 
-        actions.add(txtSearch);
+        actions.add(searchBox);
         actions.add(btnSearch);
         actions.add(btnRefresh);
         actions.add(btnTambah);
@@ -87,38 +123,62 @@ public class MahasiswaPanel extends JPanel {
         header.add(titleBlock, BorderLayout.WEST);
         header.add(actions, BorderLayout.EAST);
 
-        // Table
+        // ── Table ──
         String[] columns = {"NIM", "Nama", "Jurusan", "Program Studi", "Angkatan", "Semester", "Status", "Aksi"};
         tableModel = new DefaultTableModel(columns, 0) {
             @Override public boolean isCellEditable(int row, int col) { return col == 7; }
         };
-        table = new JTable(tableModel);
+        table = new JTable(tableModel) {
+            @Override public Component prepareRenderer(TableCellRenderer renderer, int row, int col) {
+                Component c = super.prepareRenderer(renderer, row, col);
+                if (!isRowSelected(row)) {
+                    c.setBackground(row % 2 == 0 ? TABLE_BG : ROW_ALT);
+                }
+                return c;
+            }
+        };
         styleTable(table);
 
-        // Action column renderer & editor
-        table.getColumnModel().getColumn(7).setCellRenderer(new ActionButtonRenderer());
-        table.getColumnModel().getColumn(7).setCellEditor(new ActionButtonEditor(new JCheckBox(), true));
-        table.getColumnModel().getColumn(7).setMinWidth(120);
-        table.getColumnModel().getColumn(7).setMaxWidth(120);
+        table.getColumnModel().getColumn(6).setCellRenderer(new StatusBadgeRenderer());
+        table.getColumnModel().getColumn(7).setCellRenderer(new ActionRenderer());
+        table.getColumnModel().getColumn(7).setCellEditor(new ActionEditor());
+        table.getColumnModel().getColumn(7).setMinWidth(130);
+        table.getColumnModel().getColumn(7).setMaxWidth(130);
 
         JScrollPane scrollPane = new JScrollPane(table);
-        scrollPane.setBackground(new Color(22, 33, 54));
-        scrollPane.getViewport().setBackground(new Color(22, 33, 54));
-        scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        scrollPane.setBackground(TABLE_BG);
+        scrollPane.getViewport().setBackground(TABLE_BG);
+        scrollPane.setBorder(null);
 
-        // Footer: pagination
+        JPanel tableCard = new JPanel(new BorderLayout()) {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(CARD_BG);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
+                g2.setColor(BORDER_COLOR);
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 12, 12);
+                g2.dispose();
+            }
+        };
+        tableCard.setOpaque(false);
+        tableCard.setBorder(new EmptyBorder(0, 28, 0, 28));
+        tableCard.add(scrollPane, BorderLayout.CENTER);
+
+        // ── Footer ──
         JPanel footer = new JPanel(new BorderLayout());
         footer.setOpaque(false);
-        footer.setBorder(new EmptyBorder(8, 28, 12, 28));
+        footer.setBorder(new EmptyBorder(10, 28, 14, 28));
 
         lblTotal = new JLabel("Total: 0 mahasiswa");
         lblTotal.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        lblTotal.setForeground(new Color(100, 116, 139));
+        lblTotal.setForeground(TEXT_DIM);
 
-        JPanel pagination = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
+        JPanel pagination = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
         pagination.setOpaque(false);
-        btnPrev = createBtn("◀ Prev", new Color(30, 41, 59));
-        btnNext = createBtn("Next ▶", new Color(30, 41, 59));
+        btnPrev = buildPagBtn("◀  Prev");
+        btnNext = buildPagBtn("Next  ▶");
         btnPrev.addActionListener(e -> { if (currentPage > 1) { currentPage--; loadData(); }});
         btnNext.addActionListener(e -> { currentPage++; loadData(); });
         pagination.add(btnPrev);
@@ -127,14 +187,6 @@ public class MahasiswaPanel extends JPanel {
         footer.add(lblTotal, BorderLayout.WEST);
         footer.add(pagination, BorderLayout.EAST);
 
-        // Table container
-        JPanel tableCard = new JPanel(new BorderLayout());
-        tableCard.setBackground(new Color(22, 33, 54));
-        tableCard.setBorder(BorderFactory.createCompoundBorder(
-                new EmptyBorder(0, 28, 0, 28),
-                BorderFactory.createLineBorder(new Color(30, 41, 59), 1)));
-        tableCard.add(scrollPane, BorderLayout.CENTER);
-
         add(header, BorderLayout.NORTH);
         add(tableCard, BorderLayout.CENTER);
         add(footer, BorderLayout.SOUTH);
@@ -142,7 +194,7 @@ public class MahasiswaPanel extends JPanel {
 
     private void loadData() {
         String search = txtSearch.getText().trim();
-        SwingWorker<JsonObject, Void> worker = new SwingWorker<>() {
+        new SwingWorker<JsonObject, Void>() {
             @Override protected JsonObject doInBackground() throws Exception {
                 return MahasiswaService.getAll(currentPage, PAGE_SIZE, search);
             }
@@ -155,22 +207,21 @@ public class MahasiswaPanel extends JPanel {
                         JsonObject pag = resp.getAsJsonObject("pagination");
                         int total = pag.get("total").getAsInt();
                         int totalPages = pag.get("totalPages").getAsInt();
-
-                        lblTotal.setText("Total: " + total + " mahasiswa | Halaman " + currentPage + " / " + totalPages);
+                        lblTotal.setText("Menampilkan " + data.size() + " dari " + total + " mahasiswa  |  Halaman " + currentPage + " / " + totalPages);
                         btnPrev.setEnabled(currentPage > 1);
                         btnNext.setEnabled(currentPage < totalPages);
 
                         for (int i = 0; i < data.size(); i++) {
                             JsonObject m = data.get(i).getAsJsonObject();
                             tableModel.addRow(new Object[]{
-                                    m.get("nim").getAsString(),
-                                    m.get("nama").getAsString(),
-                                    m.has("jurusan") && !m.get("jurusan").isJsonNull() ? m.get("jurusan").getAsString() : "-",
-                                    m.has("program_studi") && !m.get("program_studi").isJsonNull() ? m.get("program_studi").getAsString() : "-",
-                                    m.has("angkatan") && !m.get("angkatan").isJsonNull() ? m.get("angkatan").getAsString() : "-",
-                                    m.has("semester") ? m.get("semester").getAsString() : "-",
-                                    m.has("status") ? m.get("status").getAsString() : "aktif",
-                                    "aksi"
+                                m.get("nim").getAsString(),
+                                m.get("nama").getAsString(),
+                                safe(m, "jurusan"),
+                                safe(m, "program_studi"),
+                                safe(m, "angkatan"),
+                                m.has("semester") ? m.get("semester").getAsString() : "-",
+                                m.has("status") ? m.get("status").getAsString() : "aktif",
+                                "aksi"
                             });
                         }
                     }
@@ -179,40 +230,37 @@ public class MahasiswaPanel extends JPanel {
                             "Gagal memuat data: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                 }
             }
-        };
-        worker.execute();
+        }.execute();
     }
 
     private void showForm(String nim) {
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this),
                 nim == null ? "Tambah Mahasiswa" : "Edit Mahasiswa", true);
-        dialog.setSize(480, 520);
+        dialog.setSize(500, 560);
         dialog.setLocationRelativeTo(this);
-        dialog.setBackground(new Color(22, 33, 54));
 
         JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBackground(new Color(22, 33, 54));
-        panel.setBorder(new EmptyBorder(20, 24, 20, 24));
+        panel.setBackground(CARD_BG);
+        panel.setBorder(new EmptyBorder(24, 28, 24, 28));
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.insets = new Insets(5, 4, 5, 4);
         gbc.weightx = 1;
 
-        JTextField fNim    = createFormField(); fNim.setEnabled(nim == null);
-        JTextField fNama   = createFormField();
-        JTextField fEmail  = createFormField();
-        JTextField fTelp   = createFormField();
-        JTextField fJurusan= createFormField();
-        JTextField fProdi  = createFormField();
-        JTextField fAngkatan = createFormField();
-        JTextField fSemester = createFormField();
+        JTextField fNim      = makeField(); fNim.setEnabled(nim == null);
+        JTextField fNama     = makeField();
+        JTextField fEmail    = makeField();
+        JTextField fTelp     = makeField();
+        JTextField fJurusan  = makeField();
+        JTextField fProdi    = makeField();
+        JTextField fAngkatan = makeField();
+        JTextField fSemester = makeField();
         JComboBox<String> cmbStatus = new JComboBox<>(new String[]{"aktif", "cuti", "lulus", "drop_out"});
-        cmbStatus.setBackground(new Color(30, 41, 59)); cmbStatus.setForeground(Color.WHITE);
-        JTextField fPassword = nim == null ? createFormField() : null;
+        styleCombo(cmbStatus);
+        JTextField fPassword = nim == null ? makeField() : null;
 
-        // Pre-fill if edit
         if (nim != null) {
-            SwingWorker<JsonObject, Void> w = new SwingWorker<>() {
+            new SwingWorker<JsonObject, Void>() {
                 @Override protected JsonObject doInBackground() throws Exception { return MahasiswaService.getByNim(nim); }
                 @Override protected void done() {
                     try {
@@ -231,25 +279,26 @@ public class MahasiswaPanel extends JPanel {
                         }
                     } catch (Exception ignored) {}
                 }
-            };
-            w.execute();
+            }.execute();
         }
 
-        addFormRow(panel, gbc, 0, "NIM *", fNim);
-        addFormRow(panel, gbc, 1, "Nama Lengkap *", fNama);
-        addFormRow(panel, gbc, 2, "Email", fEmail);
-        addFormRow(panel, gbc, 3, "No. Telp", fTelp);
-        addFormRow(panel, gbc, 4, "Jurusan", fJurusan);
-        addFormRow(panel, gbc, 5, "Program Studi", fProdi);
-        addFormRow(panel, gbc, 6, "Angkatan", fAngkatan);
-        addFormRow(panel, gbc, 7, "Semester", fSemester);
-        gbc.gridx = 0; gbc.gridy = 8;
-        panel.add(makeLabel("Status"), gbc);
-        gbc.gridx = 1;
-        panel.add(cmbStatus, gbc);
-        if (nim == null) addFormRow(panel, gbc, 9, "Password (default=NIM)", fPassword);
+        int r = 0;
+        addRow(panel, gbc, r++, "NIM *", fNim);
+        addRow(panel, gbc, r++, "Nama Lengkap *", fNama);
+        addRow(panel, gbc, r++, "Email", fEmail);
+        addRow(panel, gbc, r++, "No. Telp", fTelp);
+        addRow(panel, gbc, r++, "Jurusan", fJurusan);
+        addRow(panel, gbc, r++, "Program Studi", fProdi);
+        addRow(panel, gbc, r++, "Angkatan", fAngkatan);
+        addRow(panel, gbc, r++, "Semester", fSemester);
+        gbc.gridx = 0; gbc.gridy = r; panel.add(makeLabel("Status"), gbc);
+        gbc.gridx = 1; panel.add(cmbStatus, gbc); r++;
+        if (nim == null) addRow(panel, gbc, r++, "Password (default=NIM)", fPassword);
 
-        JButton btnSave = createBtn(nim == null ? "Simpan" : "Update", new Color(59, 130, 246));
+        JButton btnSave = buildBtn(nim == null ? "💾  Simpan" : "💾  Update", BLUE);
+        gbc.gridx = 0; gbc.gridy = r; gbc.gridwidth = 2; gbc.insets = new Insets(18, 4, 4, 4);
+        panel.add(btnSave, gbc);
+
         btnSave.addActionListener(e -> {
             JsonObject body = new JsonObject();
             body.addProperty("nim", fNim.getText().trim());
@@ -263,145 +312,211 @@ public class MahasiswaPanel extends JPanel {
             body.addProperty("status", (String) cmbStatus.getSelectedItem());
             if (nim == null && fPassword != null) body.addProperty("password", fPassword.getText().trim());
 
-            SwingWorker<JsonObject, Void> sw = new SwingWorker<>() {
+            new SwingWorker<JsonObject, Void>() {
                 @Override protected JsonObject doInBackground() throws Exception {
                     return nim == null ? MahasiswaService.create(body) : MahasiswaService.update(nim, body);
                 }
                 @Override protected void done() {
                     try {
-                        JsonObject r = get();
-                        if (r.get("success").getAsBoolean()) {
-                            JOptionPane.showMessageDialog(dialog, r.get("message").getAsString(), "Sukses", JOptionPane.INFORMATION_MESSAGE);
+                        JsonObject res = get();
+                        if (res.get("success").getAsBoolean()) {
+                            JOptionPane.showMessageDialog(dialog, res.get("message").getAsString(), "Sukses", JOptionPane.INFORMATION_MESSAGE);
                             dialog.dispose(); loadData();
                         } else {
-                            JOptionPane.showMessageDialog(dialog, r.get("message").getAsString(), "Gagal", JOptionPane.ERROR_MESSAGE);
+                            JOptionPane.showMessageDialog(dialog, res.get("message").getAsString(), "Gagal", JOptionPane.ERROR_MESSAGE);
                         }
                     } catch (Exception ex) {
                         JOptionPane.showMessageDialog(dialog, "Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                     }
                 }
-            };
-            sw.execute();
+            }.execute();
         });
 
-        gbc.gridx = 0; gbc.gridy = 10; gbc.gridwidth = 2; gbc.insets = new Insets(16, 4, 4, 4);
-        panel.add(btnSave, gbc);
-
-        dialog.add(new JScrollPane(panel) {{ setBorder(null); }});
+        dialog.add(new JScrollPane(panel) {{ setBorder(null); getViewport().setBackground(CARD_BG); }});
         dialog.setVisible(true);
     }
 
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    private String safe(JsonObject o, String k) {
+        return o.has(k) && !o.get(k).isJsonNull() ? o.get(k).getAsString() : "-";
+    }
+
     private void styleTable(JTable t) {
-        t.setBackground(new Color(22, 33, 54));
-        t.setForeground(new Color(203, 213, 225));
-        t.setSelectionBackground(new Color(37, 99, 235, 80));
+        t.setBackground(TABLE_BG);
+        t.setForeground(TEXT_PRIMARY);
+        t.setSelectionBackground(new Color(59, 130, 246, 60));
         t.setSelectionForeground(Color.WHITE);
-        t.setGridColor(new Color(30, 41, 59));
-        t.setRowHeight(40);
+        t.setGridColor(new Color(20, 30, 55));
+        t.setRowHeight(42);
         t.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         t.setShowGrid(true);
-        t.setIntercellSpacing(new Dimension(1, 1));
+        t.setIntercellSpacing(new Dimension(0, 1));
         t.setFillsViewportHeight(true);
 
         JTableHeader th = t.getTableHeader();
-        th.setBackground(new Color(15, 23, 42));
-        th.setForeground(new Color(148, 163, 184));
+        th.setBackground(HEADER_BG);
+        th.setForeground(TEXT_MUTED);
         th.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        th.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(30, 41, 59)));
+        th.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, BORDER_COLOR));
         th.setReorderingAllowed(false);
+        th.setPreferredSize(new Dimension(0, 40));
     }
 
-    private void addFormRow(JPanel p, GridBagConstraints g, int row, String label, JTextField field) {
+    private JTextField makeField() {
+        JTextField f = new JTextField();
+        f.setBackground(new Color(13, 19, 38));
+        f.setForeground(TEXT_PRIMARY);
+        f.setCaretColor(TEXT_PRIMARY);
+        f.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BORDER_COLOR, 1),
+                new EmptyBorder(7, 10, 7, 10)));
+        f.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        f.setPreferredSize(new Dimension(240, 34));
+        return f;
+    }
+
+    private JLabel makeLabel(String text) {
+        JLabel l = new JLabel(text);
+        l.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        l.setForeground(TEXT_MUTED);
+        return l;
+    }
+
+    private void addRow(JPanel p, GridBagConstraints g, int row, String label, JComponent field) {
         g.gridx = 0; g.gridy = row; g.gridwidth = 1;
         p.add(makeLabel(label), g);
         g.gridx = 1;
         p.add(field, g);
     }
 
-    private JLabel makeLabel(String text) {
-        JLabel l = new JLabel(text);
-        l.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        l.setForeground(new Color(148, 163, 184));
-        return l;
+    private void styleCombo(JComboBox<String> c) {
+        c.setBackground(new Color(13, 19, 38));
+        c.setForeground(TEXT_PRIMARY);
+        c.setFont(new Font("Segoe UI", Font.PLAIN, 12));
     }
 
-    private JTextField createFormField() {
-        JTextField f = new JTextField();
-        f.setBackground(new Color(30, 41, 59));
-        f.setForeground(Color.WHITE);
-        f.setCaretColor(Color.WHITE);
-        f.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(51, 65, 85), 1),
-                new EmptyBorder(6, 10, 6, 10)));
-        f.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        f.setPreferredSize(new Dimension(220, 32));
-        return f;
+    private JButton buildBtn(String text, Color bg) {
+        JButton btn = new JButton(text) {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                Color c = getModel().isRollover() ? bg.brighter() : bg;
+                g2.setColor(c);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.setColor(Color.WHITE);
+                g2.setFont(new Font("Segoe UI", Font.BOLD, 12));
+                FontMetrics fm = g2.getFontMetrics();
+                g2.drawString(getText(), (getWidth() - fm.stringWidth(getText())) / 2,
+                        (getHeight() + fm.getAscent() - fm.getDescent()) / 2);
+                g2.dispose();
+            }
+        };
+        btn.setPreferredSize(new Dimension(text.length() > 4 ? 160 : 50, 36));
+        btn.setBorderPainted(false);
+        btn.setContentAreaFilled(false);
+        btn.setFocusPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        return btn;
     }
 
-    private JButton createBtn(String text, Color bg) {
+    private JButton buildPagBtn(String text) {
         JButton btn = new JButton(text);
-        btn.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        btn.setForeground(Color.WHITE);
-        btn.setBackground(bg);
+        btn.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        btn.setForeground(TEXT_MUTED);
+        btn.setBackground(CARD_BG);
         btn.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(bg.darker(), 1),
-                new EmptyBorder(7, 14, 7, 14)));
+                BorderFactory.createLineBorder(BORDER_COLOR, 1),
+                new EmptyBorder(5, 12, 5, 12)));
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btn.setFocusPainted(false);
         return btn;
     }
 
-    // ---- Action Button Renderer/Editor for table ----
-    class ActionButtonRenderer extends JPanel implements TableCellRenderer {
-        private final JButton btnDetail = new JButton("Detail");
-        private final JButton btnEdit   = new JButton("Edit");
-        ActionButtonRenderer() {
-            setLayout(new FlowLayout(FlowLayout.CENTER, 2, 4));
-            setOpaque(false);
-            btnDetail.setFont(new Font("Segoe UI", Font.PLAIN, 10));
-            btnDetail.setBackground(new Color(30, 41, 59));
-            btnDetail.setForeground(Color.WHITE); btnDetail.setBorderPainted(false); btnDetail.setFocusPainted(false);
-            btnEdit.setFont(new Font("Segoe UI", Font.PLAIN, 10));
-            btnEdit.setBackground(new Color(37, 99, 235));
-            btnEdit.setForeground(Color.WHITE); btnEdit.setBorderPainted(false); btnEdit.setFocusPainted(false);
-            add(btnDetail); add(btnEdit);
-        }
+    // ── Status Badge Renderer ─────────────────────────────────────────────────
+    class StatusBadgeRenderer extends DefaultTableCellRenderer {
         @Override public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean foc, int r, int c) {
-            setBackground(sel ? new Color(37, 99, 235, 40) : new Color(22, 33, 54));
-            return this;
+            JLabel lbl = new JLabel(String.valueOf(v), SwingConstants.CENTER) {
+                @Override protected void paintComponent(Graphics g) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    Color bg = getBadgeColor(String.valueOf(v));
+                    g2.setColor(new Color(bg.getRed(), bg.getGreen(), bg.getBlue(), 30));
+                    g2.fillRoundRect(2, 4, getWidth() - 4, getHeight() - 8, 10, 10);
+                    g2.setColor(bg);
+                    g2.drawRoundRect(2, 4, getWidth() - 5, getHeight() - 9, 10, 10);
+                    super.paintComponent(g);
+                    g2.dispose();
+                }
+            };
+            lbl.setFont(new Font("Segoe UI", Font.BOLD, 10));
+            lbl.setForeground(getBadgeColor(String.valueOf(v)));
+            lbl.setOpaque(false);
+            lbl.setBackground(sel ? new Color(59, 130, 246, 60) : (r % 2 == 0 ? TABLE_BG : ROW_ALT));
+            return lbl;
+        }
+        private Color getBadgeColor(String status) {
+            return switch (status.toLowerCase()) {
+                case "aktif"    -> GREEN;
+                case "cuti"     -> YELLOW;
+                case "lulus"    -> BLUE;
+                case "drop_out" -> RED;
+                default         -> TEXT_MUTED;
+            };
         }
     }
 
-    class ActionButtonEditor extends DefaultCellEditor {
-        private final JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 2, 4));
-        private final JButton btnDetail = new JButton("Detail");
-        private final JButton btnEdit   = new JButton("Edit");
+    // ── Action Renderer ───────────────────────────────────────────────────────
+    class ActionRenderer extends JPanel implements TableCellRenderer {
+        ActionRenderer() {
+            setLayout(new FlowLayout(FlowLayout.CENTER, 4, 6));
+            setOpaque(false);
+        }
+        @Override public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean foc, int r, int c) {
+            removeAll();
+            add(makeActionBtn("Detail", new Color(30, 41, 70)));
+            if (JwtHelper.getInstance().isAdmin()) add(makeActionBtn("Edit", BLUE));
+            setBackground(sel ? new Color(59, 130, 246, 40) : (r % 2 == 0 ? TABLE_BG : ROW_ALT));
+            return this;
+        }
+        private JButton makeActionBtn(String text, Color bg) {
+            JButton b = new JButton(text);
+            b.setFont(new Font("Segoe UI", Font.BOLD, 10));
+            b.setForeground(Color.WHITE);
+            b.setBackground(bg);
+            b.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(bg.darker(), 1),
+                    new EmptyBorder(3, 8, 3, 8)));
+            b.setFocusPainted(false);
+            return b;
+        }
+    }
+
+    // ── Action Editor ─────────────────────────────────────────────────────────
+    class ActionEditor extends DefaultCellEditor {
+        private final JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 6));
+        private final JButton btnDetail = makeActionBtn("Detail", new Color(30, 41, 70));
+        private final JButton btnEdit   = makeActionBtn("Edit", BLUE);
         private String nim;
-        private final boolean isAdminUser;
 
-        ActionButtonEditor(JCheckBox chk, boolean isAdmin) {
-            super(chk);
-            isAdminUser = isAdmin;
-            panel.setBackground(new Color(22, 33, 54));
-            styleActionBtn(btnDetail, new Color(30, 41, 59));
-            styleActionBtn(btnEdit, new Color(37, 99, 235));
+        ActionEditor() {
+            super(new JCheckBox());
+            panel.setBackground(TABLE_BG);
             panel.add(btnDetail);
-            if (isAdminUser) panel.add(btnEdit);
-
-            btnDetail.addActionListener(e -> {
-                fireEditingStopped();
-                if (nim != null) showForm(nim);
-            });
-            btnEdit.addActionListener(e -> {
-                fireEditingStopped();
-                if (nim != null) showForm(nim);
-            });
+            if (JwtHelper.getInstance().isAdmin()) panel.add(btnEdit);
+            btnDetail.addActionListener(e -> { fireEditingStopped(); if (nim != null) showForm(nim); });
+            btnEdit.addActionListener(e -> { fireEditingStopped(); if (nim != null) showForm(nim); });
         }
 
-        void styleActionBtn(JButton btn, Color bg) {
-            btn.setFont(new Font("Segoe UI", Font.PLAIN, 10));
-            btn.setBackground(bg); btn.setForeground(Color.WHITE);
-            btn.setBorderPainted(false); btn.setFocusPainted(false);
+        private JButton makeActionBtn(String text, Color bg) {
+            JButton b = new JButton(text);
+            b.setFont(new Font("Segoe UI", Font.BOLD, 10));
+            b.setForeground(Color.WHITE);
+            b.setBackground(bg);
+            b.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(bg.darker(), 1),
+                    new EmptyBorder(3, 8, 3, 8)));
+            b.setFocusPainted(false);
+            return b;
         }
 
         @Override public Component getTableCellEditorComponent(JTable t, Object v, boolean sel, int r, int c) {
