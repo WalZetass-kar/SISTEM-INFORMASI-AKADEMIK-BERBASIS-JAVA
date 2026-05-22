@@ -84,6 +84,7 @@ CREATE TABLE IF NOT EXISTS jadwal (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_jadwal_hari (hari),
+  UNIQUE KEY uk_jadwal (kode_mk, hari, jam_mulai, jam_selesai, ruangan),
   FOREIGN KEY (kode_mk) REFERENCES mata_kuliah(kode_mk) ON UPDATE CASCADE ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
@@ -207,6 +208,67 @@ INSERT INTO users (username, password, role, nim) VALUES
   ('2024004', '$2b$10$l/rSkV59cHSqmzUFH1Zgee5.LTgmBIXDzdFP5Z3DUElE6cq5Gvhwe', 'mahasiswa', '2024004'),
   ('2024005', '$2b$10$l/rSkV59cHSqmzUFH1Zgee5.LTgmBIXDzdFP5Z3DUElE6cq5Gvhwe', 'mahasiswa', '2024005')
 ON DUPLICATE KEY UPDATE password = VALUES(password), role = VALUES(role), nim = VALUES(nim);
+
+-- Sample mata kuliah
+INSERT INTO mata_kuliah (kode_mk, nama_mk, sks, semester, jurusan, dosen_pengampu) VALUES
+  ('IF201', 'Algoritma dan Pemrograman', 3, 2, 'Teknik Informatika', 'Dr. Adi Nugroho'),
+  ('IF202', 'Basis Data', 3, 2, 'Teknik Informatika', 'Rina Kurnia, M.Kom'),
+  ('SI301', 'Analisis Sistem Informasi', 3, 4, 'Sistem Informasi', 'Fajar Prakoso, M.Kom'),
+  ('SI302', 'Pemrograman Web', 3, 4, 'Sistem Informasi', 'Dewi Anggraini, M.Kom'),
+  ('UM101', 'Pancasila', 2, 2, 'Umum', 'Dr. Hadi Santoso')
+ON DUPLICATE KEY UPDATE
+  nama_mk = VALUES(nama_mk),
+  sks = VALUES(sks),
+  semester = VALUES(semester),
+  jurusan = VALUES(jurusan),
+  dosen_pengampu = VALUES(dosen_pengampu);
+
+-- Sample jadwal
+INSERT INTO jadwal (kode_mk, hari, jam_mulai, jam_selesai, ruangan, dosen)
+SELECT 'IF201', 'senin', '08:00:00', '10:00:00', 'Lab 201', 'Dr. Adi Nugroho'
+WHERE NOT EXISTS (
+  SELECT 1 FROM jadwal
+  WHERE kode_mk = 'IF201' AND hari = 'senin' AND jam_mulai = '08:00:00' AND jam_selesai = '10:00:00' AND ruangan = 'Lab 201'
+);
+
+INSERT INTO jadwal (kode_mk, hari, jam_mulai, jam_selesai, ruangan, dosen)
+SELECT 'IF202', 'selasa', '10:00:00', '12:00:00', 'Ruang A2', 'Rina Kurnia, M.Kom'
+WHERE NOT EXISTS (
+  SELECT 1 FROM jadwal
+  WHERE kode_mk = 'IF202' AND hari = 'selasa' AND jam_mulai = '10:00:00' AND jam_selesai = '12:00:00' AND ruangan = 'Ruang A2'
+);
+
+INSERT INTO jadwal (kode_mk, hari, jam_mulai, jam_selesai, ruangan, dosen)
+SELECT 'SI301', 'rabu', '08:30:00', '10:30:00', 'Ruang SI-1', 'Fajar Prakoso, M.Kom'
+WHERE NOT EXISTS (
+  SELECT 1 FROM jadwal
+  WHERE kode_mk = 'SI301' AND hari = 'rabu' AND jam_mulai = '08:30:00' AND jam_selesai = '10:30:00' AND ruangan = 'Ruang SI-1'
+);
+
+INSERT INTO jadwal (kode_mk, hari, jam_mulai, jam_selesai, ruangan, dosen)
+SELECT 'SI302', 'kamis', '13:00:00', '15:00:00', 'Lab Web', 'Dewi Anggraini, M.Kom'
+WHERE NOT EXISTS (
+  SELECT 1 FROM jadwal
+  WHERE kode_mk = 'SI302' AND hari = 'kamis' AND jam_mulai = '13:00:00' AND jam_selesai = '15:00:00' AND ruangan = 'Lab Web'
+);
+
+INSERT INTO jadwal (kode_mk, hari, jam_mulai, jam_selesai, ruangan, dosen)
+SELECT 'UM101', 'jumat', '09:00:00', '10:40:00', 'Aula 1', 'Dr. Hadi Santoso'
+WHERE NOT EXISTS (
+  SELECT 1 FROM jadwal
+  WHERE kode_mk = 'UM101' AND hari = 'jumat' AND jam_mulai = '09:00:00' AND jam_selesai = '10:40:00' AND ruangan = 'Aula 1'
+);
+
+-- Sample KRS
+INSERT INTO krs (nim, kode_mk, semester, tahun_ajaran, status) VALUES
+  ('2024001', 'IF201', 2, '2024/2025', 'diambil'),
+  ('2024001', 'IF202', 2, '2024/2025', 'diambil'),
+  ('2024002', 'IF201', 2, '2024/2025', 'diambil'),
+  ('2024003', 'SI301', 4, '2024/2025', 'diambil'),
+  ('2024003', 'SI302', 4, '2024/2025', 'diambil')
+ON DUPLICATE KEY UPDATE
+  semester = VALUES(semester),
+  status = VALUES(status);
 
 -- Sample pembayaran
 INSERT INTO pembayaran (nim, jenis_pembayaran, jumlah, tanggal_bayar, metode_pembayaran, nomor_referensi, semester, tahun_ajaran, status) VALUES

@@ -14,6 +14,9 @@ public class Config {
     public static final String MAHASISWA_URL = API_BASE_URL + "/mahasiswa";
     public static final String PEMBAYARAN_URL = API_BASE_URL + "/pembayaran";
     public static final String LAPORAN_URL = API_BASE_URL + "/laporan";
+    public static final String MATAKULIAH_URL = API_BASE_URL + "/matakuliah";
+    public static final String KRS_URL = API_BASE_URL + "/krs";
+    public static final String JADWAL_URL = API_BASE_URL + "/jadwal";
 
     // App Info
     public static final String APP_NAME = "Sistem Informasi Akademik";
