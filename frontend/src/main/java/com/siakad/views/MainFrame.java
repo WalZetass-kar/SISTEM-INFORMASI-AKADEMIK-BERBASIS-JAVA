@@ -24,6 +24,7 @@ public class MainFrame extends JFrame {
     public static final String PANEL_DASHBOARD  = "dashboard";
     public static final String PANEL_MAHASISWA  = "mahasiswa";
     public static final String PANEL_PEMBAYARAN = "pembayaran";
+    public static final String PANEL_KRS_JADWAL = "krs_jadwal";
     public static final String PANEL_LAPORAN    = "laporan";
 
     // Warna tema
@@ -58,6 +59,7 @@ public class MainFrame extends JFrame {
         contentPanel.add(new DashboardPanel(), PANEL_DASHBOARD);
         contentPanel.add(new MahasiswaPanel(), PANEL_MAHASISWA);
         contentPanel.add(new PembayaranPanel(), PANEL_PEMBAYARAN);
+        contentPanel.add(new KrsJadwalPanel(), PANEL_KRS_JADWAL);
         contentPanel.add(new LaporanPanel(), PANEL_LAPORAN);
         add(contentPanel, BorderLayout.CENTER);
 
@@ -165,6 +167,7 @@ public class MainFrame extends JFrame {
         JButton btnDashboard  = buildNavButton("📊", "Dashboard",       PANEL_DASHBOARD);
         JButton btnMahasiswa  = buildNavButton("👨‍🎓", "Data Mahasiswa",  PANEL_MAHASISWA);
         JButton btnPembayaran = buildNavButton("💳", "Pembayaran UKT",  PANEL_PEMBAYARAN);
+        JButton btnKrsJadwal  = buildNavButton("📚", "KRS & Jadwal Kuliah", PANEL_KRS_JADWAL);
         JButton btnLaporan    = buildNavButton("📋", "Laporan & Cetak", PANEL_LAPORAN);
 
         navPanel.add(btnDashboard);
@@ -172,6 +175,8 @@ public class MainFrame extends JFrame {
         navPanel.add(btnMahasiswa);
         navPanel.add(Box.createVerticalStrut(4));
         navPanel.add(btnPembayaran);
+        navPanel.add(Box.createVerticalStrut(4));
+        navPanel.add(btnKrsJadwal);
         navPanel.add(Box.createVerticalStrut(4));
 
         if (JwtHelper.getInstance().isAdmin()) {
