@@ -70,6 +70,38 @@ CREATE TABLE IF NOT EXISTS mata_kuliah (
 ) ENGINE=InnoDB;
 
 -- ============================================================
+-- TABEL: tahun_ajaran (Master Tahun Ajaran)
+-- Digunakan oleh: Modul Akademik, Nilai, Absensi
+-- ============================================================
+CREATE TABLE IF NOT EXISTS tahun_ajaran (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tahun_ajaran VARCHAR(10) NOT NULL,
+  semester ENUM('ganjil', 'genap') NOT NULL DEFAULT 'ganjil',
+  tanggal_mulai DATE DEFAULT NULL,
+  tanggal_selesai DATE DEFAULT NULL,
+  status ENUM('draft', 'aktif', 'arsip') NOT NULL DEFAULT 'draft',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_tahun_semester (tahun_ajaran, semester),
+  INDEX idx_ta_status (status)
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- TABEL: bobot_nilai (Konfigurasi Bobot Nilai)
+-- Digunakan oleh: Modul Input Nilai
+-- ============================================================
+CREATE TABLE IF NOT EXISTS bobot_nilai (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nama_config VARCHAR(100) NOT NULL UNIQUE,
+  bobot_tugas DECIMAL(5,2) NOT NULL DEFAULT 30.00,
+  bobot_uts DECIMAL(5,2) NOT NULL DEFAULT 30.00,
+  bobot_uas DECIMAL(5,2) NOT NULL DEFAULT 40.00,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- ============================================================
 -- TABEL: jadwal (Jadwal Kuliah)
 -- Digunakan oleh: KELOMPOK 3 (pemilik)
 -- ============================================================
@@ -207,6 +239,36 @@ INSERT INTO users (username, password, role, nim) VALUES
   ('2024004', '$2b$10$l/rSkV59cHSqmzUFH1Zgee5.LTgmBIXDzdFP5Z3DUElE6cq5Gvhwe', 'mahasiswa', '2024004'),
   ('2024005', '$2b$10$l/rSkV59cHSqmzUFH1Zgee5.LTgmBIXDzdFP5Z3DUElE6cq5Gvhwe', 'mahasiswa', '2024005')
 ON DUPLICATE KEY UPDATE password = VALUES(password), role = VALUES(role), nim = VALUES(nim);
+
+-- Sample mata kuliah untuk modul Nilai & Absensi
+INSERT INTO mata_kuliah (kode_mk, nama_mk, sks, semester, jurusan, dosen_pengampu) VALUES
+  ('IF101', 'Dasar Pemrograman', 3, 1, 'Teknik Informatika', 'Dr. Rina Kurnia'),
+  ('IF202', 'Struktur Data', 3, 2, 'Teknik Informatika', 'Budi Hartono, M.Kom'),
+  ('IF204', 'Basis Data', 3, 2, 'Teknik Informatika', 'Sari Prameswari, M.Kom'),
+  ('SI201', 'Analisis Proses Bisnis', 3, 2, 'Sistem Informasi', 'Ahmad Wibowo, M.Kom'),
+  ('SI304', 'Manajemen Proyek SI', 3, 4, 'Sistem Informasi', 'Dewi Anggraini, M.MSI')
+ON DUPLICATE KEY UPDATE
+  nama_mk = VALUES(nama_mk),
+  sks = VALUES(sks),
+  semester = VALUES(semester),
+  jurusan = VALUES(jurusan),
+  dosen_pengampu = VALUES(dosen_pengampu);
+
+INSERT INTO tahun_ajaran (tahun_ajaran, semester, tanggal_mulai, tanggal_selesai, status) VALUES
+  ('2024/2025', 'genap', '2025-01-13', '2025-06-30', 'aktif'),
+  ('2025/2026', 'ganjil', '2025-08-18', '2025-12-20', 'draft')
+ON DUPLICATE KEY UPDATE
+  tanggal_mulai = VALUES(tanggal_mulai),
+  tanggal_selesai = VALUES(tanggal_selesai),
+  status = VALUES(status);
+
+INSERT INTO bobot_nilai (nama_config, bobot_tugas, bobot_uts, bobot_uas, is_active) VALUES
+  ('Default Akademik', 30.00, 30.00, 40.00, 1)
+ON DUPLICATE KEY UPDATE
+  bobot_tugas = VALUES(bobot_tugas),
+  bobot_uts = VALUES(bobot_uts),
+  bobot_uas = VALUES(bobot_uas),
+  is_active = VALUES(is_active);
 
 -- Sample pembayaran
 INSERT INTO pembayaran (nim, jenis_pembayaran, jumlah, tanggal_bayar, metode_pembayaran, nomor_referensi, semester, tahun_ajaran, status) VALUES

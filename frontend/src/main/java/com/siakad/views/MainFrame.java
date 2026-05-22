@@ -24,6 +24,14 @@ public class MainFrame extends JFrame {
     public static final String PANEL_DASHBOARD  = "dashboard";
     public static final String PANEL_MAHASISWA  = "mahasiswa";
     public static final String PANEL_PEMBAYARAN = "pembayaran";
+    public static final String PANEL_INPUT_NILAI = "akademik.inputNilai";
+    public static final String PANEL_INPUT_KEHADIRAN = "akademik.inputKehadiran";
+    public static final String PANEL_LIHAT_NILAI = "akademik.lihatNilai";
+    public static final String PANEL_REKAP_ABSENSI = "akademik.rekapAbsensi";
+    public static final String PANEL_PENGATURAN_AKADEMIK = "akademik.pengaturan";
+    public static final String PANEL_NILAI_SAYA = "akademik.nilaiSaya";
+    public static final String PANEL_KEHADIRAN_SAYA = "akademik.kehadiranSaya";
+    public static final String PANEL_INFO_AKADEMIK = "akademik.infoAkademik";
     public static final String PANEL_LAPORAN    = "laporan";
 
     // Warna tema
@@ -58,6 +66,29 @@ public class MainFrame extends JFrame {
         contentPanel.add(new DashboardPanel(), PANEL_DASHBOARD);
         contentPanel.add(new MahasiswaPanel(), PANEL_MAHASISWA);
         contentPanel.add(new PembayaranPanel(), PANEL_PEMBAYARAN);
+        contentPanel.add(new AkademikPanel(), PANEL_INPUT_NILAI);
+        contentPanel.add(new AkademikComingSoonPanel(
+                "Input Kehadiran",
+                "Fitur pencatatan kehadiran per mata kuliah dan pertemuan akan segera hadir."
+        ), PANEL_INPUT_KEHADIRAN);
+        contentPanel.add(new AkademikComingSoonPanel(
+                "Lihat Nilai Mahasiswa",
+                "Fitur untuk melihat nilai berdasarkan mahasiswa, semester, dan mata kuliah akan segera hadir."
+        ), PANEL_LIHAT_NILAI);
+        contentPanel.add(new AkademikComingSoonPanel(
+                "Rekap Absensi",
+                "Fitur ringkasan absensi mahasiswa per mata kuliah dan periode akan segera hadir."
+        ), PANEL_REKAP_ABSENSI);
+        contentPanel.add(new PengaturanAkademikPanel(), PANEL_PENGATURAN_AKADEMIK);
+        contentPanel.add(new NilaiSayaPanel(), PANEL_NILAI_SAYA);
+        contentPanel.add(new AkademikComingSoonPanel(
+                "Kehadiran Saya",
+                "Fitur riwayat kehadiran per mata kuliah masih dalam proses development."
+        ), PANEL_KEHADIRAN_SAYA);
+        contentPanel.add(new AkademikComingSoonPanel(
+                "Info Akademik",
+                "Fitur informasi tahun ajaran, kalender akademik, dan pengumuman masih dalam proses development."
+        ), PANEL_INFO_AKADEMIK);
         contentPanel.add(new LaporanPanel(), PANEL_LAPORAN);
         add(contentPanel, BorderLayout.CENTER);
 
@@ -165,7 +196,18 @@ public class MainFrame extends JFrame {
         JButton btnDashboard  = buildNavButton("📊", "Dashboard",       PANEL_DASHBOARD);
         JButton btnMahasiswa  = buildNavButton("👨‍🎓", "Data Mahasiswa",  PANEL_MAHASISWA);
         JButton btnPembayaran = buildNavButton("💳", "Pembayaran UKT",  PANEL_PEMBAYARAN);
+        JPanel akademikSubmenu = buildAkademikSubmenu();
+        JButton btnAkademik   = buildNavButton("A+", "Akademik",        null);
+        setNavChevron(btnAkademik, false);
+        btnAkademik.addActionListener(e -> {
+            boolean expanded = !akademikSubmenu.isVisible();
+            akademikSubmenu.setVisible(expanded);
+            setNavChevron(btnAkademik, expanded);
+            navPanel.revalidate();
+            navPanel.repaint();
+        });
         JButton btnLaporan    = buildNavButton("📋", "Laporan & Cetak", PANEL_LAPORAN);
+        JButton btnLogoutNav  = buildLogoutNavButton();
 
         navPanel.add(btnDashboard);
         navPanel.add(Box.createVerticalStrut(4));
@@ -173,11 +215,16 @@ public class MainFrame extends JFrame {
         navPanel.add(Box.createVerticalStrut(4));
         navPanel.add(btnPembayaran);
         navPanel.add(Box.createVerticalStrut(4));
+        navPanel.add(btnAkademik);
+        navPanel.add(akademikSubmenu);
+        navPanel.add(Box.createVerticalStrut(4));
 
         if (JwtHelper.getInstance().isAdmin()) {
             navPanel.add(btnLaporan);
             navPanel.add(Box.createVerticalStrut(4));
         }
+        navPanel.add(Box.createVerticalStrut(8));
+        navPanel.add(btnLogoutNav);
         setActiveButton(btnDashboard);
 
         // ── Bottom: user card + logout ──
@@ -195,6 +242,112 @@ public class MainFrame extends JFrame {
         l.setForeground(TEXT_DIM);
         l.setAlignmentX(Component.LEFT_ALIGNMENT);
         return l;
+    }
+
+    private JPanel buildAkademikSubmenu() {
+        JPanel submenu = new JPanel();
+        submenu.setOpaque(false);
+        submenu.setLayout(new BoxLayout(submenu, BoxLayout.Y_AXIS));
+        submenu.setBorder(new EmptyBorder(2, 20, 6, 0));
+        submenu.setAlignmentX(Component.LEFT_ALIGNMENT);
+        if (JwtHelper.getInstance().isAdmin()) {
+            submenu.add(buildSubNavButton("A+", "Input Nilai", PANEL_INPUT_NILAI));
+            submenu.add(Box.createVerticalStrut(3));
+            submenu.add(buildSubNavButton("✓", "Input Kehadiran", PANEL_INPUT_KEHADIRAN));
+            submenu.add(Box.createVerticalStrut(3));
+            submenu.add(buildSubNavButton("★", "Lihat Nilai Mahasiswa", PANEL_LIHAT_NILAI));
+            submenu.add(Box.createVerticalStrut(3));
+            submenu.add(buildSubNavButton("Σ", "Rekap Absensi", PANEL_REKAP_ABSENSI));
+            submenu.add(Box.createVerticalStrut(3));
+            submenu.add(buildSubNavButton("⚙", "Pengaturan Akademik", PANEL_PENGATURAN_AKADEMIK));
+        } else {
+            submenu.add(buildSubNavButton("A+", "Nilai Saya", PANEL_NILAI_SAYA));
+            submenu.add(Box.createVerticalStrut(3));
+            submenu.add(buildSubNavButton("✓", "Kehadiran Saya", PANEL_KEHADIRAN_SAYA));
+            submenu.add(Box.createVerticalStrut(3));
+            submenu.add(buildSubNavButton("i", "Info Akademik", PANEL_INFO_AKADEMIK));
+        }
+        submenu.setVisible(false);
+        return submenu;
+    }
+
+    private JButton buildSubNavButton(String icon, String label, String panelName) {
+        JButton btn = new JButton() {
+            boolean active = false;
+
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                if (active) {
+                    g2.setColor(new Color(59, 130, 246, 18));
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                } else if (getModel().isRollover()) {
+                    g2.setColor(SIDEBAR_HOVER);
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                }
+
+                g2.setColor(active ? new Color(147, 197, 253) : TEXT_DIM);
+                g2.setFont(new Font("Segoe UI", Font.BOLD, 11));
+                g2.drawString(icon, 10, getHeight() / 2 + 4);
+                g2.setFont(new Font("Segoe UI", active ? Font.BOLD : Font.PLAIN, 12));
+                g2.setColor(active ? new Color(219, 234, 254) : TEXT_MUTED);
+                g2.drawString(label, 30, getHeight() / 2 + 5);
+                g2.dispose();
+            }
+
+            public void setActive(boolean a) { active = a; repaint(); }
+            public boolean isActive() { return active; }
+        };
+        btn.setPreferredSize(new Dimension(196, 34));
+        btn.setMaximumSize(new Dimension(196, 34));
+        btn.setBorderPainted(false);
+        btn.setContentAreaFilled(false);
+        btn.setFocusPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setAlignmentX(Component.LEFT_ALIGNMENT);
+        btn.addActionListener(e -> {
+            showPanel(panelName);
+            setActiveButton(btn);
+        });
+        return btn;
+    }
+
+    private void setNavChevron(JButton btn, boolean expanded) {
+        btn.putClientProperty("chevron", expanded ? "⌃" : "⌄");
+        btn.repaint();
+    }
+
+    private JButton buildLogoutNavButton() {
+        JButton btn = new JButton() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                Color bg = getModel().isRollover() ? new Color(127, 29, 29, 190) : new Color(127, 29, 29, 90);
+                g2.setColor(bg);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                g2.setColor(new Color(239, 68, 68, 90));
+                g2.fillRoundRect(0, 2, 3, getHeight() - 4, 3, 3);
+
+                drawDoorIcon(g2, 15, getHeight() / 2 - 9, 16, new Color(254, 202, 202));
+
+                g2.setFont(new Font("Segoe UI", Font.BOLD, 13));
+                g2.setColor(new Color(254, 226, 226));
+                g2.drawString("Logout", 42, getHeight() / 2 + 5);
+                g2.dispose();
+            }
+        };
+        btn.setPreferredSize(new Dimension(216, 42));
+        btn.setMaximumSize(new Dimension(216, 42));
+        btn.setBorderPainted(false);
+        btn.setContentAreaFilled(false);
+        btn.setFocusPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setAlignmentX(Component.LEFT_ALIGNMENT);
+        btn.setToolTipText("Keluar dari akun");
+        btn.addActionListener(e -> doLogout());
+        return btn;
     }
 
     private JButton buildNavButton(String icon, String label, String panelName) {
@@ -227,6 +380,15 @@ public class MainFrame extends JFrame {
                 g2.setColor(active ? new Color(219, 234, 254) : TEXT_MUTED);
                 g2.drawString(label, 42, getHeight() / 2 + 5);
 
+                Object chevron = getClientProperty("chevron");
+                if (chevron != null) {
+                    g2.setFont(new Font("Segoe UI", Font.BOLD, 18));
+                    g2.setColor(active || getModel().isRollover() ? new Color(147, 197, 253) : TEXT_DIM);
+                    String arrow = String.valueOf(chevron);
+                    FontMetrics fm = g2.getFontMetrics();
+                    g2.drawString(arrow, getWidth() - fm.stringWidth(arrow) - 16, getHeight() / 2 + 6);
+                }
+
                 g2.dispose();
             }
 
@@ -241,8 +403,10 @@ public class MainFrame extends JFrame {
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btn.setAlignmentX(Component.LEFT_ALIGNMENT);
         btn.addActionListener(e -> {
-            showPanel(panelName);
-            setActiveButton(btn);
+            if (panelName != null) {
+                showPanel(panelName);
+                setActiveButton(btn);
+            }
         });
         return btn;
     }
@@ -329,11 +493,15 @@ public class MainFrame extends JFrame {
                 Color bg = getModel().isRollover() ? new Color(185, 28, 28) : new Color(127, 29, 29, 180);
                 g2.setColor(bg);
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
-                g2.setColor(new Color(252, 165, 165));
+                int iconSize = 14;
+                String txt = "Keluar";
                 g2.setFont(new Font("Segoe UI", Font.BOLD, 11));
                 FontMetrics fm = g2.getFontMetrics();
-                String txt = "⏻  Keluar";
-                g2.drawString(txt, (getWidth() - fm.stringWidth(txt)) / 2,
+                int totalWidth = iconSize + 8 + fm.stringWidth(txt);
+                int startX = (getWidth() - totalWidth) / 2;
+                drawDoorIcon(g2, startX, getHeight() / 2 - 8, iconSize, new Color(254, 202, 202));
+                g2.setColor(new Color(252, 165, 165));
+                g2.drawString(txt, startX + iconSize + 8,
                         (getHeight() + fm.getAscent() - fm.getDescent()) / 2);
                 g2.dispose();
             }
@@ -481,13 +649,145 @@ public class MainFrame extends JFrame {
     }
 
     private void doLogout() {
-        int confirm = JOptionPane.showConfirmDialog(this,
-                "Apakah Anda yakin ingin keluar?", "Konfirmasi Logout",
-                JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
-        if (confirm == JOptionPane.YES_OPTION) {
+        if (showLogoutDialog()) {
             AuthService.logout();
             dispose();
             new LoginFrame().setVisible(true);
         }
+    }
+
+    private boolean showLogoutDialog() {
+        final boolean[] confirmed = {false};
+        JDialog dialog = new JDialog(this, "Konfirmasi Logout", true);
+        dialog.setUndecorated(true);
+        dialog.setSize(430, 248);
+        dialog.setLocationRelativeTo(this);
+
+        JPanel root = new JPanel(new BorderLayout()) {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(8, 12, 25));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 18, 18);
+                g2.setColor(new Color(239, 68, 68, 85));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 18, 18);
+                g2.setColor(new Color(239, 68, 68, 55));
+                g2.fillRoundRect(0, 0, getWidth(), 4, 4, 4);
+                g2.dispose();
+            }
+        };
+        root.setOpaque(false);
+        root.setBorder(new EmptyBorder(24, 26, 22, 26));
+
+        JPanel content = new JPanel(new GridBagLayout());
+        content.setOpaque(false);
+        GridBagConstraints gc = new GridBagConstraints();
+        gc.gridy = 0;
+        gc.insets = new Insets(0, 0, 0, 16);
+        gc.anchor = GridBagConstraints.NORTH;
+
+        JPanel iconWrap = new JPanel(new GridBagLayout()) {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(127, 29, 29, 105));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 16, 16);
+                g2.setColor(new Color(239, 68, 68, 55));
+                g2.fillOval(9, 9, 48, 48);
+                drawDoorIcon(g2, 23, 19, 24, new Color(254, 226, 226));
+                g2.dispose();
+            }
+            @Override public Dimension getPreferredSize() { return new Dimension(66, 66); }
+        };
+        iconWrap.setOpaque(false);
+
+        JPanel textBlock = new JPanel();
+        textBlock.setOpaque(false);
+        textBlock.setLayout(new BoxLayout(textBlock, BoxLayout.Y_AXIS));
+        textBlock.setBorder(new EmptyBorder(2, 0, 0, 0));
+
+        JLabel title = new JLabel("Keluar dari akun?");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        title.setForeground(TEXT_PRIMARY);
+        title.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JTextArea message = new JTextArea("Sesi admin akan ditutup dan Anda akan kembali ke halaman login.");
+        message.setPreferredSize(new Dimension(292, 52));
+        message.setMaximumSize(new Dimension(292, 52));
+        message.setOpaque(false);
+        message.setEditable(false);
+        message.setLineWrap(true);
+        message.setWrapStyleWord(true);
+        message.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        message.setForeground(TEXT_MUTED);
+        message.setBorder(new EmptyBorder(7, 0, 0, 0));
+        message.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        textBlock.add(title);
+        textBlock.add(message);
+        gc.gridx = 0;
+        content.add(iconWrap, gc);
+        gc.gridx = 1;
+        gc.weightx = 1;
+        gc.fill = GridBagConstraints.HORIZONTAL;
+        gc.insets = new Insets(0, 0, 0, 0);
+        content.add(textBlock, gc);
+
+        JPanel actions = new JPanel(new GridLayout(1, 2, 12, 0));
+        actions.setOpaque(false);
+        actions.setBorder(new EmptyBorder(18, 82, 0, 0));
+        JButton cancel = dialogButton("Tetap di Dashboard", new Color(18, 26, 48), TEXT_PRIMARY);
+        JButton logout = dialogButton("Ya, Logout", new Color(185, 28, 28), new Color(254, 226, 226));
+        cancel.addActionListener(e -> dialog.dispose());
+        logout.addActionListener(e -> {
+            confirmed[0] = true;
+            dialog.dispose();
+        });
+        actions.add(cancel);
+        actions.add(logout);
+
+        root.add(content, BorderLayout.CENTER);
+        root.add(actions, BorderLayout.SOUTH);
+        dialog.setContentPane(root);
+        dialog.setVisible(true);
+        return confirmed[0];
+    }
+
+    private static void drawDoorIcon(Graphics2D g2, int x, int y, int size, Color color) {
+        int w = Math.max(10, size);
+        int h = Math.max(14, (int) (size * 1.25));
+        g2.setStroke(new BasicStroke(Math.max(1.4f, size / 9f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2.setColor(color);
+        g2.drawRoundRect(x + 2, y, w - 4, h, 2, 2);
+        g2.drawLine(x + w - 4, y + 2, x + w - 4, y + h - 2);
+        g2.fillOval(x + w - 7, y + h / 2 - 1, Math.max(2, size / 6), Math.max(2, size / 6));
+        g2.drawLine(x, y + h, x + w + 2, y + h);
+    }
+
+    private JButton dialogButton(String text, Color bg, Color fg) {
+        JButton btn = new JButton(text) {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                Color paint = getModel().isRollover() ? bg.brighter() : bg;
+                g2.setColor(paint);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 9, 9);
+                g2.setColor(new Color(255, 255, 255, 24));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 9, 9);
+                g2.setColor(fg);
+                g2.setFont(new Font("Segoe UI", Font.BOLD, 12));
+                FontMetrics fm = g2.getFontMetrics();
+                g2.drawString(text, (getWidth() - fm.stringWidth(text)) / 2,
+                        (getHeight() + fm.getAscent() - fm.getDescent()) / 2);
+                g2.dispose();
+            }
+        };
+        btn.setPreferredSize(new Dimension(150, 38));
+        btn.setBorderPainted(false);
+        btn.setContentAreaFilled(false);
+        btn.setFocusPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        return btn;
     }
 }
