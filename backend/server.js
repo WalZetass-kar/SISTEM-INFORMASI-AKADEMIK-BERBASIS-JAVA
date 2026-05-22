@@ -15,6 +15,8 @@ const authRoutes = require('./routes/authRoutes');
 const mahasiswaRoutes = require('./routes/mahasiswaRoutes');
 const pembayaranRoutes = require('./routes/pembayaranRoutes');
 const laporanRoutes = require('./routes/laporanRoutes');
+const nilaiRoutes = require('./routes/nilaiRoutes');
+const akademikRoutes = require('./routes/akademikRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -45,6 +47,8 @@ app.get('/api', (req, res) => {
       auth: '/api/login, /api/logout, /api/profile, /api/register',
       mahasiswa: '/api/mahasiswa',
       pembayaran: '/api/pembayaran',
+      akademik: '/api/akademik',
+      nilai: '/api/nilai',
       laporan: '/api/laporan'
     }
   });
@@ -54,6 +58,8 @@ app.get('/api', (req, res) => {
 app.use('/api', authRoutes);
 app.use('/api/mahasiswa', mahasiswaRoutes);
 app.use('/api/pembayaran', pembayaranRoutes);
+app.use('/api/akademik', akademikRoutes);
+app.use('/api/nilai', nilaiRoutes);
 app.use('/api/laporan', laporanRoutes);
 
 // ============================================================
@@ -109,6 +115,8 @@ const startServer = async () => {
     console.log('  GET    /api/pembayaran/dashboard/stats - Dashboard Stats');
     console.log('  GET    /api/pembayaran/status/:nim    - Cek Status');
     console.log('  PUT    /api/pembayaran/:id/status     - Verifikasi');
+    console.log('  GET    /api/nilai/input-list          - Input Nilai');
+    console.log('  POST   /api/nilai/bulk                - Simpan Nilai');
     console.log('  GET    /api/laporan                  - List Laporan');
     console.log('  POST   /api/laporan/generate/*       - Generate Laporan');
     console.log('');
