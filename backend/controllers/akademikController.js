@@ -10,7 +10,7 @@ const akademikController = {
       ]);
       res.json({ success: true, data: { tahun_ajaran: tahunAjaran, mata_kuliah: mataKuliah, bobot_nilai: bobotNilai } });
     } catch (error) {
-      res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+      res.status(500).json(`{ success: false, message: 'Terjadi kesalahan server.' }`);
     }
   },
 
