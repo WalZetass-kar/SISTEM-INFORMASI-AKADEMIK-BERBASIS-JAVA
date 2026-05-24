@@ -13,6 +13,8 @@ public class Config {
     public static final String PROFILE_URL = API_BASE_URL + "/profile";
     public static final String MAHASISWA_URL = API_BASE_URL + "/mahasiswa";
     public static final String PEMBAYARAN_URL = API_BASE_URL + "/pembayaran";
+    public static final String AKADEMIK_URL = API_BASE_URL + "/akademik";
+    public static final String NILAI_URL = API_BASE_URL + "/nilai";
     public static final String LAPORAN_URL = API_BASE_URL + "/laporan";
     public static final String MATAKULIAH_URL = API_BASE_URL + "/matakuliah";
     public static final String KRS_URL = API_BASE_URL + "/krs";

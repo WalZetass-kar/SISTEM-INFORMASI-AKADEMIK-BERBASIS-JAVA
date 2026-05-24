@@ -1,22 +1,21 @@
-// ============================================================
-// ROUTES: Akademik
-// Modul KRS & Jadwal Kuliah
-// ============================================================
-
 const express = require('express');
 const router = express.Router();
 const akademikController = require('../controllers/akademikController');
-const { verifyToken, isAdmin, isAdminOrOwner } = require('../middleware/auth');
+const { verifyToken, isAdmin } = require('../middleware/auth');
 
 router.use(verifyToken);
+router.use(isAdmin);
 
-router.get('/matakuliah', akademikController.getMatakuliah);
-router.post('/matakuliah', isAdmin, akademikController.createMatakuliah);
+router.get('/settings', akademikController.getSettings);
 
-router.get('/krs', akademikController.getKrs);
-router.post('/krs', isAdminOrOwner, akademikController.createKrs);
+router.post('/tahun-ajaran', akademikController.createTahunAjaran);
+router.put('/tahun-ajaran/:id', akademikController.updateTahunAjaran);
+router.delete('/tahun-ajaran/:id', akademikController.deleteTahunAjaran);
 
-router.get('/jadwal', akademikController.getJadwal);
-router.post('/jadwal', isAdmin, akademikController.createJadwal);
+router.post('/mata-kuliah', akademikController.createMataKuliah);
+router.put('/mata-kuliah/:kode_mk', akademikController.updateMataKuliah);
+router.delete('/mata-kuliah/:kode_mk', akademikController.deleteMataKuliah);
+
+router.put('/bobot-nilai', akademikController.updateBobotNilai);
 
 module.exports = router;

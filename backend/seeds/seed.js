@@ -11,6 +11,34 @@ const seed = async () => {
     await testConnection();
     console.log('🌱 Memulai seeding database...\n');
 
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS tahun_ajaran (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        tahun_ajaran VARCHAR(10) NOT NULL,
+        semester ENUM('ganjil', 'genap') NOT NULL DEFAULT 'ganjil',
+        tanggal_mulai DATE DEFAULT NULL,
+        tanggal_selesai DATE DEFAULT NULL,
+        status ENUM('draft', 'aktif', 'arsip') NOT NULL DEFAULT 'draft',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uk_tahun_semester (tahun_ajaran, semester),
+        INDEX idx_ta_status (status)
+      ) ENGINE=InnoDB
+    `);
+
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS bobot_nilai (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nama_config VARCHAR(100) NOT NULL UNIQUE,
+        bobot_tugas DECIMAL(5,2) NOT NULL DEFAULT 30.00,
+        bobot_uts DECIMAL(5,2) NOT NULL DEFAULT 30.00,
+        bobot_uas DECIMAL(5,2) NOT NULL DEFAULT 40.00,
+        is_active TINYINT(1) NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB
+    `);
+
     // Hash passwords
     const adminHash = await bcrypt.hash('admin123', 10);
     const mhsHash = await bcrypt.hash('mhs123', 10);
@@ -48,6 +76,59 @@ const seed = async () => {
       );
     }
     console.log(`✅ ${mahasiswaData.length} mahasiswa created (password: mhs123)`);
+
+    // Seed mata kuliah untuk modul Nilai & Absensi
+    const mataKuliahData = [
+      ['IF101', 'Dasar Pemrograman', 3, 1, 'Teknik Informatika', 'Dr. Rina Kurnia'],
+      ['IF202', 'Struktur Data', 3, 2, 'Teknik Informatika', 'Budi Hartono, M.Kom'],
+      ['IF204', 'Basis Data', 3, 2, 'Teknik Informatika', 'Sari Prameswari, M.Kom'],
+      ['SI201', 'Analisis Proses Bisnis', 3, 2, 'Sistem Informasi', 'Ahmad Wibowo, M.Kom'],
+      ['SI304', 'Manajemen Proyek SI', 3, 4, 'Sistem Informasi', 'Dewi Anggraini, M.MSI'],
+    ];
+
+    for (const mk of mataKuliahData) {
+      await pool.execute(
+        `INSERT INTO mata_kuliah (kode_mk, nama_mk, sks, semester, jurusan, dosen_pengampu)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           nama_mk = VALUES(nama_mk),
+           sks = VALUES(sks),
+           semester = VALUES(semester),
+           jurusan = VALUES(jurusan),
+           dosen_pengampu = VALUES(dosen_pengampu)`,
+        mk
+      );
+    }
+    console.log(`✅ ${mataKuliahData.length} mata kuliah created`);
+
+    const tahunAjaranData = [
+      ['2024/2025', 'genap', '2025-01-13', '2025-06-30', 'aktif'],
+      ['2025/2026', 'ganjil', '2025-08-18', '2025-12-20', 'draft'],
+    ];
+
+    for (const ta of tahunAjaranData) {
+      await pool.execute(
+        `INSERT INTO tahun_ajaran (tahun_ajaran, semester, tanggal_mulai, tanggal_selesai, status)
+         VALUES (?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           tanggal_mulai = VALUES(tanggal_mulai),
+           tanggal_selesai = VALUES(tanggal_selesai),
+           status = VALUES(status)`,
+        ta
+      );
+    }
+    console.log(`✅ ${tahunAjaranData.length} tahun ajaran created`);
+
+    await pool.execute(
+      `INSERT INTO bobot_nilai (nama_config, bobot_tugas, bobot_uts, bobot_uas, is_active)
+       VALUES ('Default Akademik', 30.00, 30.00, 40.00, 1)
+       ON DUPLICATE KEY UPDATE
+         bobot_tugas = VALUES(bobot_tugas),
+         bobot_uts = VALUES(bobot_uts),
+         bobot_uas = VALUES(bobot_uas),
+         is_active = VALUES(is_active)`
+    );
+    console.log('✅ Bobot nilai default ready');
 
     // Seed pembayaran
     const pembayaranData = [

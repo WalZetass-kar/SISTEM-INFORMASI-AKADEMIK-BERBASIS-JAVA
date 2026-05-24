@@ -58,6 +58,13 @@ public class ApiService {
         return readResponse(conn);
     }
 
+    public static JsonObject deleteWithBody(String urlString, Object body) throws Exception {
+        HttpURLConnection conn = createConnection(urlString, "DELETE");
+        conn.setDoOutput(true);
+        writeBody(conn, body);
+        return readResponse(conn);
+    }
+
     /**
      * Buat koneksi HTTP dengan header yang diperlukan
      */
