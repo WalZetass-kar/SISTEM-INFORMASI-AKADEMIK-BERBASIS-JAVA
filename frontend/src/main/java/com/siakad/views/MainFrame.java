@@ -24,6 +24,7 @@ public class MainFrame extends JFrame {
     public static final String PANEL_DASHBOARD  = "dashboard";
     public static final String PANEL_MAHASISWA  = "mahasiswa";
     public static final String PANEL_PEMBAYARAN = "pembayaran";
+    public static final String PANEL_KRS_JADWAL = "krs_jadwal";
     public static final String PANEL_INPUT_NILAI = "akademik.inputNilai";
     public static final String PANEL_INPUT_KEHADIRAN = "akademik.inputKehadiran";
     public static final String PANEL_LIHAT_NILAI = "akademik.lihatNilai";
@@ -66,6 +67,7 @@ public class MainFrame extends JFrame {
         contentPanel.add(new DashboardPanel(), PANEL_DASHBOARD);
         contentPanel.add(new MahasiswaPanel(), PANEL_MAHASISWA);
         contentPanel.add(new PembayaranPanel(), PANEL_PEMBAYARAN);
+        contentPanel.add(new KrsJadwalPanel(), PANEL_KRS_JADWAL);
         contentPanel.add(new AkademikPanel(), PANEL_INPUT_NILAI);
         contentPanel.add(new AkademikComingSoonPanel(
                 "Input Kehadiran",
@@ -196,6 +198,7 @@ public class MainFrame extends JFrame {
         JButton btnDashboard  = buildNavButton("📊", "Dashboard",       PANEL_DASHBOARD);
         JButton btnMahasiswa  = buildNavButton("👨‍🎓", "Data Mahasiswa",  PANEL_MAHASISWA);
         JButton btnPembayaran = buildNavButton("💳", "Pembayaran UKT",  PANEL_PEMBAYARAN);
+        JButton btnKrsJadwal  = buildNavButton("📚", "KRS & Jadwal Kuliah", PANEL_KRS_JADWAL);
         JPanel akademikSubmenu = buildAkademikSubmenu();
         JButton btnAkademik   = buildNavButton("A+", "Akademik",        null);
         setNavChevron(btnAkademik, false);
@@ -214,6 +217,8 @@ public class MainFrame extends JFrame {
         navPanel.add(btnMahasiswa);
         navPanel.add(Box.createVerticalStrut(4));
         navPanel.add(btnPembayaran);
+        navPanel.add(Box.createVerticalStrut(4));
+        navPanel.add(btnKrsJadwal);
         navPanel.add(Box.createVerticalStrut(4));
         navPanel.add(btnAkademik);
         navPanel.add(akademikSubmenu);

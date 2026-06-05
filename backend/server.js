@@ -58,7 +58,7 @@ app.get('/api', (req, res) => {
 app.use('/api', authRoutes);
 app.use('/api/mahasiswa', mahasiswaRoutes);
 app.use('/api/pembayaran', pembayaranRoutes);
-app.use('/api/akademik', akademikRoutes);
+app.use('/api', akademikRoutes);
 app.use('/api/nilai', nilaiRoutes);
 app.use('/api/laporan', laporanRoutes);
 
