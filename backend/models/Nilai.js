@@ -6,8 +6,13 @@
 const { pool } = require('../config/database');
 
 class Nilai {
-  static calculateNilaiAkhir(nilaiTugas = 0, nilaiUts = 0, nilaiUas = 0) {
-    return Number(((nilaiTugas * 0.3) + (nilaiUts * 0.3) + (nilaiUas * 0.4)).toFixed(2));
+  static calculateNilaiAkhir(nilaiTugas = 0, nilaiUts = 0, nilaiUas = 0, bobot = null) {
+    const activeBobot = bobot || { bobot_tugas: 30, bobot_uts: 30, bobot_uas: 40 };
+    return Number((
+      (nilaiTugas * (Number(activeBobot.bobot_tugas) / 100)) +
+      (nilaiUts * (Number(activeBobot.bobot_uts) / 100)) +
+      (nilaiUas * (Number(activeBobot.bobot_uas) / 100))
+    ).toFixed(2));
   }
 
   static calculateGrade(nilaiAkhir = 0) {
@@ -24,6 +29,13 @@ class Nilai {
     if (score < 0) return 0;
     if (score > 100) return 100;
     return Number(score.toFixed(2));
+  }
+
+  static async getActiveBobotNilai(connection = pool) {
+    const [rows] = await connection.execute(
+      'SELECT bobot_tugas, bobot_uts, bobot_uas FROM bobot_nilai WHERE is_active = 1 ORDER BY id ASC LIMIT 1'
+    );
+    return rows[0] || { bobot_tugas: 30, bobot_uts: 30, bobot_uas: 40 };
   }
 
   static async getMataKuliahList({ semester = '', search = '' } = {}) {
@@ -46,7 +58,7 @@ class Nilai {
     return rows;
   }
 
-  static async getInputList({ kode_mk, tahun_ajaran, search = '' }) {
+  static async getInputList({ kode_mk, tahun_ajaran, search = '', jurusan = '' }) {
     const [mkRows] = await pool.execute(
       'SELECT kode_mk, nama_mk, semester, jurusan FROM mata_kuliah WHERE kode_mk = ?',
       [kode_mk]
@@ -61,6 +73,7 @@ class Nilai {
         m.jurusan,
         m.program_studi,
         m.semester,
+        k.status AS status_krs,
         n.id AS id_nilai,
         n.nilai_tugas,
         n.nilai_uts,
@@ -69,18 +82,23 @@ class Nilai {
         n.grade,
         n.tahun_ajaran,
         n.updated_at
-      FROM mahasiswa m
+      FROM krs k
+      INNER JOIN mahasiswa m ON m.nim = k.nim
       LEFT JOIN nilai n
         ON n.nim = m.nim
-        AND n.kode_mk = ?
-        AND n.tahun_ajaran = ?
+        AND n.kode_mk = k.kode_mk
+        AND n.tahun_ajaran = k.tahun_ajaran
       WHERE m.status = 'aktif'
+        AND k.kode_mk = ?
+        AND k.tahun_ajaran = ?
+        AND k.status <> 'batal'
     `;
     const params = [kode_mk, tahun_ajaran];
 
-    if (mataKuliah.jurusan) {
+    const jurusanFilter = String(jurusan || '').trim();
+    if (jurusanFilter) {
       query += ' AND m.jurusan = ?';
-      params.push(mataKuliah.jurusan);
+      params.push(jurusanFilter);
     }
 
     if (search) {
@@ -91,20 +109,37 @@ class Nilai {
 
     query += ' ORDER BY m.nim ASC';
     const [rows] = await pool.execute(query, params);
-    return { mata_kuliah: mataKuliah, data: rows };
+    const bobotNilai = await this.getActiveBobotNilai();
+    return { mata_kuliah: mataKuliah, bobot_nilai: bobotNilai, data: rows };
   }
 
   static async bulkUpsert({ kode_mk, tahun_ajaran, nilai }) {
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
+      const bobotNilai = await this.getActiveBobotNilai(connection);
+
+      const nimList = nilai.map(item => item.nim);
+      const placeholders = nimList.map(() => '?').join(', ');
+      const [krsRows] = await connection.execute(
+        `SELECT nim FROM krs
+         WHERE kode_mk = ? AND tahun_ajaran = ? AND status <> 'batal' AND nim IN (${placeholders})`,
+        [kode_mk, tahun_ajaran, ...nimList]
+      );
+      const allowedNim = new Set(krsRows.map(row => row.nim));
 
       const saved = [];
       for (const item of nilai) {
+        if (!allowedNim.has(item.nim)) {
+          const error = new Error(`Mahasiswa ${item.nim} belum mengambil mata kuliah ini di KRS.`);
+          error.statusCode = 400;
+          throw error;
+        }
+
         const nilaiTugas = this.normalizeScore(item.nilai_tugas);
         const nilaiUts = this.normalizeScore(item.nilai_uts);
         const nilaiUas = this.normalizeScore(item.nilai_uas);
-        const nilaiAkhir = this.calculateNilaiAkhir(nilaiTugas, nilaiUts, nilaiUas);
+        const nilaiAkhir = this.calculateNilaiAkhir(nilaiTugas, nilaiUts, nilaiUas, bobotNilai);
         const grade = this.calculateGrade(nilaiAkhir);
 
         await connection.execute(

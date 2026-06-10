@@ -19,7 +19,7 @@ const nilaiController = {
 
   getInputList: async (req, res) => {
     try {
-      const { kode_mk, tahun_ajaran, search } = req.query;
+      const { kode_mk, tahun_ajaran, search, jurusan } = req.query;
       if (!kode_mk || !tahun_ajaran) {
         return res.status(400).json({
           success: false,
@@ -27,12 +27,17 @@ const nilaiController = {
         });
       }
 
-      const result = await Nilai.getInputList({ kode_mk, tahun_ajaran, search });
+      const result = await Nilai.getInputList({ kode_mk, tahun_ajaran, search, jurusan });
       if (!result.mata_kuliah) {
         return res.status(404).json({ success: false, message: 'Mata kuliah tidak ditemukan.' });
       }
 
-      res.json({ success: true, data: result.data, mata_kuliah: result.mata_kuliah });
+      res.json({
+        success: true,
+        data: result.data,
+        mata_kuliah: result.mata_kuliah,
+        bobot_nilai: result.bobot_nilai
+      });
     } catch (error) {
       console.error('Get input nilai error:', error);
       res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
@@ -67,7 +72,7 @@ const nilaiController = {
       });
     } catch (error) {
       console.error('Bulk save nilai error:', error);
-      res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+      res.status(error.statusCode || 500).json({ success: false, message: error.message || 'Terjadi kesalahan server.' });
     }
   },
 

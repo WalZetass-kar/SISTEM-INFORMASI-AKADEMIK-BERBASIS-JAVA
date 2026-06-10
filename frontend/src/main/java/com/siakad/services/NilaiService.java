@@ -18,11 +18,18 @@ public class NilaiService {
     }
 
     public static JsonObject getInputList(String kodeMk, String tahunAjaran, String search) throws Exception {
+        return getInputList(kodeMk, tahunAjaran, search, null);
+    }
+
+    public static JsonObject getInputList(String kodeMk, String tahunAjaran, String search, String jurusan) throws Exception {
         StringBuilder url = new StringBuilder(Config.NILAI_URL + "/input-list");
         url.append("?kode_mk=").append(ApiService.encodeQueryParam(kodeMk));
         url.append("&tahun_ajaran=").append(ApiService.encodeQueryParam(tahunAjaran));
         if (search != null && !search.isEmpty()) {
             url.append("&search=").append(ApiService.encodeQueryParam(search));
+        }
+        if (jurusan != null && !jurusan.isEmpty()) {
+            url.append("&jurusan=").append(ApiService.encodeQueryParam(jurusan));
         }
         return ApiService.get(url.toString());
     }

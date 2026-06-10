@@ -6,6 +6,17 @@ const AkademikSettings = require('../models/AkademikSettings');
 
 const VALID_HARI = ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
 const TAHUN_AJARAN_REGEX = /^\d{4}\/\d{4}$/;
+const JAM_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+const normalizeJam = (value) => {
+  if (typeof value !== 'string') return '';
+  return value.trim();
+};
+
+const normalizeText = (value) => {
+  if (typeof value !== 'string') return '';
+  return value.trim();
+};
 
 const akademikController = {
   getSettings: async (req, res) => {
@@ -127,11 +138,27 @@ const akademikController = {
 
   createJadwal: async (req, res) => {
     try {
-      const { kode_mk, hari, jam, ruangan, dosen } = req.body;
-      if (!kode_mk || !hari || !jam || !ruangan || !dosen) {
+      const { kode_mk, hari, ruangan, dosen } = req.body;
+      const jam_mulai = normalizeJam(req.body.jam_mulai);
+      const jam_selesai = normalizeJam(req.body.jam_selesai);
+
+      if (!kode_mk || !hari || !jam_mulai || !jam_selesai || !ruangan || !dosen) {
         return res.status(400).json({ success: false, message: 'Semua field jadwal wajib diisi.' });
       }
-      const data = await Jadwal.create({ kode_mk, hari, jam, ruangan, dosen });
+
+      if (!VALID_HARI.includes(hari)) {
+        return res.status(400).json({ success: false, message: `Hari harus salah satu dari: ${VALID_HARI.join(', ')}.` });
+      }
+
+      if (!JAM_REGEX.test(jam_mulai) || !JAM_REGEX.test(jam_selesai)) {
+        return res.status(400).json({ success: false, message: 'Format jam harus HH:mm, contoh 08:00.' });
+      }
+
+      if (jam_mulai >= jam_selesai) {
+        return res.status(400).json({ success: false, message: 'Jam selesai harus lebih besar dari jam mulai.' });
+      }
+
+      const data = await Jadwal.create({ kode_mk, hari, jam_mulai, jam_selesai, ruangan, dosen });
       res.status(201).json({ success: true, message: 'Jadwal berhasil ditambahkan.', data });
     } catch (error) {
       console.error('Create jadwal error:', error);
@@ -141,7 +168,8 @@ const akademikController = {
 
   getKrs: async (req, res) => {
     try {
-      const { nim: requestedNim, tahun_ajaran: tahunAjaran, kode_mk: kodeMk } = req.query;
+      const { tahun_ajaran: tahunAjaran, kode_mk: kodeMk } = req.query;
+      const requestedNim = normalizeText(req.query.nim);
       let nim = requestedNim;
       if (req.user.role !== 'admin') {
         if (!req.user.nim) return res.status(403).json({ success: false, message: 'Akun belum terhubung dengan NIM.' });
@@ -158,8 +186,14 @@ const akademikController = {
 
   createKrs: async (req, res) => {
     try {
-      const { nim, kode_mk, tahun_ajaran } = req.body;
+      const nim = normalizeText(req.body.nim);
+      const { kode_mk, tahun_ajaran } = req.body;
       if (!nim || !kode_mk || !tahun_ajaran) return res.status(400).json({ success: false, message: 'NIM, kode MK, dan tahun ajaran wajib diisi.' });
+
+      if (req.user.role !== 'admin') {
+        if (!req.user.nim) return res.status(403).json({ success: false, message: 'Akun belum terhubung dengan NIM.' });
+        if (nim !== req.user.nim) return res.status(403).json({ success: false, message: 'Akses ditolak. Anda hanya dapat mengelola KRS milik sendiri.' });
+      }
       
       const matakuliah = await Matakuliah.findByKode(kode_mk);
       if (!matakuliah) return res.status(404).json({ success: false, message: 'Mata kuliah tidak ditemukan.' });

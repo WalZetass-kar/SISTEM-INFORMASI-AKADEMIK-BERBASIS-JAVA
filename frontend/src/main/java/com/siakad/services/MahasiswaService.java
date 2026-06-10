@@ -19,6 +19,10 @@ public class MahasiswaService {
         return ApiService.get(Config.MAHASISWA_URL + "/" + nim);
     }
 
+    public static JsonObject getJurusanList() throws Exception {
+        return ApiService.get(Config.MAHASISWA_URL + "/jurusan/list");
+    }
+
     public static JsonObject create(JsonObject data) throws Exception {
         return ApiService.post(Config.MAHASISWA_URL, data);
     }
