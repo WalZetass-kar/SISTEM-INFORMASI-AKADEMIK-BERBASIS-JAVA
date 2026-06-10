@@ -25,6 +25,8 @@ public class PengaturanAkademikPanel extends JPanel {
     private JTextField txtUts;
     private JTextField txtUas;
     private JLabel lblSummary;
+    private JLabel lblActiveTahun;
+    private JButton btnSaveBobot;
 
     private static final Color BG = new Color(13, 19, 38);
     private static final Color CARD = new Color(18, 26, 48);
@@ -60,12 +62,17 @@ public class PengaturanAkademikPanel extends JPanel {
         JLabel title = new JLabel("Pengaturan Akademik");
         title.setFont(new Font("Segoe UI", Font.BOLD, 26));
         title.setForeground(TEXT);
-        JLabel subtitle = new JLabel("Kelola tahun ajaran, mata kuliah, dan bobot nilai");
+        JLabel subtitle = new JLabel("Kelola tahun ajaran dan bobot nilai akademik");
         subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         subtitle.setForeground(MUTED);
+        lblActiveTahun = new JLabel("Tahun ajaran aktif: -");
+        lblActiveTahun.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblActiveTahun.setForeground(new Color(191, 219, 254));
         titleBlock.add(title);
         titleBlock.add(Box.createVerticalStrut(2));
         titleBlock.add(subtitle);
+        titleBlock.add(Box.createVerticalStrut(6));
+        titleBlock.add(lblActiveTahun);
 
         JButton refresh = button("Refresh", BLUE);
         refresh.addActionListener(e -> loadSettings());
@@ -75,7 +82,7 @@ public class PengaturanAkademikPanel extends JPanel {
         JPanel cards = new JPanel(new GridLayout(1, 3, 12, 0));
         cards.setOpaque(false);
         cards.add(featureCard("TA", "Tahun Ajaran", "Periode aktif yang dipakai modul nilai dan absensi."));
-        cards.add(featureCard("MK", "Mata Kuliah", "Master kode, SKS, semester, jurusan, dan dosen."));
+        cards.add(featureCard("MK", "Mata Kuliah", "Referensi mata kuliah dari modul KRS & Jadwal Kuliah."));
         cards.add(featureCard("%", "Bobot Nilai", "Komposisi tugas, UTS, dan UAS untuk nilai akhir."));
 
         JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, buildTables(), buildBobotCard());
@@ -108,7 +115,7 @@ public class PengaturanAkademikPanel extends JPanel {
             @Override public boolean isCellEditable(int r, int c) { return false; }
         };
         mkTable = table(mkModel);
-        panel.add(section("Mata Kuliah", "Tambah", e -> showMataKuliahDialog(null), "Edit", e -> editMataKuliah(), "Hapus", e -> deleteMataKuliah(), mkTable));
+        panel.add(readOnlySection("Mata Kuliah", "Input mata kuliah dikelola dari menu KRS & Jadwal Kuliah.", mkTable));
         return panel;
     }
 
@@ -135,15 +142,19 @@ public class PengaturanAkademikPanel extends JPanel {
         txtTugas = field("30");
         txtUts = field("30");
         txtUas = field("40");
+        installBobotListener(txtTugas);
+        installBobotListener(txtUts);
+        installBobotListener(txtUas);
         form.add(label("Tugas"));
         form.add(txtTugas);
         form.add(label("UTS"));
         form.add(txtUts);
         form.add(label("UAS"));
         form.add(txtUas);
-        JButton save = button("Simpan Bobot", GREEN);
-        save.addActionListener(e -> saveBobot());
-        form.add(save);
+        btnSaveBobot = button("Simpan Bobot", GREEN);
+        btnSaveBobot.addActionListener(e -> saveBobot());
+        form.add(btnSaveBobot);
+        updateBobotSummary();
 
         panel.add(left, BorderLayout.WEST);
         panel.add(form, BorderLayout.EAST);
@@ -207,6 +218,35 @@ public class PengaturanAkademikPanel extends JPanel {
         return panel;
     }
 
+    private JPanel readOnlySection(String title, String note, JTable table) {
+        JPanel panel = cardPanel();
+        panel.setLayout(new BorderLayout());
+        JPanel head = new JPanel(new BorderLayout());
+        head.setOpaque(false);
+        head.setBorder(new EmptyBorder(12, 14, 10, 14));
+
+        JPanel titleBlock = new JPanel();
+        titleBlock.setOpaque(false);
+        titleBlock.setLayout(new BoxLayout(titleBlock, BoxLayout.Y_AXIS));
+        JLabel lbl = new JLabel(title);
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        lbl.setForeground(TEXT);
+        JLabel info = new JLabel(note);
+        info.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        info.setForeground(MUTED);
+        titleBlock.add(lbl);
+        titleBlock.add(Box.createVerticalStrut(3));
+        titleBlock.add(info);
+
+        head.add(titleBlock, BorderLayout.WEST);
+        JScrollPane scroll = new JScrollPane(table);
+        scroll.setBorder(null);
+        scroll.getViewport().setBackground(TABLE);
+        panel.add(head, BorderLayout.NORTH);
+        panel.add(scroll, BorderLayout.CENTER);
+        return panel;
+    }
+
     private void loadSettings() {
         rootCard.show(rootPanel, "skeleton");
         skeleton.start();
@@ -229,10 +269,15 @@ public class PengaturanAkademikPanel extends JPanel {
 
     private void fill(JsonObject data) {
         tahunModel.setRowCount(0);
+        String activeTahun = "-";
         for (JsonElement el : data.getAsJsonArray("tahun_ajaran")) {
             JsonObject o = el.getAsJsonObject();
             tahunModel.addRow(new Object[]{s(o, "id"), s(o, "tahun_ajaran"), s(o, "semester"), date(o, "tanggal_mulai"), date(o, "tanggal_selesai"), s(o, "status")});
+            if ("aktif".equals(s(o, "status"))) {
+                activeTahun = s(o, "tahun_ajaran") + " (" + s(o, "semester") + ")";
+            }
         }
+        lblActiveTahun.setText("Tahun ajaran aktif: " + activeTahun);
         mkModel.setRowCount(0);
         for (JsonElement el : data.getAsJsonArray("mata_kuliah")) {
             JsonObject o = el.getAsJsonObject();
@@ -244,6 +289,7 @@ public class PengaturanAkademikPanel extends JPanel {
             txtUts.setText(s(bobot, "bobot_uts"));
             txtUas.setText(s(bobot, "bobot_uas"));
         }
+        updateBobotSummary();
     }
 
     private void showTahunDialog(int row) {
@@ -268,47 +314,71 @@ public class PengaturanAkademikPanel extends JPanel {
         }
     }
 
-    private void showMataKuliahDialog(String kode) {
-        int row = mkTable.getSelectedRow();
-        JTextField kodeField = field(kode != null ? kode : "");
-        JTextField nama = field(row >= 0 && kode != null ? String.valueOf(mkModel.getValueAt(row, 1)) : "");
-        JTextField sks = field(row >= 0 && kode != null ? String.valueOf(mkModel.getValueAt(row, 2)) : "3");
-        JTextField semester = field(row >= 0 && kode != null ? String.valueOf(mkModel.getValueAt(row, 3)) : "1");
-        JTextField jurusan = field(row >= 0 && kode != null ? String.valueOf(mkModel.getValueAt(row, 4)) : "");
-        JTextField dosen = field(row >= 0 && kode != null ? String.valueOf(mkModel.getValueAt(row, 5)) : "");
-        kodeField.setEnabled(kode == null);
-        JPanel form = formPanel(new String[]{"Kode MK", "Nama MK", "SKS", "Semester", "Jurusan", "Dosen"}, new JComponent[]{kodeField, nama, sks, semester, jurusan, dosen});
-        if (JOptionPane.showConfirmDialog(this, form, "Mata Kuliah", JOptionPane.OK_CANCEL_OPTION) == JOptionPane.OK_OPTION) {
-            JsonObject body = new JsonObject();
-            body.addProperty("kode_mk", kodeField.getText());
-            body.addProperty("nama_mk", nama.getText());
-            body.addProperty("sks", Integer.parseInt(sks.getText()));
-            body.addProperty("semester", Integer.parseInt(semester.getText()));
-            body.addProperty("jurusan", jurusan.getText());
-            body.addProperty("dosen_pengampu", dosen.getText());
-            runSave(() -> kode != null ? AkademikService.updateMataKuliah(kode, body) : AkademikService.createMataKuliah(body));
-        }
-    }
-
     private void editTahun() { int r = tahunTable.getSelectedRow(); if (r >= 0) showTahunDialog(r); }
-    private void editMataKuliah() { int r = mkTable.getSelectedRow(); if (r >= 0) showMataKuliahDialog(String.valueOf(mkModel.getValueAt(r, 0))); }
 
     private void deleteTahun() {
         int r = tahunTable.getSelectedRow();
         if (r >= 0 && confirm("Hapus tahun ajaran ini?")) runSave(() -> AkademikService.deleteTahunAjaran(Integer.parseInt(String.valueOf(tahunModel.getValueAt(r, 0)))));
     }
 
-    private void deleteMataKuliah() {
-        int r = mkTable.getSelectedRow();
-        if (r >= 0 && confirm("Hapus mata kuliah ini?")) runSave(() -> AkademikService.deleteMataKuliah(String.valueOf(mkModel.getValueAt(r, 0))));
+    private void saveBobot() {
+        if (!isBobotValid()) {
+            JOptionPane.showMessageDialog(this, "Total bobot harus tepat 100% dan setiap bobot harus 0-100.", "Validasi", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        JsonObject body = new JsonObject();
+        body.addProperty("bobot_tugas", parseBobot(txtTugas));
+        body.addProperty("bobot_uts", parseBobot(txtUts));
+        body.addProperty("bobot_uas", parseBobot(txtUas));
+        runSave(() -> AkademikService.updateBobotNilai(body));
     }
 
-    private void saveBobot() {
-        JsonObject body = new JsonObject();
-        body.addProperty("bobot_tugas", Double.parseDouble(txtTugas.getText()));
-        body.addProperty("bobot_uts", Double.parseDouble(txtUts.getText()));
-        body.addProperty("bobot_uas", Double.parseDouble(txtUas.getText()));
-        runSave(() -> AkademikService.updateBobotNilai(body));
+    private void installBobotListener(JTextField field) {
+        field.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { updateBobotSummary(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { updateBobotSummary(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { updateBobotSummary(); }
+        });
+    }
+
+    private void updateBobotSummary() {
+        if (lblSummary == null) return;
+        double tugas = parseBobot(txtTugas);
+        double uts = parseBobot(txtUts);
+        double uas = parseBobot(txtUas);
+        double total = tugas + uts + uas;
+        boolean valid = isBobotValid();
+        lblSummary.setText("Total: " + formatNumber(total) + "%  |  Tugas " + formatNumber(tugas) + "%, UTS " + formatNumber(uts) + "%, UAS " + formatNumber(uas) + "%");
+        lblSummary.setForeground(valid ? new Color(134, 239, 172) : new Color(252, 165, 165));
+        if (btnSaveBobot != null) {
+            btnSaveBobot.setEnabled(valid);
+        }
+    }
+
+    private boolean isBobotValid() {
+        double tugas = parseBobot(txtTugas);
+        double uts = parseBobot(txtUts);
+        double uas = parseBobot(txtUas);
+        double total = tugas + uts + uas;
+        return tugas >= 0 && tugas <= 100
+                && uts >= 0 && uts <= 100
+                && uas >= 0 && uas <= 100
+                && Math.round(total * 100.0) / 100.0 == 100.0;
+    }
+
+    private double parseBobot(JTextField field) {
+        try {
+            return Double.parseDouble(field.getText().trim().replace(",", "."));
+        } catch (Exception ignored) {
+            return 0;
+        }
+    }
+
+    private String formatNumber(double value) {
+        if (value == Math.rint(value)) {
+            return String.valueOf((int) value);
+        }
+        return String.format(java.util.Locale.US, "%.2f", value);
     }
 
     private interface ApiCall { JsonObject run() throws Exception; }

@@ -1,0 +1,118 @@
+PROGRESS DEVELOPMENT MALAM INI
+Project: Sistem Informasi Akademik Berbasis Java
+Fokus tanggung jawab: Modul Akademik
+
+1. Pembatasan ruang kerja modul
+- Disepakati bahwa fokus utama development adalah fitur Akademik.
+- Fitur di luar Akademik tidak disentuh kecuali memang diperlukan untuk mendukung alur Akademik.
+- Fitur KRS, Jadwal Kuliah, dan Data Mahasiswa hanya dipakai atau disesuaikan seperlunya karena berhubungan langsung dengan Akademik.
+
+2. Perbaikan bug Jadwal Kuliah yang mempengaruhi Akademik
+- Masalah awal:
+  Frontend mengirim field waktu sebagai "jam", sedangkan backend/model membutuhkan "jam_mulai" dan "jam_selesai".
+- Perbaikan:
+  Frontend form jadwal dipisah menjadi Jam Mulai dan Jam Selesai.
+  Backend menerima dan memvalidasi jam_mulai serta jam_selesai.
+  Format jam divalidasi sebagai HH:mm.
+  Backend memastikan jam_mulai lebih kecil dari jam_selesai.
+- Dampak:
+  Data jadwal menjadi lebih konsisten dan tidak bentrok dengan struktur database/model.
+
+3. Pembatasan akses role mahasiswa
+- Masalah awal:
+  Perlu dipastikan mahasiswa tidak bisa melihat atau mengubah data KRS dan nilai mahasiswa lain.
+- Perbaikan:
+  Query KRS untuk mahasiswa dibatasi ke NIM milik akun login.
+  Mahasiswa tidak boleh membuat KRS untuk NIM lain.
+  Endpoint nilai pribadi mahasiswa diberi guard role mahasiswa.
+- Dampak:
+  Data akademik mahasiswa lebih aman dan sesuai hak akses.
+
+4. Pengembangan fitur Input Nilai Mahasiswa
+- Fitur input nilai diperkuat agar data yang muncul berasal dari mahasiswa yang benar-benar mengambil mata kuliah tersebut di KRS.
+- Tombol tambah nilai manual dihapus dari Input Nilai agar admin tidak bisa memasukkan nilai untuk mahasiswa yang belum mengambil mata kuliah di KRS.
+- Nilai hanya bisa disimpan untuk mahasiswa yang sudah ada di KRS pada mata kuliah dan tahun ajaran terkait.
+- Backend menolak penyimpanan nilai jika mahasiswa belum mengambil mata kuliah tersebut di KRS.
+- Nilai tugas, UTS, dan UAS dinormalisasi agar berada pada rentang 0 sampai 100.
+- Nilai akhir dan grade dihitung otomatis.
+
+5. Integrasi bobot nilai aktif
+- Masalah awal:
+  Perhitungan nilai akhir masih menggunakan bobot hardcoded 30% tugas, 30% UTS, 40% UAS.
+- Perbaikan:
+  Backend nilai sekarang mengambil bobot aktif dari tabel bobot_nilai.
+  Frontend Input Nilai menampilkan formula bobot aktif.
+  Perhitungan nilai akhir di frontend mengikuti bobot aktif dari backend.
+  Penyimpanan nilai di backend juga memakai bobot aktif yang sama.
+- Dampak:
+  Pengaturan bobot di Pengaturan Akademik benar-benar berpengaruh ke fitur Input Nilai.
+
+6. Pengaturan Akademik
+- UI Pengaturan Akademik dipoles agar lebih rapi.
+- Bagian bobot nilai dibuat lebih informatif.
+- Total bobot dihitung secara real-time.
+- Tombol simpan bobot hanya aktif jika total bobot valid 100%.
+- Ditambahkan indikator tahun ajaran aktif.
+- Input mata kuliah di Pengaturan Akademik dihilangkan dari UI Akademik karena fitur input mata kuliah menjadi bagian tim/fitur lain.
+- Pengaturan Akademik sekarang lebih fokus ke konfigurasi akademik, seperti tahun ajaran dan bobot nilai.
+
+7. Input Nilai: Tahun Ajaran dinamis
+- Masalah awal:
+  Tahun ajaran di Input Nilai masih hardcoded.
+- Perbaikan:
+  Dropdown Tahun Ajaran sekarang diambil dari Pengaturan Akademik.
+  Tahun ajaran aktif otomatis dipilih.
+- Dampak:
+  Input nilai mengikuti data tahun ajaran yang benar dari sistem.
+
+8. Input Nilai: Filter Jurusan
+- Permintaan terbaru:
+  Tambahkan select Jurusan di Input Nilai Mahasiswa.
+- Perbaikan:
+  Ditambahkan dropdown Jurusan pada filter Input Nilai.
+  Daftar jurusan diambil dari Data Mahasiswa, bukan ditulis manual.
+  Pilihan default adalah "Semua Jurusan".
+  Saat tombol Tampilkan ditekan, sistem memfilter berdasarkan Tahun Ajaran, Jurusan, Mata Kuliah, dan pencarian mahasiswa.
+  Backend nilai menerima parameter jurusan.
+  Jika jurusan dipilih, backend hanya menampilkan mahasiswa dari jurusan tersebut.
+  Jika "Semua Jurusan" dipilih, backend menampilkan semua jurusan yang sesuai KRS dan mata kuliah.
+- Dampak:
+  Admin bisa menginput nilai lebih terarah berdasarkan jurusan mahasiswa.
+
+9. Service frontend yang ditambahkan/disesuaikan
+- MahasiswaService:
+  Ditambahkan method getJurusanList() untuk mengambil daftar jurusan dari endpoint Data Mahasiswa.
+- NilaiService:
+  Method getInputList() diperluas agar bisa mengirim parameter jurusan.
+
+10. Backend nilai yang disesuaikan
+- nilaiController:
+  Endpoint input-list sekarang menerima query jurusan.
+  Response input-list ikut mengirim bobot_nilai aktif.
+  Error saat bulk save mengikuti status error dari model jika ada validasi khusus.
+- Nilai model:
+  Query input nilai menggunakan data KRS sebagai sumber mahasiswa.
+  Filter jurusan ditambahkan.
+  Bobot nilai aktif dipakai untuk menghitung nilai akhir.
+  Bulk save memvalidasi mahasiswa harus terdaftar di KRS.
+
+11. Validasi yang sudah dilakukan
+- Backend:
+  node --check backend/models/Nilai.js
+  node --check backend/controllers/nilaiController.js
+  node --check backend/controllers/akademikController.js
+- Frontend:
+  mvn -q -DskipTests compile
+- Hasil:
+  Pengecekan sintaks backend berhasil.
+  Compile frontend berhasil.
+
+12. Catatan untuk review berikutnya
+- Restart backend dan frontend agar semua perubahan terbaru terbaca.
+- Review langsung alur Input Nilai:
+  Pilih Tahun Ajaran.
+  Pilih Jurusan atau Semua Jurusan.
+  Pilih Mata Kuliah.
+  Klik Tampilkan.
+  Pastikan mahasiswa yang muncul sesuai data KRS dan jurusan.
+- Cek ulang data KRS jika daftar mahasiswa kosong, karena Input Nilai sekarang hanya menampilkan mahasiswa yang mengambil mata kuliah tersebut.

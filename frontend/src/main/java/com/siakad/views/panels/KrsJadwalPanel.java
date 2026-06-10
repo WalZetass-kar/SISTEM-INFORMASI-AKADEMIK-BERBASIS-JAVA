@@ -633,8 +633,10 @@ public class KrsJadwalPanel extends JPanel {
         JComboBox<MatakuliahOption> cmbMatakuliah = buildMatakuliahCombo();
         JComboBox<String> cmbHari = new JComboBox<>(new String[]{"senin", "selasa", "rabu", "kamis", "jumat", "sabtu"});
         styleCombo(cmbHari);
-        JTextField fJam = makeField();
-        fJam.setToolTipText("Contoh: 08:00-10:00");
+        JTextField fJamMulai = makeField();
+        fJamMulai.setToolTipText("Contoh: 08:00");
+        JTextField fJamSelesai = makeField();
+        fJamSelesai.setToolTipText("Contoh: 10:00");
         JTextField fRuangan = makeField();
         JTextField fDosen = makeField();
 
@@ -652,7 +654,8 @@ public class KrsJadwalPanel extends JPanel {
         int row = 0;
         addFormRow(form, g, row++, "Mata Kuliah *", cmbMatakuliah);
         addFormRow(form, g, row++, "Hari *", cmbHari);
-        addFormRow(form, g, row++, "Jam *", fJam);
+        addFormRow(form, g, row++, "Jam Mulai *", fJamMulai);
+        addFormRow(form, g, row++, "Jam Selesai *", fJamSelesai);
         addFormRow(form, g, row++, "Ruangan *", fRuangan);
         addFormRow(form, g, row++, "Dosen *", fDosen);
 
@@ -665,15 +668,27 @@ public class KrsJadwalPanel extends JPanel {
 
         btnSave.addActionListener(e -> {
             MatakuliahOption option = (MatakuliahOption) cmbMatakuliah.getSelectedItem();
-            if (option == null || isBlank(fJam) || isBlank(fRuangan) || isBlank(fDosen)) {
+            if (option == null || isBlank(fJamMulai) || isBlank(fJamSelesai) || isBlank(fRuangan) || isBlank(fDosen)) {
                 JOptionPane.showMessageDialog(dialog, "Semua field wajib harus diisi.", "Validasi", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            String jamMulai = fJamMulai.getText().trim();
+            String jamSelesai = fJamSelesai.getText().trim();
+            if (!isValidJam(jamMulai) || !isValidJam(jamSelesai)) {
+                JOptionPane.showMessageDialog(dialog, "Format jam harus HH:mm, contoh 08:00.", "Validasi", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            if (jamMulai.compareTo(jamSelesai) >= 0) {
+                JOptionPane.showMessageDialog(dialog, "Jam selesai harus lebih besar dari jam mulai.", "Validasi", JOptionPane.WARNING_MESSAGE);
                 return;
             }
 
             JsonObject body = new JsonObject();
             body.addProperty("kode_mk", option.kodeMk());
             body.addProperty("hari", String.valueOf(cmbHari.getSelectedItem()));
-            body.addProperty("jam", fJam.getText().trim());
+            body.addProperty("jam_mulai", jamMulai);
+            body.addProperty("jam_selesai", jamSelesai);
             body.addProperty("ruangan", fRuangan.getText().trim());
             body.addProperty("dosen", fDosen.getText().trim());
 
@@ -1132,6 +1147,10 @@ public class KrsJadwalPanel extends JPanel {
 
     private boolean isBlank(JTextField field) {
         return field.getText() == null || field.getText().trim().isEmpty();
+    }
+
+    private boolean isValidJam(String value) {
+        return value != null && value.matches("([01]\\d|2[0-3]):[0-5]\\d");
     }
 
     private int parseInteger(String value) {
