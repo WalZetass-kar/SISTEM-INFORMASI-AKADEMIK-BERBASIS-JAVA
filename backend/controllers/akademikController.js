@@ -2,11 +2,13 @@ const Mahasiswa = require('../models/Mahasiswa');
 const Matakuliah = require('../models/Matakuliah');
 const Jadwal = require('../models/Jadwal');
 const Krs = require('../models/Krs');
+const Kehadiran = require('../models/Kehadiran');
 const AkademikSettings = require('../models/AkademikSettings');
 
 const VALID_HARI = ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
 const TAHUN_AJARAN_REGEX = /^\d{4}\/\d{4}$/;
 const JAM_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
+const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 const normalizeJam = (value) => {
   if (typeof value !== 'string') return '';
@@ -18,6 +20,12 @@ const normalizeText = (value) => {
   return value.trim();
 };
 
+const isValidDate = (value) => {
+  if (!DATE_REGEX.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+};
+
 const akademikController = {
   getSettings: async (req, res) => {
     try {
@@ -26,9 +34,18 @@ const akademikController = {
         AkademikSettings.getMataKuliah(),
         AkademikSettings.getBobotNilai()
       ]);
-      res.json({ success: true, data: { tahun_ajaran: tahunAjaran, mata_kuliah: mataKuliah, bobot_nilai: bobotNilai } });
+      const jumlahPertemuan = await AkademikSettings.getJumlahPertemuan();
+      res.json({
+        success: true,
+        data: {
+          tahun_ajaran: tahunAjaran,
+          mata_kuliah: mataKuliah,
+          bobot_nilai: bobotNilai,
+          jumlah_pertemuan: jumlahPertemuan
+        }
+      });
     } catch (error) {
-      res.status(500).json(`{ success: false, message: 'Terjadi kesalahan server.' }`);
+      res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
     }
   },
 
@@ -100,6 +117,16 @@ const akademikController = {
       res.status(error.statusCode || 500).json({ success: false, message: error.message || 'Terjadi kesalahan server.' });
     }
   },
+
+  updateJumlahPertemuan: async (req, res) => {
+    try {
+      const data = await AkademikSettings.updateJumlahPertemuan(req.body.jumlah_pertemuan);
+      res.json({ success: true, message: 'Jumlah pertemuan berhasil disimpan.', data });
+    } catch (error) {
+      res.status(error.statusCode || 500).json({ success: false, message: error.message || 'Terjadi kesalahan server.' });
+    }
+  },
+
   getMatakuliah: async (req, res) => {
     try {
       const { search, semester } = req.query;
@@ -208,6 +235,176 @@ const akademikController = {
       res.status(201).json({ success: true, message: 'KRS berhasil ditambahkan.', data });
     } catch (error) {
       console.error('Create KRS error:', error);
+      res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+    }
+  },
+
+  getKehadiranInputList: async (req, res) => {
+    try {
+      const { kode_mk, tahun_ajaran, tanggal, search, jurusan } = req.query;
+      if (!kode_mk || !tahun_ajaran || !tanggal) {
+        return res.status(400).json({
+          success: false,
+          message: 'Kode mata kuliah, tahun ajaran, dan tanggal wajib diisi.'
+        });
+      }
+
+      if (!isValidDate(tanggal)) {
+        return res.status(400).json({ success: false, message: 'Format tanggal harus YYYY-MM-DD.' });
+      }
+
+      const result = await Kehadiran.getInputList({ kode_mk, tahun_ajaran, tanggal, search, jurusan });
+      if (!result.mata_kuliah) {
+        return res.status(404).json({ success: false, message: 'Mata kuliah tidak ditemukan.' });
+      }
+
+      res.json({
+        success: true,
+        data: result.data,
+        mata_kuliah: result.mata_kuliah,
+        status_options: Kehadiran.validStatuses()
+      });
+    } catch (error) {
+      console.error('Get input kehadiran error:', error);
+      res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+    }
+  },
+
+  bulkSaveKehadiran: async (req, res) => {
+    try {
+      const { kode_mk, tahun_ajaran, tanggal, pertemuan, items } = req.body;
+      if (!kode_mk || !tahun_ajaran || !tanggal || !Array.isArray(items)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Kode mata kuliah, tahun ajaran, tanggal, dan data kehadiran wajib diisi.'
+        });
+      }
+
+      if (!isValidDate(tanggal)) {
+        return res.status(400).json({ success: false, message: 'Format tanggal harus YYYY-MM-DD.' });
+      }
+
+      const pertemuanNumber = pertemuan === undefined || pertemuan === null || pertemuan === ''
+        ? null
+        : Number(pertemuan);
+      if (pertemuanNumber !== null && (!Number.isInteger(pertemuanNumber) || pertemuanNumber <= 0)) {
+        return res.status(400).json({ success: false, message: 'Pertemuan harus berupa angka positif.' });
+      }
+
+      if (items.length === 0) {
+        return res.status(400).json({ success: false, message: 'Data kehadiran masih kosong.' });
+      }
+
+      for (const item of items) {
+        if (!item.nim) {
+          return res.status(400).json({ success: false, message: 'Setiap data kehadiran wajib memiliki NIM.' });
+        }
+      }
+
+      const saved = await Kehadiran.bulkUpsert({
+        kode_mk,
+        tahun_ajaran,
+        tanggal,
+        pertemuan: pertemuanNumber,
+        items,
+        input_by: req.user.id
+      });
+
+      res.json({
+        success: true,
+        message: `${saved.length} data kehadiran berhasil disimpan.`,
+        data: saved
+      });
+    } catch (error) {
+      console.error('Bulk save kehadiran error:', error);
+      res.status(error.statusCode || 500).json({ success: false, message: error.message || 'Terjadi kesalahan server.' });
+    }
+  },
+
+  getKehadiranRekap: async (req, res) => {
+    try {
+      const { tahun_ajaran, kode_mk, tanggal_mulai, tanggal_selesai, search, jurusan } = req.query;
+      if (!tahun_ajaran) {
+        return res.status(400).json({ success: false, message: 'Tahun ajaran wajib diisi.' });
+      }
+
+      if (tanggal_mulai && !isValidDate(tanggal_mulai)) {
+        return res.status(400).json({ success: false, message: 'Format tanggal mulai harus YYYY-MM-DD.' });
+      }
+
+      if (tanggal_selesai && !isValidDate(tanggal_selesai)) {
+        return res.status(400).json({ success: false, message: 'Format tanggal selesai harus YYYY-MM-DD.' });
+      }
+
+      const result = await Kehadiran.getRekap({
+        tahun_ajaran,
+        kode_mk,
+        tanggal_mulai,
+        tanggal_selesai,
+        search,
+        jurusan
+      });
+
+      res.json({
+        success: true,
+        data: result.data,
+        summary: result.summary
+      });
+    } catch (error) {
+      console.error('Get rekap kehadiran error:', error);
+      res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+    }
+  },
+
+  getKehadiranSaya: async (req, res) => {
+    try {
+      if (!req.user.nim) {
+        return res.status(403).json({ success: false, message: 'Akun belum terhubung dengan NIM.' });
+      }
+
+      const result = await Kehadiran.findByNim(req.user.nim);
+      res.json({
+        success: true,
+        data: result.data,
+        summary: result.summary
+      });
+    } catch (error) {
+      console.error('Get kehadiran saya error:', error);
+      res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+    }
+  },
+
+  getInfoAkademikSaya: async (req, res) => {
+    try {
+      if (!req.user.nim) {
+        return res.status(403).json({ success: false, message: 'Akun belum terhubung dengan NIM.' });
+      }
+
+      const [tahunAjaran, jumlahPertemuan, krs] = await Promise.all([
+        AkademikSettings.getTahunAjaran(),
+        AkademikSettings.getJumlahPertemuan(),
+        Krs.findAll({ nim: req.user.nim })
+      ]);
+
+      const active = tahunAjaran.find(item => item.is_active) || tahunAjaran[0] || null;
+      const aktifKrs = krs.filter(item => item.status !== 'batal');
+      const totalSks = aktifKrs.reduce((sum, item) => sum + Number(item.sks || 0), 0);
+
+      res.json({
+        success: true,
+        data: {
+          tahun_ajaran: tahunAjaran,
+          krs,
+          summary: {
+            tahun_ajaran_aktif: active ? active.tahun_ajaran : '-',
+            jumlah_pertemuan: jumlahPertemuan,
+            total_krs: aktifKrs.length,
+            total_sks: totalSks
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Get info akademik saya error:', error);
       res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
     }
   }

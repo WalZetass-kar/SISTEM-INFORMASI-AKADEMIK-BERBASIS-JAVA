@@ -10,6 +10,10 @@ import javax.swing.*;
  */
 public class Main {
     public static void main(String[] args) {
+        // Linux/Wayland can hide lightweight Swing popups behind the main window.
+        JPopupMenu.setDefaultLightWeightPopupEnabled(false);
+        ToolTipManager.sharedInstance().setLightWeightPopupEnabled(false);
+
         // Set Look and Feel
         try {
             UIManager.setLookAndFeel(new FlatDarkLaf());

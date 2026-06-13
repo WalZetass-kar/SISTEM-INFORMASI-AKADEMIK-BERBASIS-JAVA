@@ -3,7 +3,7 @@ package com.siakad.views.panels;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.siakad.services.NilaiService;
+import com.siakad.services.AkademikService;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -11,21 +11,18 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import java.awt.*;
-import java.util.Set;
-import java.util.TreeSet;
 
-public class NilaiSayaPanel extends JPanel {
+public class KehadiranSayaPanel extends JPanel {
     private final CardLayout rootCard = new CardLayout();
     private final JPanel rootPanel = new JPanel(rootCard);
     private final SkeletonPanel skeleton = new SkeletonPanel(SkeletonPanel.Type.TABLE);
     private final StatePanel statePanel = new StatePanel();
     private DefaultTableModel tableModel;
-    private JComboBox<String> cmbSemester;
-    private JLabel lblMk;
-    private JLabel lblSks;
-    private JLabel lblRata;
-    private JsonArray allNilaiData = new JsonArray();
-    private boolean loadingSemesterOptions = false;
+    private JLabel lblTotal;
+    private JLabel lblHadir;
+    private JLabel lblIzinSakit;
+    private JLabel lblAlpha;
+    private JLabel lblPersen;
 
     private static final Color BG = new Color(13, 19, 38);
     private static final Color CARD = new Color(18, 26, 48);
@@ -39,7 +36,7 @@ public class NilaiSayaPanel extends JPanel {
     private static final Color AMBER = new Color(234, 179, 8);
     private static final Color RED = new Color(239, 68, 68);
 
-    public NilaiSayaPanel() {
+    public KehadiranSayaPanel() {
         setBackground(BG);
         setLayout(new BorderLayout());
         rootPanel.setBackground(BG);
@@ -60,39 +57,32 @@ public class NilaiSayaPanel extends JPanel {
         JPanel titleBlock = new JPanel();
         titleBlock.setOpaque(false);
         titleBlock.setLayout(new BoxLayout(titleBlock, BoxLayout.Y_AXIS));
-        JLabel title = new JLabel("Nilai Saya");
+        JLabel title = new JLabel("Kehadiran Saya");
         title.setFont(new Font("Segoe UI", Font.BOLD, 26));
         title.setForeground(TEXT);
-        JLabel subtitle = new JLabel("Akademik / Nilai & Absensi / Nilai Saya");
+        JLabel subtitle = new JLabel("Akademik / Nilai & Absensi / Kehadiran Saya");
         subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         subtitle.setForeground(MUTED);
         titleBlock.add(title);
         titleBlock.add(Box.createVerticalStrut(2));
         titleBlock.add(subtitle);
-        cmbSemester = new JComboBox<>();
-        styleCombo(cmbSemester, 170);
-        cmbSemester.addItem("Semua Semester");
-        cmbSemester.addActionListener(e -> {
-            if (!loadingSemesterOptions) applySemesterFilter();
-        });
-
         JButton refresh = button("Refresh", BLUE);
         refresh.addActionListener(e -> loadData());
         header.add(titleBlock, BorderLayout.WEST);
-        JPanel controls = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
-        controls.setOpaque(false);
-        controls.add(labeledField("Filter Semester", cmbSemester));
-        controls.add(refresh);
-        header.add(controls, BorderLayout.EAST);
+        header.add(refresh, BorderLayout.EAST);
 
-        JPanel stats = new JPanel(new GridLayout(1, 3, 12, 0));
+        JPanel stats = new JPanel(new GridLayout(1, 5, 12, 0));
         stats.setOpaque(false);
-        lblMk = statValue("0");
-        lblSks = statValue("0");
-        lblRata = statValue("0.00");
-        stats.add(statCard("MK", "Total Mata Kuliah", lblMk));
-        stats.add(statCard("SKS", "Total SKS", lblSks));
-        stats.add(statCard("AVG", "Rata-rata Nilai", lblRata));
+        lblTotal = statValue("0");
+        lblHadir = statValue("0");
+        lblIzinSakit = statValue("0");
+        lblAlpha = statValue("0");
+        lblPersen = statValue("0%");
+        stats.add(statCard("ALL", "Total Catatan", lblTotal));
+        stats.add(statCard("H", "Hadir", lblHadir));
+        stats.add(statCard("I/S", "Izin + Sakit", lblIzinSakit));
+        stats.add(statCard("A", "Alpha", lblAlpha));
+        stats.add(statCard("%", "Persentase Hadir", lblPersen));
 
         JPanel top = new JPanel(new BorderLayout(0, 14));
         top.setOpaque(false);
@@ -109,13 +99,13 @@ public class NilaiSayaPanel extends JPanel {
         card.setLayout(new BorderLayout());
         card.setBorder(new EmptyBorder(16, 18, 18, 18));
 
-        JLabel title = new JLabel("Daftar Nilai Akademik");
+        JLabel title = new JLabel("Riwayat Kehadiran Per Mata Kuliah");
         title.setFont(new Font("Segoe UI", Font.BOLD, 16));
         title.setForeground(TEXT);
         title.setBorder(new EmptyBorder(0, 0, 12, 0));
 
         tableModel = new DefaultTableModel(new String[]{
-                "Tahun Ajaran", "Kode", "Mata Kuliah", "SKS", "Semester", "Tugas", "UTS", "UAS", "Akhir", "Grade", "Status"
+                "Tahun Ajaran", "Tanggal", "Pertemuan", "Kode", "Mata Kuliah", "SKS", "Semester", "Status", "Keterangan"
         }, 0) {
             @Override public boolean isCellEditable(int row, int col) { return false; }
         };
@@ -128,8 +118,7 @@ public class NilaiSayaPanel extends JPanel {
             }
         };
         styleTable(table);
-        table.getColumnModel().getColumn(9).setCellRenderer(new GradeRenderer());
-        table.getColumnModel().getColumn(10).setCellRenderer(new StatusRenderer());
+        table.getColumnModel().getColumn(7).setCellRenderer(new StatusRenderer());
 
         JScrollPane scroll = new JScrollPane(table);
         scroll.setBorder(null);
@@ -145,7 +134,7 @@ public class NilaiSayaPanel extends JPanel {
         panel.setLayout(new BorderLayout(12, 0));
         panel.setBorder(new EmptyBorder(16, 18, 16, 18));
         JLabel ic = new JLabel(icon);
-        ic.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        ic.setFont(new Font("Segoe UI", Font.BOLD, 18));
         ic.setForeground(BLUE);
         JPanel text = new JPanel();
         text.setOpaque(false);
@@ -163,7 +152,7 @@ public class NilaiSayaPanel extends JPanel {
 
     private JLabel statValue(String text) {
         JLabel label = new JLabel(text);
-        label.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        label.setFont(new Font("Segoe UI", Font.BOLD, 21));
         label.setForeground(TEXT);
         return label;
     }
@@ -172,7 +161,7 @@ public class NilaiSayaPanel extends JPanel {
         rootCard.show(rootPanel, "skeleton");
         skeleton.start();
         new SwingWorker<JsonObject, Void>() {
-            @Override protected JsonObject doInBackground() throws Exception { return NilaiService.getMyNilai(); }
+            @Override protected JsonObject doInBackground() throws Exception { return AkademikService.getKehadiranSaya(); }
             @Override protected void done() {
                 skeleton.stop();
                 try {
@@ -181,7 +170,7 @@ public class NilaiSayaPanel extends JPanel {
                     fill(response);
                     rootCard.show(rootPanel, "content");
                 } catch (Exception e) {
-                    statePanel.showState("!", "Gagal memuat nilai", e.getMessage(), "Muat ulang", NilaiSayaPanel.this::loadData);
+                    statePanel.showState("!", "Gagal memuat kehadiran", e.getMessage(), "Muat ulang", KehadiranSayaPanel.this::loadData);
                     rootCard.show(rootPanel, "state");
                 }
             }
@@ -189,132 +178,54 @@ public class NilaiSayaPanel extends JPanel {
     }
 
     private void fill(JsonObject response) {
-        allNilaiData = response.getAsJsonArray("data");
-        populateSemesterOptions(allNilaiData);
-        applySemesterFilter();
-    }
+        tableModel.setRowCount(0);
+        JsonObject summary = response.getAsJsonObject("summary");
+        int izin = number(summary, "izin");
+        int sakit = number(summary, "sakit");
+        lblTotal.setText(s(summary, "total_pertemuan"));
+        lblHadir.setText(s(summary, "hadir"));
+        lblIzinSakit.setText(String.valueOf(izin + sakit));
+        lblAlpha.setText(s(summary, "alpha"));
+        lblPersen.setText(percent(summary, "persentase_hadir"));
 
-    private void populateSemesterOptions(JsonArray data) {
-        loadingSemesterOptions = true;
-        Object previous = cmbSemester.getSelectedItem();
-        cmbSemester.removeAllItems();
-        cmbSemester.addItem("Semua Semester");
-
-        Set<Integer> semesters = new TreeSet<>();
+        JsonArray data = response.getAsJsonArray("data");
         for (JsonElement el : data) {
             JsonObject o = el.getAsJsonObject();
-            int semester = number(o, "semester");
-            if (semester > 0) semesters.add(semester);
-        }
-        for (Integer semester : semesters) {
-            cmbSemester.addItem("Semester " + semester);
-        }
-
-        if (previous != null) {
-            cmbSemester.setSelectedItem(previous);
-        }
-        if (cmbSemester.getSelectedItem() == null) {
-            cmbSemester.setSelectedIndex(0);
-        }
-        loadingSemesterOptions = false;
-    }
-
-    private void applySemesterFilter() {
-        tableModel.setRowCount(0);
-        int selectedSemester = selectedSemester();
-        int totalMk = 0;
-        int totalSks = 0;
-        double totalNilai = 0;
-
-        for (JsonElement el : allNilaiData) {
-            JsonObject o = el.getAsJsonObject();
-            if (selectedSemester > 0 && number(o, "semester") != selectedSemester) {
-                continue;
-            }
-
-            String grade = s(o, "grade");
-            totalMk++;
-            totalSks += number(o, "sks");
-            totalNilai += doubleNumber(o, "nilai_akhir");
             tableModel.addRow(new Object[]{
                     s(o, "tahun_ajaran"),
+                    dateOnly(s(o, "tanggal")),
+                    s(o, "pertemuan").isBlank() ? "-" : s(o, "pertemuan"),
                     s(o, "kode_mk"),
                     s(o, "nama_mk"),
                     s(o, "sks"),
                     s(o, "semester"),
-                    score(o, "nilai_tugas"),
-                    score(o, "nilai_uts"),
-                    score(o, "nilai_uas"),
-                    score(o, "nilai_akhir"),
-                    grade,
-                    status(grade)
+                    capitalize(s(o, "status")),
+                    s(o, "keterangan").isBlank() ? "-" : s(o, "keterangan")
             });
         }
-
-        lblMk.setText(String.valueOf(totalMk));
-        lblSks.setText(String.valueOf(totalSks));
-        lblRata.setText(totalMk > 0 ? String.format(java.util.Locale.US, "%.2f", totalNilai / totalMk) : "0.00");
     }
 
-    private String status(String grade) {
-        if ("A".equals(grade) || "B".equals(grade) || "C".equals(grade)) return "Lulus";
-        if ("D".equals(grade) || "E".equals(grade)) return "Tidak Lulus";
-        return "Belum Dinilai";
+    private int number(JsonObject o, String key) {
+        return o != null && o.has(key) && !o.get(key).isJsonNull() ? o.get(key).getAsInt() : 0;
     }
 
-    private String score(JsonObject o, String key) {
-        return o.has(key) && !o.get(key).isJsonNull() ? String.format(java.util.Locale.US, "%.2f", o.get(key).getAsDouble()) : "-";
+    private String percent(JsonObject o, String key) {
+        return o != null && o.has(key) && !o.get(key).isJsonNull()
+                ? String.format(java.util.Locale.US, "%.2f%%", o.get(key).getAsDouble())
+                : "0%";
     }
 
     private String s(JsonObject o, String key) {
         return o != null && o.has(key) && !o.get(key).isJsonNull() ? o.get(key).getAsString() : "";
     }
 
-    private int number(JsonObject o, String key) {
-        try {
-            return o != null && o.has(key) && !o.get(key).isJsonNull() ? o.get(key).getAsInt() : 0;
-        } catch (Exception ex) {
-            return 0;
-        }
+    private String dateOnly(String value) {
+        return value != null && value.length() >= 10 ? value.substring(0, 10) : value;
     }
 
-    private double doubleNumber(JsonObject o, String key) {
-        try {
-            return o != null && o.has(key) && !o.get(key).isJsonNull() ? o.get(key).getAsDouble() : 0;
-        } catch (Exception ex) {
-            return 0;
-        }
-    }
-
-    private int selectedSemester() {
-        Object selected = cmbSemester.getSelectedItem();
-        if (selected == null) return 0;
-        String text = String.valueOf(selected).replace("Semester", "").trim();
-        try {
-            return "Semua".equalsIgnoreCase(text) || "Semua Semester".equals(selected) ? 0 : Integer.parseInt(text);
-        } catch (NumberFormatException ex) {
-            return 0;
-        }
-    }
-
-    private JPanel labeledField(String labelText, JComponent field) {
-        JPanel panel = new JPanel();
-        panel.setOpaque(false);
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        JLabel label = new JLabel(labelText);
-        label.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        label.setForeground(MUTED);
-        panel.add(label);
-        panel.add(Box.createVerticalStrut(6));
-        panel.add(field);
-        return panel;
-    }
-
-    private void styleCombo(JComboBox<?> combo, int width) {
-        combo.setPreferredSize(new Dimension(width, 38));
-        combo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        combo.setBackground(CARD);
-        combo.setForeground(TEXT);
+    private String capitalize(String value) {
+        if (value == null || value.isBlank()) return "-";
+        return value.substring(0, 1).toUpperCase() + value.substring(1).toLowerCase();
     }
 
     private void styleTable(JTable table) {
@@ -359,22 +270,14 @@ public class NilaiSayaPanel extends JPanel {
         return btn;
     }
 
-    private class GradeRenderer extends DefaultTableCellRenderer {
-        @Override public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean foc, int r, int c) {
-            JLabel label = (JLabel) super.getTableCellRendererComponent(t, v, sel, foc, r, c);
-            label.setHorizontalAlignment(SwingConstants.CENTER);
-            label.setFont(new Font("Segoe UI", Font.BOLD, 12));
-            String grade = String.valueOf(v);
-            label.setForeground("A".equals(grade) || "B".equals(grade) ? GREEN : ("C".equals(grade) ? AMBER : RED));
-            return label;
-        }
-    }
-
     private class StatusRenderer extends DefaultTableCellRenderer {
         @Override public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean foc, int r, int c) {
             JLabel label = (JLabel) super.getTableCellRendererComponent(t, v, sel, foc, r, c);
             label.setHorizontalAlignment(SwingConstants.CENTER);
-            label.setForeground("Lulus".equals(String.valueOf(v)) ? GREEN : RED);
+            String status = String.valueOf(v).toLowerCase();
+            if (status.contains("hadir")) label.setForeground(GREEN);
+            else if (status.contains("izin") || status.contains("sakit")) label.setForeground(AMBER);
+            else label.setForeground(RED);
             return label;
         }
     }

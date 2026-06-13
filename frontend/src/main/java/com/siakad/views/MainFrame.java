@@ -69,28 +69,13 @@ public class MainFrame extends JFrame {
         contentPanel.add(new PembayaranPanel(), PANEL_PEMBAYARAN);
         contentPanel.add(new KrsJadwalPanel(), PANEL_KRS_JADWAL);
         contentPanel.add(new AkademikPanel(), PANEL_INPUT_NILAI);
-        contentPanel.add(new AkademikComingSoonPanel(
-                "Input Kehadiran",
-                "Fitur pencatatan kehadiran per mata kuliah dan pertemuan akan segera hadir."
-        ), PANEL_INPUT_KEHADIRAN);
-        contentPanel.add(new AkademikComingSoonPanel(
-                "Lihat Nilai Mahasiswa",
-                "Fitur untuk melihat nilai berdasarkan mahasiswa, semester, dan mata kuliah akan segera hadir."
-        ), PANEL_LIHAT_NILAI);
-        contentPanel.add(new AkademikComingSoonPanel(
-                "Rekap Absensi",
-                "Fitur ringkasan absensi mahasiswa per mata kuliah dan periode akan segera hadir."
-        ), PANEL_REKAP_ABSENSI);
+        contentPanel.add(new InputKehadiranPanel(), PANEL_INPUT_KEHADIRAN);
+        contentPanel.add(new LihatNilaiMahasiswaPanel(), PANEL_LIHAT_NILAI);
+        contentPanel.add(new RekapAbsensiPanel(), PANEL_REKAP_ABSENSI);
         contentPanel.add(new PengaturanAkademikPanel(), PANEL_PENGATURAN_AKADEMIK);
         contentPanel.add(new NilaiSayaPanel(), PANEL_NILAI_SAYA);
-        contentPanel.add(new AkademikComingSoonPanel(
-                "Kehadiran Saya",
-                "Fitur riwayat kehadiran per mata kuliah masih dalam proses development."
-        ), PANEL_KEHADIRAN_SAYA);
-        contentPanel.add(new AkademikComingSoonPanel(
-                "Info Akademik",
-                "Fitur informasi tahun ajaran, kalender akademik, dan pengumuman masih dalam proses development."
-        ), PANEL_INFO_AKADEMIK);
+        contentPanel.add(new KehadiranSayaPanel(), PANEL_KEHADIRAN_SAYA);
+        contentPanel.add(new InfoAkademikPanel(), PANEL_INFO_AKADEMIK);
         contentPanel.add(new LaporanPanel(), PANEL_LAPORAN);
         add(contentPanel, BorderLayout.CENTER);
 

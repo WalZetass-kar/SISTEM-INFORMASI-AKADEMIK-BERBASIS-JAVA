@@ -12,6 +12,7 @@ router.use(verifyToken);
 
 router.get('/mata-kuliah', nilaiController.getMataKuliah);
 router.get('/saya', isMahasiswa, nilaiController.getMyNilai);
+router.get('/rekap', isAdmin, nilaiController.getRekap);
 router.get('/input-list', isAdmin, nilaiController.getInputList);
 router.post('/bulk', isAdmin, nilaiController.bulkSave);
 router.delete('/', isAdmin, nilaiController.delete);

@@ -34,6 +34,21 @@ public class NilaiService {
         return ApiService.get(url.toString());
     }
 
+    public static JsonObject getRekap(String tahunAjaran, String kodeMk, String search, String jurusan) throws Exception {
+        StringBuilder url = new StringBuilder(Config.NILAI_URL + "/rekap");
+        url.append("?tahun_ajaran=").append(ApiService.encodeQueryParam(tahunAjaran));
+        if (kodeMk != null && !kodeMk.isEmpty()) {
+            url.append("&kode_mk=").append(ApiService.encodeQueryParam(kodeMk));
+        }
+        if (search != null && !search.isEmpty()) {
+            url.append("&search=").append(ApiService.encodeQueryParam(search));
+        }
+        if (jurusan != null && !jurusan.isEmpty()) {
+            url.append("&jurusan=").append(ApiService.encodeQueryParam(jurusan));
+        }
+        return ApiService.get(url.toString());
+    }
+
     public static JsonObject bulkSave(JsonObject body) throws Exception {
         return ApiService.post(Config.NILAI_URL + "/bulk", body);
     }

@@ -113,6 +113,98 @@ class Nilai {
     return { mata_kuliah: mataKuliah, bobot_nilai: bobotNilai, data: rows };
   }
 
+  static async getRekap({ tahun_ajaran, kode_mk = '', search = '', jurusan = '' }) {
+    let query = `
+      SELECT
+        m.nim,
+        m.nama,
+        m.jurusan,
+        m.program_studi,
+        k.kode_mk,
+        mk.nama_mk,
+        mk.sks,
+        mk.semester,
+        k.tahun_ajaran,
+        k.status AS status_krs,
+        n.id AS id_nilai,
+        n.nilai_tugas,
+        n.nilai_uts,
+        n.nilai_uas,
+        n.nilai_akhir,
+        n.grade,
+        n.updated_at,
+        CASE
+          WHEN n.id IS NULL THEN 'Belum Diinput'
+          ELSE 'Sudah Diinput'
+        END AS status_nilai
+      FROM krs k
+      INNER JOIN mahasiswa m ON m.nim = k.nim
+      INNER JOIN mata_kuliah mk ON mk.kode_mk = k.kode_mk
+      LEFT JOIN nilai n
+        ON n.nim = k.nim
+        AND n.kode_mk = k.kode_mk
+        AND n.tahun_ajaran = k.tahun_ajaran
+      WHERE m.status = 'aktif'
+        AND k.tahun_ajaran = ?
+        AND k.status <> 'batal'
+    `;
+    const params = [tahun_ajaran];
+
+    if (kode_mk) {
+      query += ' AND k.kode_mk = ?';
+      params.push(kode_mk);
+    }
+
+    const jurusanFilter = String(jurusan || '').trim();
+    if (jurusanFilter) {
+      query += ' AND m.jurusan = ?';
+      params.push(jurusanFilter);
+    }
+
+    if (search) {
+      query += ' AND (m.nim LIKE ? OR m.nama LIKE ? OR k.kode_mk LIKE ? OR mk.nama_mk LIKE ?)';
+      const like = `%${search}%`;
+      params.push(like, like, like, like);
+    }
+
+    query += ' ORDER BY m.nim ASC, mk.semester ASC, k.kode_mk ASC';
+    const [rows] = await pool.execute(query, params);
+
+    const summary = {
+      total_records: rows.length,
+      sudah_diinput: 0,
+      belum_diinput: 0,
+      rata_rata: 0,
+      grade_a: 0,
+      grade_b: 0,
+      grade_c: 0,
+      grade_d: 0,
+      grade_e: 0
+    };
+
+    let nilaiTotal = 0;
+    for (const row of rows) {
+      if (row.id_nilai) {
+        summary.sudah_diinput += 1;
+        nilaiTotal += Number(row.nilai_akhir || 0);
+        const grade = String(row.grade || '').toUpperCase();
+        if (grade === 'A') summary.grade_a += 1;
+        if (grade === 'B') summary.grade_b += 1;
+        if (grade === 'C') summary.grade_c += 1;
+        if (grade === 'D') summary.grade_d += 1;
+        if (grade === 'E') summary.grade_e += 1;
+      } else {
+        summary.belum_diinput += 1;
+      }
+    }
+
+    summary.rata_rata = summary.sudah_diinput > 0
+      ? Number((nilaiTotal / summary.sudah_diinput).toFixed(2))
+      : 0;
+
+    return { data: rows, summary };
+  }
+
   static async bulkUpsert({ kode_mk, tahun_ajaran, nilai }) {
     const connection = await pool.getConnection();
     try {
