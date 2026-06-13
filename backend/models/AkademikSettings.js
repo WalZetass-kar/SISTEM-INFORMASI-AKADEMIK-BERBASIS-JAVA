@@ -82,6 +82,33 @@ class AkademikSettings {
     return rows[0] || null;
   }
 
+  static async getJumlahPertemuan() {
+    const [rows] = await pool.execute(
+      "SELECT config_value FROM akademik_config WHERE config_key = 'jumlah_pertemuan' LIMIT 1"
+    );
+    const value = Number(rows[0]?.config_value || 12);
+    return Number.isInteger(value) && value > 0 ? value : 12;
+  }
+
+  static async updateJumlahPertemuan(jumlah_pertemuan) {
+    const jumlah = Number(jumlah_pertemuan);
+    if (!Number.isInteger(jumlah) || jumlah < 1 || jumlah > 40) {
+      const error = new Error('Jumlah pertemuan harus berupa angka 1-40.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    await pool.execute(
+      `INSERT INTO akademik_config (config_key, config_value, description)
+       VALUES ('jumlah_pertemuan', ?, 'Jumlah pertemuan default untuk input kehadiran')
+       ON DUPLICATE KEY UPDATE
+         config_value = VALUES(config_value),
+         description = VALUES(description)`,
+      [String(jumlah)]
+    );
+    return { jumlah_pertemuan: jumlah };
+  }
+
   static async updateBobotNilai({ bobot_tugas, bobot_uts, bobot_uas }) {
     const total = Number(bobot_tugas) + Number(bobot_uts) + Number(bobot_uas);
     if (Math.round(total * 100) / 100 !== 100) {

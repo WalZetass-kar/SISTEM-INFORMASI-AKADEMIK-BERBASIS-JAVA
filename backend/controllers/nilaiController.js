@@ -44,6 +44,28 @@ const nilaiController = {
     }
   },
 
+  getRekap: async (req, res) => {
+    try {
+      const { tahun_ajaran, kode_mk, search, jurusan } = req.query;
+      if (!tahun_ajaran) {
+        return res.status(400).json({
+          success: false,
+          message: 'Tahun ajaran wajib diisi.'
+        });
+      }
+
+      const result = await Nilai.getRekap({ tahun_ajaran, kode_mk, search, jurusan });
+      res.json({
+        success: true,
+        data: result.data,
+        summary: result.summary
+      });
+    } catch (error) {
+      console.error('Get rekap nilai error:', error);
+      res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+    }
+  },
+
   bulkSave: async (req, res) => {
     try {
       const { kode_mk, tahun_ajaran, nilai } = req.body;

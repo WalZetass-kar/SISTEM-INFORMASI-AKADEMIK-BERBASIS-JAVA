@@ -42,6 +42,57 @@ public class AkademikService {
         return ApiService.put(Config.AKADEMIK_URL + "/bobot-nilai", body);
     }
 
+    public static JsonObject updateJumlahPertemuan(JsonObject body) throws Exception {
+        return ApiService.put(Config.AKADEMIK_URL + "/jumlah-pertemuan", body);
+    }
+
+    public static JsonObject getKehadiranInputList(String kodeMk, String tahunAjaran, String tanggal, String search, String jurusan) throws Exception {
+        StringBuilder url = new StringBuilder(Config.AKADEMIK_URL + "/kehadiran/input-list");
+        url.append("?kode_mk=").append(ApiService.encodeQueryParam(kodeMk));
+        url.append("&tahun_ajaran=").append(ApiService.encodeQueryParam(tahunAjaran));
+        url.append("&tanggal=").append(ApiService.encodeQueryParam(tanggal));
+        if (search != null && !search.isEmpty()) {
+            url.append("&search=").append(ApiService.encodeQueryParam(search));
+        }
+        if (jurusan != null && !jurusan.isEmpty()) {
+            url.append("&jurusan=").append(ApiService.encodeQueryParam(jurusan));
+        }
+        return ApiService.get(url.toString());
+    }
+
+    public static JsonObject bulkSaveKehadiran(JsonObject body) throws Exception {
+        return ApiService.post(Config.AKADEMIK_URL + "/kehadiran/bulk", body);
+    }
+
+    public static JsonObject getKehadiranRekap(String tahunAjaran, String kodeMk, String tanggalMulai, String tanggalSelesai, String search, String jurusan) throws Exception {
+        StringBuilder url = new StringBuilder(Config.AKADEMIK_URL + "/kehadiran/rekap");
+        url.append("?tahun_ajaran=").append(ApiService.encodeQueryParam(tahunAjaran));
+        if (kodeMk != null && !kodeMk.isEmpty()) {
+            url.append("&kode_mk=").append(ApiService.encodeQueryParam(kodeMk));
+        }
+        if (tanggalMulai != null && !tanggalMulai.isEmpty()) {
+            url.append("&tanggal_mulai=").append(ApiService.encodeQueryParam(tanggalMulai));
+        }
+        if (tanggalSelesai != null && !tanggalSelesai.isEmpty()) {
+            url.append("&tanggal_selesai=").append(ApiService.encodeQueryParam(tanggalSelesai));
+        }
+        if (search != null && !search.isEmpty()) {
+            url.append("&search=").append(ApiService.encodeQueryParam(search));
+        }
+        if (jurusan != null && !jurusan.isEmpty()) {
+            url.append("&jurusan=").append(ApiService.encodeQueryParam(jurusan));
+        }
+        return ApiService.get(url.toString());
+    }
+
+    public static JsonObject getKehadiranSaya() throws Exception {
+        return ApiService.get(Config.AKADEMIK_URL + "/kehadiran/saya");
+    }
+
+    public static JsonObject getInfoAkademikSaya() throws Exception {
+        return ApiService.get(Config.AKADEMIK_URL + "/info-saya");
+    }
+
     // --- Modul KRS & Jadwal Kuliah (Legacy/Compatibility) ---
 
     public static JsonObject getMatakuliah(String search, Integer semester) throws Exception {
