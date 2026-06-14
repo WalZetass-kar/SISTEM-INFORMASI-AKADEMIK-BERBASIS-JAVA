@@ -48,7 +48,7 @@ const mahasiswaController = {
 
       // Auto-create user account untuk mahasiswa
       const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password || nim, salt); // default password = NIM
+      const hashedPassword = await bcrypt.hash(password || 'mhs123', salt); // default password = mhs123
       await User.create({ username: nim, password: hashedPassword, role: 'mahasiswa', nim });
 
       res.status(201).json({ success: true, message: 'Mahasiswa berhasil ditambahkan.', data: mhs });
@@ -82,6 +82,7 @@ const mahasiswaController = {
       if (!existing) return res.status(404).json({ success: false, message: 'Mahasiswa tidak ditemukan.' });
 
       await Mahasiswa.delete(req.params.nim);
+      await User.deleteByNim(req.params.nim);
       res.json({ success: true, message: 'Mahasiswa berhasil dihapus.' });
     } catch (error) {
       console.error('Delete mahasiswa error:', error);

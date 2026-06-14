@@ -6,6 +6,7 @@
 
 const { pool } = require('../config/database');
 const { normalizePagination } = require('../utils/pagination');
+const Jurusan = require('./Jurusan');
 
 class Mahasiswa {
   /**
@@ -171,10 +172,7 @@ class Mahasiswa {
    * Ambil semua jurusan unik
    */
   static async getJurusanList() {
-    const [rows] = await pool.execute(
-      'SELECT DISTINCT jurusan FROM mahasiswa WHERE jurusan IS NOT NULL ORDER BY jurusan'
-    );
-    return rows.map(r => r.jurusan);
+    return Jurusan.findAllNames();
   }
 }
 

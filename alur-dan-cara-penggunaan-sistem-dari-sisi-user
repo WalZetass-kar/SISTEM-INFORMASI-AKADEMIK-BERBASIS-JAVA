@@ -1,0 +1,783 @@
+# Alur dan Cara Penggunaan Sistem dari Sisi User
+
+Dokumen ini menjelaskan bagaimana Sistem Informasi Akademik digunakan oleh user. User di sistem ini terbagi menjadi dua role utama:
+
+1. Admin
+2. Mahasiswa
+
+Setiap role memiliki hak akses dan fitur yang berbeda. Admin berfungsi sebagai pengelola data akademik dan pembayaran, sedangkan mahasiswa berfungsi sebagai pengguna yang melihat data miliknya sendiri.
+
+## Gambaran Umum Sistem
+
+Sistem ini adalah aplikasi desktop berbasis Java Swing. Aplikasi frontend Java berkomunikasi dengan backend Express.js melalui REST API. Backend kemudian mengambil atau menyimpan data ke database MariaDB/MySQL.
+
+Alur umum penggunaan:
+
+```text
+User membuka aplikasi Java Swing
+-> User login
+-> Sistem mengecek username dan password ke backend
+-> Backend mengembalikan token JWT
+-> Aplikasi membaca role user
+-> Jika admin, tampil menu admin
+-> Jika mahasiswa, tampil menu mahasiswa
+-> User memakai fitur sesuai hak aksesnya
+```
+
+## Role User dalam Sistem
+
+### Admin
+
+Admin adalah user yang bertugas mengelola sistem. Admin bisa melihat dan mengatur data banyak mahasiswa.
+
+Fungsi utama admin:
+
+- Mengelola data mahasiswa.
+- Mengelola pembayaran UKT.
+- Mengelola data akademik.
+- Menginput nilai mahasiswa.
+- Menginput kehadiran mahasiswa.
+- Melihat rekap nilai.
+- Melihat rekap absensi.
+- Mengatur tahun ajaran, bobot nilai, dan jumlah pertemuan.
+- Mengelola KRS dan jadwal kuliah.
+- Membuat laporan.
+- Melihat dashboard statistik.
+
+### Mahasiswa
+
+Mahasiswa adalah user yang memakai sistem untuk melihat data pribadinya.
+
+Fungsi utama mahasiswa:
+
+- Melihat data/profil diri.
+- Melihat status dan riwayat pembayaran.
+- Melihat nilai sendiri.
+- Melihat kehadiran sendiri.
+- Melihat informasi akademik sendiri.
+- Melihat KRS dan jadwal kuliah.
+
+Mahasiswa tidak bisa mengubah data mahasiswa lain, tidak bisa input nilai, tidak bisa input absensi, dan tidak bisa mengelola laporan.
+
+## Alur Login User
+
+### 1. User Membuka Aplikasi
+
+Saat aplikasi dijalankan, tampilan pertama yang muncul adalah halaman login.
+
+Pada halaman login, user memasukkan:
+
+- Username
+- Password
+
+Contoh akun default:
+
+```text
+Admin:
+Username: admin
+Password: admin123
+
+Mahasiswa:
+Username: 2024001
+Password: mhs123
+```
+
+### 2. Sistem Memeriksa Login
+
+Setelah tombol login ditekan, aplikasi mengirim username dan password ke backend melalui endpoint:
+
+```text
+POST /api/login
+```
+
+Backend akan:
+
+- Mencari user berdasarkan username.
+- Mengecek password memakai bcrypt.
+- Mengecek apakah user aktif.
+- Membuat token JWT jika login berhasil.
+- Mengirim data user dan token ke frontend.
+
+### 3. Sistem Menentukan Role
+
+Setelah login berhasil, frontend menyimpan token dan data user di `JwtHelper`.
+
+Kemudian sistem membaca role:
+
+- Jika role `admin`, user masuk ke tampilan admin.
+- Jika role `mahasiswa`, user masuk ke tampilan mahasiswa.
+
+## Cara Penggunaan dari Sisi Admin
+
+### 1. Login sebagai Admin
+
+Admin masuk menggunakan akun admin.
+
+Setelah login, admin masuk ke dashboard utama.
+
+Contoh akun:
+
+```text
+Username: admin
+Password: admin123
+```
+
+### 2. Dashboard Admin
+
+Dashboard admin digunakan untuk melihat ringkasan pembayaran dan statistik sistem.
+
+Informasi yang bisa dilihat:
+
+- Total pendapatan.
+- Jumlah pembayaran lunas.
+- Jumlah pembayaran pending.
+- Jumlah pembayaran gagal atau refund.
+- Grafik pembayaran per bulan.
+- Grafik distribusi status pembayaran.
+
+Fungsi dashboard:
+
+- Membantu admin melihat kondisi keuangan secara cepat.
+- Membantu admin mengetahui transaksi yang masih pending.
+- Membantu admin melihat statistik berdasarkan tahun ajaran.
+
+Cara penggunaan:
+
+1. Admin membuka menu Dashboard.
+2. Admin memilih tahun ajaran jika tersedia.
+3. Sistem menampilkan statistik dan grafik.
+4. Admin bisa menekan tombol Refresh untuk memuat ulang data.
+
+### 3. Menu Data Mahasiswa
+
+Menu Data Mahasiswa digunakan admin untuk mengelola data mahasiswa.
+
+Fitur yang tersedia:
+
+- Melihat daftar mahasiswa.
+- Mencari mahasiswa.
+- Menambah mahasiswa.
+- Mengedit data mahasiswa.
+- Menghapus mahasiswa.
+- Melihat statistik mahasiswa berdasarkan jurusan/status.
+
+Cara penggunaan:
+
+1. Admin membuka menu Data Mahasiswa.
+2. Sistem menampilkan tabel mahasiswa.
+3. Admin bisa mengetik keyword di kolom pencarian.
+4. Admin bisa menekan tombol Tambah Mahasiswa untuk menambahkan data baru.
+5. Admin bisa memilih data mahasiswa lalu mengedit atau menghapusnya.
+
+Data mahasiswa yang dikelola biasanya meliputi:
+
+- NIM
+- Nama
+- Email
+- Nomor telepon
+- Alamat
+- Jurusan
+- Program studi
+- Angkatan
+- Semester
+- Status mahasiswa
+
+Catatan:
+
+- Saat admin membuat mahasiswa baru, sistem juga dapat membuat akun login mahasiswa.
+- Dengan begitu mahasiswa tersebut bisa login sendiri ke aplikasi.
+
+### 4. Menu Pembayaran UKT
+
+Menu Pembayaran UKT digunakan admin untuk mengelola transaksi pembayaran mahasiswa.
+
+Fitur yang tersedia:
+
+- Melihat daftar pembayaran.
+- Mencari pembayaran berdasarkan mahasiswa atau referensi.
+- Filter berdasarkan status pembayaran.
+- Filter berdasarkan tahun ajaran.
+- Input pembayaran baru.
+- Edit pembayaran.
+- Verifikasi status pembayaran.
+- Hapus pembayaran.
+- Cek status pembayaran mahasiswa.
+
+Cara penggunaan:
+
+1. Admin membuka menu Pembayaran UKT.
+2. Sistem menampilkan daftar transaksi pembayaran.
+3. Admin bisa menggunakan filter status dan tahun ajaran.
+4. Admin menekan tombol Input Pembayaran untuk menambah transaksi.
+5. Admin memilih mahasiswa berdasarkan NIM.
+6. Admin mengisi jenis pembayaran, jumlah, tanggal, semester, tahun ajaran, dan metode pembayaran.
+7. Setelah pembayaran masuk, admin bisa mengubah status menjadi lunas, pending, gagal, atau refund.
+
+Status pembayaran:
+
+- `pending`: pembayaran menunggu verifikasi.
+- `lunas`: pembayaran sudah valid.
+- `gagal`: pembayaran gagal.
+- `refund`: pembayaran dikembalikan.
+
+Fungsi menu ini:
+
+- Mengelola transaksi UKT.
+- Memastikan status pembayaran mahasiswa tercatat.
+- Menjadi sumber data untuk dashboard dan laporan.
+
+### 5. Menu KRS dan Jadwal Kuliah
+
+Menu KRS dan Jadwal Kuliah digunakan untuk mengelola data akademik yang berhubungan dengan mata kuliah.
+
+Fitur yang tersedia:
+
+- Melihat KRS.
+- Input KRS mahasiswa.
+- Melihat mata kuliah.
+- Menambah mata kuliah.
+- Melihat jadwal kuliah.
+- Menambah jadwal kuliah.
+- Melihat total SKS.
+
+Cara penggunaan:
+
+1. Admin membuka menu KRS & Jadwal Kuliah.
+2. Sistem menampilkan beberapa tab, seperti Input KRS, Mata Kuliah, dan Jadwal Kuliah.
+3. Admin bisa memilih tab sesuai kebutuhan.
+4. Admin bisa menambah KRS untuk mahasiswa.
+5. Admin bisa menambah mata kuliah.
+6. Admin bisa menambah jadwal kuliah.
+
+Fungsi menu ini:
+
+- Mengatur mata kuliah yang diambil mahasiswa.
+- Mengatur jadwal kuliah.
+- Menjadi dasar untuk input nilai dan input kehadiran.
+
+### 6. Menu Akademik Admin
+
+Menu Akademik berisi beberapa submenu penting untuk pengelolaan akademik.
+
+Submenu admin:
+
+- Input Nilai
+- Input Kehadiran
+- Lihat Nilai Mahasiswa
+- Rekap Absensi
+- Pengaturan Akademik
+
+### 6.1 Input Nilai
+
+Submenu Input Nilai digunakan admin untuk menginput nilai mahasiswa.
+
+Cara penggunaan:
+
+1. Admin membuka menu Akademik.
+2. Admin memilih Input Nilai.
+3. Admin memilih tahun ajaran.
+4. Admin memilih mata kuliah.
+5. Admin bisa memilih jurusan atau mencari mahasiswa.
+6. Sistem menampilkan daftar mahasiswa yang mengambil mata kuliah tersebut.
+7. Admin mengisi nilai tugas, UTS, dan UAS.
+8. Sistem menghitung nilai akhir dan grade.
+9. Admin menekan Simpan Semua.
+
+Fungsi fitur ini:
+
+- Memasukkan nilai mahasiswa secara massal.
+- Menghitung nilai akhir berdasarkan bobot nilai.
+- Menghasilkan grade mahasiswa.
+
+### 6.2 Input Kehadiran
+
+Submenu Input Kehadiran digunakan admin untuk mencatat absensi mahasiswa.
+
+Cara penggunaan:
+
+1. Admin membuka submenu Input Kehadiran.
+2. Admin memilih tahun ajaran.
+3. Admin memilih mata kuliah.
+4. Admin memilih tanggal pertemuan.
+5. Sistem menampilkan daftar mahasiswa.
+6. Admin memilih status kehadiran setiap mahasiswa.
+7. Status yang tersedia adalah hadir, izin, sakit, dan alpha.
+8. Admin bisa menambahkan keterangan.
+9. Admin menekan Simpan Semua.
+
+Fungsi fitur ini:
+
+- Mencatat kehadiran mahasiswa.
+- Menjadi data untuk rekap absensi.
+- Menjadi data yang dapat dilihat mahasiswa.
+
+### 6.3 Lihat Nilai Mahasiswa
+
+Submenu ini digunakan admin untuk melihat rekap nilai mahasiswa.
+
+Cara penggunaan:
+
+1. Admin membuka submenu Lihat Nilai Mahasiswa.
+2. Admin memilih tahun ajaran.
+3. Admin memilih mata kuliah atau jurusan.
+4. Admin bisa mencari mahasiswa tertentu.
+5. Sistem menampilkan rekap nilai.
+
+Informasi yang ditampilkan:
+
+- NIM
+- Nama mahasiswa
+- Mata kuliah
+- Nilai tugas
+- Nilai UTS
+- Nilai UAS
+- Nilai akhir
+- Grade
+
+### 6.4 Rekap Absensi
+
+Submenu ini digunakan admin untuk melihat rekap kehadiran mahasiswa.
+
+Cara penggunaan:
+
+1. Admin membuka submenu Rekap Absensi.
+2. Admin memilih tahun ajaran.
+3. Admin memilih mata kuliah.
+4. Admin memilih rentang tanggal jika diperlukan.
+5. Admin bisa memfilter berdasarkan jurusan atau pencarian mahasiswa.
+6. Sistem menampilkan jumlah hadir, izin, sakit, alpha, dan persentase kehadiran.
+
+Fungsi fitur ini:
+
+- Membantu admin memantau kedisiplinan kehadiran mahasiswa.
+- Menjadi bahan evaluasi akademik.
+
+### 6.5 Pengaturan Akademik
+
+Submenu Pengaturan Akademik digunakan untuk mengatur konfigurasi akademik.
+
+Fitur yang tersedia:
+
+- Mengelola tahun ajaran.
+- Mengelola mata kuliah.
+- Mengatur bobot nilai.
+- Mengatur jumlah pertemuan.
+
+Cara penggunaan:
+
+1. Admin membuka submenu Pengaturan Akademik.
+2. Admin bisa menambah/edit/hapus tahun ajaran.
+3. Admin bisa mengelola mata kuliah.
+4. Admin bisa mengubah bobot nilai tugas, UTS, dan UAS.
+5. Admin bisa mengubah jumlah pertemuan.
+
+Fungsi fitur ini:
+
+- Menentukan periode akademik aktif.
+- Menentukan perhitungan nilai.
+- Menentukan jumlah pertemuan untuk absensi.
+
+### 7. Menu Laporan
+
+Menu Laporan digunakan admin untuk membuat dan melihat laporan.
+
+Fitur yang tersedia:
+
+- Generate laporan pembayaran.
+- Generate laporan mahasiswa.
+- Generate laporan keuangan.
+- Melihat daftar laporan.
+- Menghapus laporan.
+
+Cara penggunaan:
+
+1. Admin membuka menu Laporan & Cetak.
+2. Admin memilih jenis laporan yang ingin dibuat.
+3. Jika laporan membutuhkan filter, admin mengisi periode atau tahun ajaran.
+4. Sistem membuat laporan dan menyimpannya ke daftar laporan.
+5. Admin bisa melihat daftar laporan yang pernah dibuat.
+
+Fungsi menu ini:
+
+- Membantu admin membuat rekap data.
+- Menjadi dokumentasi transaksi dan data akademik.
+
+## Cara Penggunaan dari Sisi Mahasiswa
+
+### 1. Login sebagai Mahasiswa
+
+Mahasiswa login memakai akun yang terhubung dengan NIM.
+
+Contoh akun:
+
+```text
+Username: 2024001
+Password: mhs123
+```
+
+Setelah login, sistem membaca NIM mahasiswa dari token. NIM ini digunakan untuk mengambil data pribadi mahasiswa.
+
+### 2. Dashboard Mahasiswa
+
+Dashboard mahasiswa menampilkan ringkasan pembayaran milik mahasiswa tersebut.
+
+Informasi yang bisa dilihat:
+
+- Total pembayaran lunas.
+- Pembayaran pending.
+- Pembayaran bermasalah.
+- Riwayat pembayaran pribadi.
+- Distribusi status pembayaran.
+
+Cara penggunaan:
+
+1. Mahasiswa login.
+2. Mahasiswa membuka Dashboard.
+3. Sistem menampilkan data pembayaran miliknya.
+4. Mahasiswa bisa refresh data jika dibutuhkan.
+
+Fungsi dashboard mahasiswa:
+
+- Membantu mahasiswa melihat status pembayaran secara cepat.
+- Menghindari mahasiswa harus bertanya manual ke admin.
+
+### 3. Menu Data Mahasiswa
+
+Untuk mahasiswa, menu Data Mahasiswa digunakan untuk melihat profil dirinya sendiri.
+
+Informasi yang bisa dilihat:
+
+- NIM
+- Nama
+- Email
+- Nomor telepon
+- Alamat
+- Jurusan
+- Program studi
+- Angkatan
+- Semester
+- Status mahasiswa
+
+Cara penggunaan:
+
+1. Mahasiswa membuka menu Data Mahasiswa.
+2. Sistem mengambil data mahasiswa berdasarkan NIM dari token.
+3. Mahasiswa melihat data dirinya.
+
+Catatan:
+
+- Mahasiswa tidak bisa melihat daftar semua mahasiswa.
+- Mahasiswa tidak bisa mengubah data mahasiswa lain.
+
+### 4. Menu Pembayaran UKT Mahasiswa
+
+Menu Pembayaran UKT untuk mahasiswa digunakan untuk melihat riwayat pembayaran pribadi.
+
+Informasi yang bisa dilihat:
+
+- Jenis pembayaran.
+- Jumlah pembayaran.
+- Tanggal bayar.
+- Metode pembayaran.
+- Semester.
+- Tahun ajaran.
+- Status pembayaran.
+- Nomor referensi.
+
+Cara penggunaan:
+
+1. Mahasiswa membuka menu Pembayaran UKT.
+2. Sistem mengambil data pembayaran berdasarkan NIM mahasiswa.
+3. Mahasiswa melihat status pembayaran.
+
+Fungsi fitur ini:
+
+- Mahasiswa bisa tahu apakah pembayaran sudah lunas atau masih pending.
+- Mahasiswa bisa melihat histori pembayaran.
+
+### 5. Menu KRS dan Jadwal Kuliah Mahasiswa
+
+Menu ini digunakan mahasiswa untuk melihat KRS dan jadwal kuliah.
+
+Informasi yang bisa dilihat:
+
+- Mata kuliah yang diambil.
+- Jumlah SKS.
+- Tahun ajaran.
+- Jadwal kuliah.
+- Hari, jam, ruangan, dan dosen.
+
+Cara penggunaan:
+
+1. Mahasiswa membuka menu KRS & Jadwal Kuliah.
+2. Mahasiswa melihat data KRS.
+3. Mahasiswa melihat jadwal kuliah.
+
+Fungsi fitur ini:
+
+- Mahasiswa mengetahui mata kuliah yang sedang diambil.
+- Mahasiswa mengetahui jadwal kuliah.
+
+### 6. Menu Akademik Mahasiswa
+
+Mahasiswa memiliki submenu akademik yang berbeda dari admin.
+
+Submenu mahasiswa:
+
+- Nilai Saya
+- Kehadiran Saya
+- Info Akademik
+
+### 6.1 Nilai Saya
+
+Submenu Nilai Saya digunakan untuk melihat nilai milik mahasiswa yang sedang login.
+
+Informasi yang bisa dilihat:
+
+- Mata kuliah.
+- SKS.
+- Semester.
+- Tahun ajaran.
+- Nilai tugas.
+- Nilai UTS.
+- Nilai UAS.
+- Nilai akhir.
+- Grade.
+
+Cara penggunaan:
+
+1. Mahasiswa membuka menu Akademik.
+2. Mahasiswa memilih Nilai Saya.
+3. Sistem menampilkan daftar nilai berdasarkan NIM mahasiswa.
+4. Mahasiswa bisa memfilter berdasarkan semester jika tersedia.
+
+Fungsi fitur ini:
+
+- Mahasiswa bisa melihat hasil akademiknya sendiri.
+- Mahasiswa tidak bisa melihat nilai mahasiswa lain.
+
+### 6.2 Kehadiran Saya
+
+Submenu Kehadiran Saya digunakan untuk melihat riwayat kehadiran mahasiswa.
+
+Informasi yang bisa dilihat:
+
+- Mata kuliah.
+- Tanggal.
+- Pertemuan.
+- Status kehadiran.
+- Keterangan.
+- Ringkasan hadir, izin, sakit, alpha.
+- Persentase kehadiran.
+
+Cara penggunaan:
+
+1. Mahasiswa membuka menu Akademik.
+2. Mahasiswa memilih Kehadiran Saya.
+3. Sistem menampilkan riwayat absensi berdasarkan NIM mahasiswa.
+
+Fungsi fitur ini:
+
+- Mahasiswa bisa memantau absensi sendiri.
+- Mahasiswa bisa tahu jika ada status alpha atau data yang perlu dikonfirmasi.
+
+### 6.3 Info Akademik
+
+Submenu Info Akademik digunakan untuk melihat ringkasan informasi akademik mahasiswa.
+
+Informasi yang bisa dilihat:
+
+- Identitas akademik mahasiswa.
+- Tahun ajaran aktif.
+- Semester.
+- KRS yang sedang diambil.
+- Ringkasan akademik.
+
+Cara penggunaan:
+
+1. Mahasiswa membuka menu Akademik.
+2. Mahasiswa memilih Info Akademik.
+3. Sistem menampilkan informasi akademik yang terhubung dengan NIM mahasiswa.
+
+Fungsi fitur ini:
+
+- Memberikan gambaran akademik mahasiswa dalam satu halaman.
+- Membantu mahasiswa memeriksa data akademik pribadinya.
+
+## Apakah Sistem Mendukung Banyak Mahasiswa?
+
+Ya, sistem ini mendukung banyak mahasiswa.
+
+Alasannya:
+
+- Database memiliki tabel `mahasiswa` untuk menyimpan banyak data mahasiswa.
+- Database memiliki tabel `users` untuk menyimpan banyak akun login.
+- Setiap akun mahasiswa memiliki role `mahasiswa`.
+- Setiap akun mahasiswa bisa terhubung ke satu NIM.
+- Saat mahasiswa login, sistem membaca NIM dari token.
+- Data yang ditampilkan di sisi mahasiswa difilter berdasarkan NIM tersebut.
+
+Contoh:
+
+```text
+Mahasiswa 1:
+Username: 2024001
+NIM: 2024001
+
+Mahasiswa 2:
+Username: 2024002
+NIM: 2024002
+
+Mahasiswa 3:
+Username: 2024003
+NIM: 2024003
+```
+
+Ketika mahasiswa `2024001` login, sistem hanya menampilkan data milik `2024001`.
+
+Ketika mahasiswa `2024002` login, sistem hanya menampilkan data milik `2024002`.
+
+Jadi sistem ini cocok digunakan untuk banyak mahasiswa.
+
+## Batasan Hak Akses
+
+### Admin Bisa
+
+- Melihat semua mahasiswa.
+- Menambah mahasiswa.
+- Mengubah mahasiswa.
+- Menghapus mahasiswa.
+- Mengelola pembayaran.
+- Mengubah status pembayaran.
+- Mengelola mata kuliah, KRS, dan jadwal.
+- Input nilai.
+- Input kehadiran.
+- Melihat rekap nilai dan absensi.
+- Mengatur konfigurasi akademik.
+- Generate laporan.
+
+### Mahasiswa Bisa
+
+- Login dengan akun sendiri.
+- Melihat profil sendiri.
+- Melihat pembayaran sendiri.
+- Melihat nilai sendiri.
+- Melihat kehadiran sendiri.
+- Melihat info akademik sendiri.
+- Melihat KRS dan jadwal.
+
+### Mahasiswa Tidak Bisa
+
+- Melihat semua mahasiswa.
+- Mengubah data mahasiswa lain.
+- Input nilai.
+- Input kehadiran.
+- Menghapus pembayaran.
+- Verifikasi pembayaran.
+- Generate laporan.
+- Mengubah pengaturan akademik.
+
+## Skenario Demo Sistem
+
+Berikut skenario demo yang bisa digunakan untuk mempresentasikan aplikasi.
+
+### Demo sebagai Admin
+
+1. Jalankan backend.
+2. Jalankan frontend.
+3. Login sebagai admin.
+4. Tampilkan dashboard admin.
+5. Jelaskan statistik pembayaran dan grafik.
+6. Buka menu Data Mahasiswa.
+7. Tunjukkan daftar mahasiswa dan pencarian.
+8. Tambah atau edit data mahasiswa jika ingin demo CRUD.
+9. Buka menu Pembayaran UKT.
+10. Input pembayaran baru atau ubah status pembayaran.
+11. Buka menu KRS & Jadwal Kuliah.
+12. Tunjukkan data KRS, mata kuliah, dan jadwal.
+13. Buka menu Akademik.
+14. Tunjukkan Input Nilai.
+15. Tunjukkan Input Kehadiran.
+16. Tunjukkan Rekap Nilai dan Rekap Absensi.
+17. Buka Pengaturan Akademik.
+18. Tunjukkan pengaturan bobot nilai dan tahun ajaran.
+19. Buka menu Laporan.
+20. Generate salah satu laporan.
+
+### Demo sebagai Mahasiswa
+
+1. Logout dari admin.
+2. Login sebagai mahasiswa, misalnya `2024001`.
+3. Tampilkan dashboard mahasiswa.
+4. Buka menu Data Mahasiswa untuk melihat profil.
+5. Buka menu Pembayaran UKT untuk melihat riwayat pembayaran.
+6. Buka menu KRS & Jadwal Kuliah untuk melihat akademik.
+7. Buka menu Akademik.
+8. Tunjukkan Nilai Saya.
+9. Tunjukkan Kehadiran Saya.
+10. Tunjukkan Info Akademik.
+11. Jelaskan bahwa mahasiswa hanya melihat data sesuai NIM-nya sendiri.
+
+## Kesiapan Sistem untuk Demo
+
+Secara fitur, sistem ini sudah layak untuk didemokan.
+
+Alasannya:
+
+- Sudah ada login admin dan mahasiswa.
+- Sudah ada pembagian role.
+- Admin sudah memiliki fitur pengelolaan utama.
+- Mahasiswa sudah memiliki fitur untuk melihat data pribadi.
+- Dashboard sudah menampilkan statistik dan grafik.
+- Data akademik sudah mencakup nilai, absensi, KRS, jadwal, dan pengaturan.
+- Data pembayaran sudah bisa dikelola dan dilihat statusnya.
+- Sistem sudah memakai backend API dan database.
+- Frontend sudah berbentuk aplikasi desktop Java Swing.
+
+## Hal yang Perlu Disiapkan Sebelum Demo
+
+Sebelum demo, pastikan:
+
+1. Database MariaDB/MySQL sudah berjalan.
+2. Database sudah di-import dari `database/init.sql`.
+3. File `backend/.env` sudah sesuai dengan konfigurasi database.
+4. Dependency backend sudah terinstall dengan `npm install`.
+5. Backend dijalankan dengan `npm run dev`.
+6. Frontend dijalankan dari Maven atau NetBeans.
+7. Login admin berhasil.
+8. Login mahasiswa berhasil.
+9. Data seed tersedia agar tabel dan dashboard tidak kosong.
+
+## Catatan Kualitas Sistem
+
+Untuk kebutuhan demo, sistem ini sudah cukup baik dan representatif.
+
+Kelebihan:
+
+- Fitur admin dan mahasiswa sudah terpisah.
+- Tampilan Java Swing sudah modern memakai FlatLaf.
+- Ada dashboard, tabel, filter, dan form input.
+- Ada loading state dan error state.
+- Backend sudah memakai JWT.
+- Password sudah memakai bcrypt.
+- Database sudah memiliki relasi antar tabel.
+
+Catatan jika ingin dibuat lebih production-ready:
+
+- Validasi input backend perlu diperkuat di semua route.
+- Perlu automated test.
+- Blacklist token logout masih tersimpan di memory.
+- Perlu audit keamanan endpoint secara menyeluruh.
+- Laporan bisa dikembangkan lagi menjadi export PDF/Excel yang lebih matang.
+- Hak akses mahasiswa pada beberapa endpoint umum bisa diperketat lagi jika sistem akan dipakai serius.
+
+## Kesimpulan
+
+Sistem ini digunakan oleh dua jenis user:
+
+- Admin sebagai pengelola data akademik, pembayaran, nilai, absensi, KRS, jadwal, dan laporan.
+- Mahasiswa sebagai pengguna yang melihat data pribadinya sendiri.
+
+Sistem mendukung banyak mahasiswa karena setiap mahasiswa dapat memiliki akun login sendiri yang terhubung dengan NIM masing-masing.
+
+Untuk kebutuhan demo project Sistem Informasi Akademik berbasis Java Swing, aplikasi ini sudah layak didemokan. Fitur utama sudah terlihat lengkap, alur admin dan mahasiswa sudah jelas, dan sistem sudah menunjukkan integrasi frontend, backend, dan database.

@@ -1,0 +1,13 @@
+* text=auto
+
+*.java text
+*.js text
+*.json text
+*.md text
+*.sql text
+*.xml text
+*.env.example text
+
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.sh text eol=lf

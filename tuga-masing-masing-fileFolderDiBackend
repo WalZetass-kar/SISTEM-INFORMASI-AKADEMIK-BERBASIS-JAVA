@@ -1,0 +1,1581 @@
+# Penjelasan Struktur Folder dan File Backend
+
+Backend project ini dibuat memakai Node.js, Express.js, MariaDB/MySQL, JWT, bcrypt, dan mysql2. Backend berfungsi sebagai REST API yang dipanggil oleh frontend Java Swing.
+
+Secara umum alur backend adalah:
+
+1. Frontend Java Swing mengirim request ke endpoint API, misalnya `/api/login` atau `/api/mahasiswa`.
+2. Request masuk ke `server.js`.
+3. `server.js` meneruskan request ke file route sesuai URL.
+4. Route menjalankan middleware jika dibutuhkan, misalnya cek token JWT atau cek role admin.
+5. Route memanggil controller.
+6. Controller memvalidasi alur bisnis sederhana dan memanggil model.
+7. Model menjalankan query SQL ke database melalui connection pool.
+8. Hasil dari database dikembalikan ke controller.
+9. Controller mengirim response JSON ke frontend.
+
+Contoh alur login:
+
+```text
+Frontend LoginFrame
+-> POST /api/login
+-> server.js
+-> routes/authRoutes.js
+-> controllers/authController.js
+-> models/User.js
+-> database users
+-> response token JWT
+-> frontend menyimpan token di JwtHelper
+```
+
+Contoh alur data mahasiswa:
+
+```text
+Frontend MahasiswaPanel
+-> GET /api/mahasiswa
+-> server.js
+-> routes/mahasiswaRoutes.js
+-> middleware/auth.js cek token
+-> controllers/mahasiswaController.js
+-> models/Mahasiswa.js
+-> database mahasiswa
+-> response JSON daftar mahasiswa
+```
+
+## Struktur Folder Backend
+
+```text
+backend/
+├── config/
+├── controllers/
+├── middleware/
+├── models/
+├── routes/
+├── seeds/
+├── utils/
+├── .env
+├── .env.example
+├── package.json
+├── package-lock.json
+└── server.js
+```
+
+## `backend/package.json`
+
+File ini adalah konfigurasi project Node.js.
+
+Fungsinya:
+
+- Menyimpan nama, versi, deskripsi, dan dependency backend.
+- Menentukan script untuk menjalankan backend.
+- Menentukan package yang dibutuhkan Express API.
+
+Script penting:
+
+- `npm start`: menjalankan server dengan `node server.js`.
+- `npm run dev`: menjalankan server dengan `nodemon`, cocok untuk development karena otomatis restart saat file berubah.
+- `npm run seed`: menjalankan file `seeds/seed.js` untuk mengisi data awal.
+
+Dependency penting:
+
+- `express`: framework REST API.
+- `mysql2`: koneksi ke MariaDB/MySQL.
+- `jsonwebtoken`: membuat dan memverifikasi JWT.
+- `bcrypt`: hash dan verifikasi password.
+- `cors`: mengatur akses dari client/frontend.
+- `morgan`: logging request HTTP.
+- `multer`: upload file, dipakai untuk foto mahasiswa.
+- `uuid`: membuat nomor referensi unik.
+- `dotenv`: membaca konfigurasi dari file `.env`.
+- `express-validator`: validasi request, walaupun pemakaiannya di project ini masih minimal.
+
+## `backend/package-lock.json`
+
+File ini adalah lock file dari npm.
+
+Fungsinya:
+
+- Mengunci versi dependency yang terinstall.
+- Membuat instalasi dependency lebih konsisten di komputer berbeda.
+- File ini biasanya tidak diedit manual.
+
+## `backend/.env`
+
+File ini menyimpan konfigurasi lokal yang dipakai backend saat berjalan.
+
+Fungsinya:
+
+- Menentukan port server.
+- Menentukan koneksi database.
+- Menentukan JWT secret.
+- Menentukan konfigurasi CORS dan logging.
+
+Catatan:
+
+- File `.env` biasanya tidak dimasukkan ke Git karena berisi konfigurasi lokal atau rahasia.
+- Backend membaca file ini memakai package `dotenv`.
+
+## `backend/.env.example`
+
+File ini adalah contoh isi `.env`.
+
+Fungsinya:
+
+- Memberi template konfigurasi untuk developer lain.
+- Menjelaskan variable environment yang dibutuhkan backend.
+- Aman disimpan di Git karena tidak berisi password asli.
+
+Isi penting:
+
+- `PORT`: port backend, default `3000`.
+- `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`: konfigurasi database.
+- `JWT_SECRET`: secret key untuk token JWT.
+- `JWT_EXPIRES_IN`: masa berlaku token.
+- `CORS_ORIGIN`: origin yang diizinkan mengakses backend.
+- `LOG_LEVEL`: format logging morgan.
+
+## `backend/server.js`
+
+File ini adalah entry point backend.
+
+Fungsinya:
+
+- Membuat aplikasi Express.
+- Memasang middleware global.
+- Memasang semua route API.
+- Menyediakan endpoint health check `/api`.
+- Menangani route yang tidak ditemukan.
+- Menangani error global.
+- Menjalankan server di port yang ditentukan.
+
+Penjelasan kode:
+
+- `require('dotenv').config()` membaca file `.env`.
+- `app.use(cors(...))` mengizinkan request dari frontend.
+- `app.use(express.json({ limit: '10mb' }))` membuat backend bisa membaca request body JSON.
+- `app.use(express.urlencoded({ extended: true }))` membaca body form URL encoded.
+- `app.use(morgan(...))` menampilkan log request di terminal.
+- `app.use('/uploads', express.static(...))` membuat file upload bisa diakses sebagai static file.
+- `app.use('/api', authRoutes)` memasang route login, logout, profile, dan register.
+- `app.use('/api/mahasiswa', mahasiswaRoutes)` memasang route mahasiswa.
+- `app.use('/api/pembayaran', pembayaranRoutes)` memasang route pembayaran.
+- `app.use('/api', akademikRoutes)` memasang route akademik, matakuliah, KRS, dan jadwal.
+- `app.use('/api/nilai', nilaiRoutes)` memasang route nilai.
+- `app.use('/api/laporan', laporanRoutes)` memasang route laporan.
+- `startServer()` mengetes koneksi database dulu lewat `testConnection()`, lalu menjalankan Express.
+
+## Folder `config`
+
+Folder ini berisi konfigurasi teknis backend, terutama database dan JWT.
+
+### `config/database.js`
+
+File ini mengatur koneksi database MariaDB/MySQL.
+
+Fungsinya:
+
+- Membuat connection pool memakai `mysql2/promise`.
+- Membaca konfigurasi database dari `.env`.
+- Menyediakan function `testConnection()` untuk mengecek koneksi saat server start.
+- Mengekspor `pool` agar bisa dipakai semua model.
+
+Penjelasan kode:
+
+- `mysql.createPool(...)` membuat pool koneksi agar backend tidak membuat koneksi baru untuk setiap query.
+- `connectionLimit: 10` membatasi jumlah koneksi aktif.
+- `pool` dipakai di model dengan pola `pool.query(...)` atau `pool.getConnection()`.
+- Jika database gagal terhubung, `testConnection()` menghentikan server dengan `process.exit(1)`.
+
+### `config/jwt.js`
+
+File ini menyimpan konfigurasi JWT.
+
+Fungsinya:
+
+- Menentukan secret token.
+- Menentukan masa berlaku token.
+- Menentukan algorithm JWT.
+
+Penjelasan kode:
+
+- `secret` diambil dari `process.env.JWT_SECRET`.
+- Jika `.env` tidak tersedia, backend memakai default `siakad-default-secret-key`.
+- `expiresIn` default `24h`.
+- `algorithm` memakai `HS256`.
+
+## Folder `middleware`
+
+Folder ini berisi middleware Express. Middleware adalah function yang berjalan sebelum request masuk ke controller.
+
+### `middleware/auth.js`
+
+File ini menangani autentikasi dan otorisasi.
+
+Fungsinya:
+
+- Memverifikasi token JWT.
+- Mengecek apakah user adalah admin.
+- Mengecek apakah user adalah mahasiswa.
+- Mengecek apakah user admin atau pemilik data.
+- Menyimpan token logout ke blacklist sederhana.
+
+Penjelasan kode:
+
+- `verifyToken(req, res, next)` membaca header `Authorization`.
+- Format token wajib `Bearer <token>`.
+- Token dicek apakah ada di blacklist.
+- Token diverifikasi memakai `jwt.verify(...)`.
+- Jika valid, data user dari token disimpan ke `req.user`.
+- `isAdmin(...)` hanya meloloskan user dengan role `admin`.
+- `isMahasiswa(...)` hanya meloloskan user dengan role `mahasiswa`.
+- `isAdminOrOwner(...)` meloloskan admin atau mahasiswa yang NIM-nya sama dengan parameter/body/query request.
+- `blacklistToken(...)` dipakai saat logout agar token tidak bisa dipakai lagi selama server masih berjalan.
+
+Catatan:
+
+- Blacklist token masih disimpan di memory `Set`, jadi akan hilang jika server restart.
+
+### `middleware/validate.js`
+
+File ini berisi helper validasi request.
+
+Fungsinya:
+
+- Menangani hasil validasi dari `express-validator`.
+- Membersihkan string sederhana dari karakter HTML tertentu.
+
+Penjelasan kode:
+
+- `handleValidation(...)` membaca hasil validasi dari `validationResult(req)`.
+- Jika ada error validasi, backend mengembalikan response status `400`.
+- `sanitizeString(...)` mengganti karakter seperti `<`, `>`, `"`, dan `'` agar lebih aman dari XSS sederhana.
+
+Catatan:
+
+- File ini sudah tersedia, tetapi belum banyak dipakai di route project ini.
+
+## Folder `routes`
+
+Folder `routes` menentukan endpoint API. Route tidak berisi query database langsung. Route hanya menentukan URL, method HTTP, middleware, dan controller yang dipanggil.
+
+### `routes/authRoutes.js`
+
+File ini mengatur endpoint autentikasi.
+
+Endpoint:
+
+- `POST /api/login`: login user.
+- `POST /api/logout`: logout user, butuh token.
+- `GET /api/profile`: mengambil profile user yang sedang login, butuh token.
+- `POST /api/register`: register user baru, hanya admin.
+
+Alur:
+
+- Login langsung masuk ke `authController.login`.
+- Logout dan profile melewati `verifyToken`.
+- Register melewati `verifyToken` dan `isAdmin`.
+
+### `routes/mahasiswaRoutes.js`
+
+File ini mengatur endpoint mahasiswa.
+
+Endpoint:
+
+- `GET /api/mahasiswa`: daftar mahasiswa.
+- `GET /api/mahasiswa/:nim`: detail mahasiswa.
+- `POST /api/mahasiswa`: tambah mahasiswa, hanya admin.
+- `PUT /api/mahasiswa/:nim`: update mahasiswa, hanya admin.
+- `DELETE /api/mahasiswa/:nim`: hapus mahasiswa, hanya admin.
+- `GET /api/mahasiswa/stats/jurusan`: statistik mahasiswa per jurusan, hanya admin.
+- `GET /api/mahasiswa/stats/status`: statistik mahasiswa per status, hanya admin.
+- `GET /api/mahasiswa/jurusan/list`: daftar jurusan.
+- `POST /api/mahasiswa/:nim/upload-foto`: upload foto mahasiswa, hanya admin.
+
+Penjelasan kode:
+
+- Semua route mahasiswa memakai `verifyToken`.
+- Upload foto memakai `multer`.
+- File foto disimpan ke `backend/uploads/mahasiswa`.
+- Setelah upload sukses, path foto disimpan ke tabel mahasiswa lewat model `Mahasiswa.update(...)`.
+
+### `routes/pembayaranRoutes.js`
+
+File ini mengatur endpoint pembayaran.
+
+Endpoint:
+
+- `GET /api/pembayaran/dashboard/stats`: statistik dashboard, hanya admin.
+- `GET /api/pembayaran/tahun-ajaran`: daftar tahun ajaran pembayaran.
+- `GET /api/pembayaran/status/:nim`: cek status pembayaran mahasiswa.
+- `GET /api/pembayaran/mahasiswa/:nim`: riwayat pembayaran mahasiswa.
+- `GET /api/pembayaran`: daftar pembayaran.
+- `GET /api/pembayaran/:id`: detail pembayaran.
+- `POST /api/pembayaran`: input pembayaran, hanya admin.
+- `PUT /api/pembayaran/:id`: update pembayaran, hanya admin.
+- `PUT /api/pembayaran/:id/status`: update status pembayaran, hanya admin.
+- `DELETE /api/pembayaran/:id`: hapus pembayaran, hanya admin.
+
+Penjelasan kode:
+
+- Semua route pembayaran butuh `verifyToken`.
+- Endpoint dashboard diletakkan sebelum `/:id` agar tidak salah ditangkap sebagai parameter id.
+- Operasi input/update/delete dibatasi untuk admin.
+
+### `routes/akademikRoutes.js`
+
+File ini mengatur endpoint akademik, mata kuliah, KRS, jadwal, dan kehadiran.
+
+Endpoint pengaturan akademik:
+
+- `GET /api/akademik/settings`: ambil semua setting akademik, hanya admin.
+- `POST /api/akademik/tahun-ajaran`: tambah tahun ajaran, hanya admin.
+- `PUT /api/akademik/tahun-ajaran/:id`: update tahun ajaran, hanya admin.
+- `DELETE /api/akademik/tahun-ajaran/:id`: hapus tahun ajaran, hanya admin.
+- `POST /api/akademik/mata-kuliah`: tambah mata kuliah, hanya admin.
+- `PUT /api/akademik/mata-kuliah/:kode_mk`: update mata kuliah, hanya admin.
+- `DELETE /api/akademik/mata-kuliah/:kode_mk`: hapus mata kuliah, hanya admin.
+- `PUT /api/akademik/bobot-nilai`: update bobot nilai, hanya admin.
+- `PUT /api/akademik/jumlah-pertemuan`: update jumlah pertemuan, hanya admin.
+
+Endpoint kehadiran:
+
+- `GET /api/akademik/kehadiran/input-list`: daftar mahasiswa untuk input kehadiran, hanya admin.
+- `GET /api/akademik/kehadiran/rekap`: rekap kehadiran, hanya admin.
+- `POST /api/akademik/kehadiran/bulk`: simpan kehadiran massal, hanya admin.
+- `GET /api/akademik/kehadiran/saya`: kehadiran mahasiswa login, hanya mahasiswa.
+- `GET /api/akademik/info-saya`: info akademik mahasiswa login, hanya mahasiswa.
+
+Endpoint KRS dan jadwal:
+
+- `GET /api/matakuliah`: daftar mata kuliah.
+- `POST /api/matakuliah`: tambah mata kuliah, hanya admin.
+- `GET /api/krs`: daftar KRS.
+- `POST /api/krs`: tambah KRS, admin atau pemilik data.
+- `GET /api/jadwal`: daftar jadwal.
+- `POST /api/jadwal`: tambah jadwal, hanya admin.
+
+Penjelasan kode:
+
+- Semua route memakai `verifyToken`.
+- Role admin dipakai untuk fitur pengelolaan akademik.
+- Role mahasiswa dipakai untuk data milik sendiri.
+
+### `routes/nilaiRoutes.js`
+
+File ini mengatur endpoint nilai.
+
+Endpoint:
+
+- `GET /api/nilai/mata-kuliah`: daftar mata kuliah untuk nilai.
+- `GET /api/nilai/saya`: nilai mahasiswa login, hanya mahasiswa.
+- `GET /api/nilai/rekap`: rekap nilai, hanya admin.
+- `GET /api/nilai/input-list`: daftar mahasiswa untuk input nilai, hanya admin.
+- `POST /api/nilai/bulk`: simpan nilai massal, hanya admin.
+- `DELETE /api/nilai`: hapus nilai, hanya admin.
+
+Penjelasan kode:
+
+- Semua route nilai butuh token.
+- Admin mengelola input dan rekap nilai.
+- Mahasiswa hanya bisa melihat nilai sendiri melalui endpoint `/saya`.
+
+### `routes/laporanRoutes.js`
+
+File ini mengatur endpoint laporan.
+
+Endpoint:
+
+- `GET /api/laporan`: daftar laporan.
+- `GET /api/laporan/:id`: detail laporan.
+- `POST /api/laporan/generate/pembayaran`: generate laporan pembayaran.
+- `POST /api/laporan/generate/mahasiswa`: generate laporan mahasiswa.
+- `POST /api/laporan/generate/keuangan`: generate laporan keuangan.
+- `DELETE /api/laporan/:id`: hapus laporan.
+
+Penjelasan kode:
+
+- Semua route laporan memakai `verifyToken`.
+- Semua route laporan juga memakai `isAdmin`.
+- Artinya hanya admin yang bisa mengakses laporan.
+
+## Folder `controllers`
+
+Folder `controllers` berisi business logic tingkat request-response. Controller menerima `req`, memanggil model, lalu mengirim `res.json(...)`.
+
+### `controllers/authController.js`
+
+File ini menangani login, logout, profile, dan register.
+
+Fungsinya:
+
+- Mencari user berdasarkan username.
+- Mengecek password dengan bcrypt.
+- Membuat token JWT.
+- Menghapus token saat logout.
+- Mengambil profile user.
+- Register user baru oleh admin.
+
+Penjelasan method:
+
+- `login`: menerima username dan password, mencari user, membandingkan password, lalu membuat token JWT.
+- `logout`: memasukkan token ke blacklist.
+- `getProfile`: mengembalikan data user dari `req.user`.
+- `register`: membuat user baru dengan password yang sudah di-hash.
+
+### `controllers/mahasiswaController.js`
+
+File ini menangani request modul mahasiswa.
+
+Fungsinya:
+
+- Mengambil daftar mahasiswa.
+- Mengambil detail mahasiswa berdasarkan NIM.
+- Menambah mahasiswa.
+- Mengubah mahasiswa.
+- Menghapus mahasiswa.
+- Mengambil statistik mahasiswa.
+- Mengambil daftar jurusan.
+
+Penjelasan method:
+
+- `getAll`: membaca query seperti page, limit, search, lalu memanggil `Mahasiswa.findAll`.
+- `getByNim`: mencari mahasiswa berdasarkan NIM.
+- `create`: membuat data mahasiswa dan membuat user login mahasiswa dengan password default.
+- `update`: mengubah data mahasiswa.
+- `delete`: menghapus data mahasiswa.
+- `statsByJurusan`: menghitung mahasiswa per jurusan.
+- `statsByStatus`: menghitung mahasiswa per status.
+- `getJurusanList`: mengambil daftar jurusan unik.
+
+### `controllers/pembayaranController.js`
+
+File ini menangani request modul pembayaran.
+
+Fungsinya:
+
+- Mengambil daftar pembayaran.
+- Mengambil detail pembayaran.
+- Mengambil pembayaran berdasarkan NIM.
+- Membuat transaksi pembayaran.
+- Mengubah status pembayaran.
+- Mengubah data pembayaran.
+- Menghapus pembayaran.
+- Mengecek status pembayaran.
+- Mengambil statistik dashboard.
+- Mengambil daftar tahun ajaran.
+
+Penjelasan method:
+
+- `getAll`: mengambil daftar pembayaran dengan filter pagination, search, status, dan tahun ajaran.
+- `getById`: mengambil detail pembayaran.
+- `getByNim`: mengambil riwayat pembayaran mahasiswa.
+- `create`: mengecek mahasiswa, membuat nomor referensi jika kosong, lalu menyimpan pembayaran.
+- `updateStatus`: mengubah status dan menyimpan admin yang memverifikasi.
+- `update`: mengubah data transaksi.
+- `delete`: menghapus transaksi.
+- `cekStatus`: mengecek pembayaran berdasarkan NIM, semester, dan tahun ajaran.
+- `getDashboardStats`: mengambil agregasi pembayaran untuk dashboard.
+- `getTahunAjaran`: mengambil list tahun ajaran pembayaran.
+
+### `controllers/akademikController.js`
+
+File ini menangani request modul akademik.
+
+Fungsinya:
+
+- Mengelola setting akademik.
+- Mengelola tahun ajaran.
+- Mengelola mata kuliah.
+- Mengelola jadwal.
+- Mengelola KRS.
+- Mengelola input dan rekap kehadiran.
+- Mengambil info akademik mahasiswa.
+
+Penjelasan method:
+
+- `getSettings`: mengambil tahun ajaran, mata kuliah, bobot nilai, dan jumlah pertemuan.
+- `createTahunAjaran`, `updateTahunAjaran`, `deleteTahunAjaran`: CRUD tahun ajaran.
+- `createMataKuliah`, `updateMataKuliah`, `deleteMataKuliah`: CRUD mata kuliah untuk pengaturan akademik.
+- `updateBobotNilai`: mengubah bobot tugas, UTS, dan UAS.
+- `updateJumlahPertemuan`: mengubah jumlah pertemuan kuliah.
+- `getMatakuliah`, `createMatakuliah`: endpoint kompatibilitas untuk mata kuliah.
+- `getJadwal`, `createJadwal`: mengambil dan membuat jadwal kuliah.
+- `getKrs`, `createKrs`: mengambil dan membuat KRS.
+- `getKehadiranInputList`: mengambil daftar mahasiswa yang akan diinput kehadirannya.
+- `bulkSaveKehadiran`: menyimpan banyak data kehadiran sekaligus.
+- `getKehadiranRekap`: mengambil rekap absensi.
+- `getKehadiranSaya`: mengambil kehadiran mahasiswa login.
+- `getInfoAkademikSaya`: mengambil informasi akademik mahasiswa login.
+
+Validasi sederhana:
+
+- Tahun ajaran harus format `YYYY/YYYY`.
+- Jam harus format `HH:mm`.
+- Tanggal harus format `YYYY-MM-DD`.
+- Hari jadwal harus salah satu dari `senin`, `selasa`, `rabu`, `kamis`, `jumat`, `sabtu`.
+
+### `controllers/nilaiController.js`
+
+File ini menangani request modul nilai.
+
+Fungsinya:
+
+- Mengambil mata kuliah untuk input nilai.
+- Mengambil daftar mahasiswa untuk input nilai.
+- Mengambil rekap nilai.
+- Menyimpan nilai massal.
+- Menghapus nilai.
+- Mengambil nilai mahasiswa login.
+
+Penjelasan method:
+
+- `getMataKuliah`: mengambil daftar mata kuliah dari `Nilai.getMataKuliahList`.
+- `getInputList`: mengambil mahasiswa yang mengambil mata kuliah tertentu.
+- `getRekap`: mengambil rekap nilai berdasarkan tahun ajaran, mata kuliah, search, dan jurusan.
+- `bulkSave`: menyimpan banyak nilai sekaligus.
+- `delete`: menghapus nilai berdasarkan NIM, kode mata kuliah, dan tahun ajaran.
+- `getMyNilai`: mengambil nilai mahasiswa berdasarkan NIM dari token.
+
+### `controllers/laporanController.js`
+
+File ini menangani request modul laporan.
+
+Fungsinya:
+
+- Mengambil daftar laporan.
+- Mengambil detail laporan.
+- Generate laporan pembayaran.
+- Generate laporan mahasiswa.
+- Generate laporan keuangan.
+- Menghapus laporan.
+
+Penjelasan method:
+
+- `getAll`: mengambil laporan dengan pagination dan filter jenis.
+- `getById`: mengambil detail laporan.
+- `generatePembayaran`: membuat laporan pembayaran berdasarkan periode dan tahun ajaran.
+- `generateMahasiswa`: membuat laporan mahasiswa.
+- `generateKeuangan`: membuat laporan keuangan berdasarkan tahun ajaran.
+- `delete`: menghapus laporan.
+
+## Folder `models`
+
+Folder `models` berisi query database. Model adalah lapisan yang langsung berhubungan dengan tabel MariaDB/MySQL.
+
+### `models/User.js`
+
+File ini mengakses tabel `users`.
+
+Fungsinya:
+
+- Mencari user berdasarkan username.
+- Mencari user berdasarkan id.
+- Mencari user berdasarkan NIM.
+- Membuat user baru.
+- Mengubah password.
+- Mengambil semua user.
+- Menonaktifkan dan mengaktifkan user.
+
+Method penting:
+
+- `findByUsername(username)`
+- `findById(id)`
+- `findByNim(nim)`
+- `create(...)`
+- `updatePassword(...)`
+- `findAll()`
+- `deactivate(id)`
+- `activate(id)`
+
+### `models/Mahasiswa.js`
+
+File ini mengakses tabel `mahasiswa`.
+
+Fungsinya:
+
+- Mengambil daftar mahasiswa dengan pagination dan filter.
+- Mengambil detail mahasiswa.
+- Membuat data mahasiswa.
+- Mengubah data mahasiswa.
+- Menghapus data mahasiswa.
+- Mengambil statistik mahasiswa.
+- Mengambil daftar jurusan.
+
+Method penting:
+
+- `findAll(...)`
+- `findByNim(nim)`
+- `findById(id)`
+- `create(...)`
+- `update(nim, data)`
+- `delete(nim)`
+- `countByJurusan()`
+- `countByStatus()`
+- `countByAngkatan()`
+- `getJurusanList()`
+
+### `models/Pembayaran.js`
+
+File ini mengakses tabel `pembayaran` dan beberapa relasi mahasiswa.
+
+Fungsinya:
+
+- Mengambil daftar pembayaran dengan filter.
+- Mengambil detail pembayaran.
+- Mengambil pembayaran berdasarkan NIM.
+- Mengecek nomor referensi.
+- Membuat transaksi pembayaran.
+- Mengubah status transaksi.
+- Mengubah data transaksi.
+- Menghapus transaksi.
+- Mengecek status pembayaran per semester.
+- Menghasilkan statistik dashboard pembayaran.
+
+Method penting:
+
+- `findAll(...)`
+- `findById(id)`
+- `findByNim(nim)`
+- `findByReferensi(nomor_referensi)`
+- `create(...)`
+- `updateStatus(id, status, verified_by)`
+- `update(id, data)`
+- `delete(id)`
+- `getStatusByNimSemester(...)`
+- `getTotalPendapatan(...)`
+- `countByStatus(...)`
+- `getPendapatanPerBulan(...)`
+- `countByMetode(...)`
+- `countByJurusan(...)`
+- `getDashboardStats(...)`
+- `getTahunAjaranList()`
+
+### `models/AkademikSettings.js`
+
+File ini mengakses tabel pengaturan akademik seperti `tahun_ajaran`, `mata_kuliah`, `bobot_nilai`, dan `akademik_config`.
+
+Fungsinya:
+
+- Mengambil dan mengelola tahun ajaran.
+- Mengambil dan mengelola mata kuliah.
+- Mengambil dan mengubah bobot nilai.
+- Mengambil dan mengubah jumlah pertemuan.
+
+Method penting:
+
+- `getTahunAjaran()`
+- `createTahunAjaran(...)`
+- `updateTahunAjaran(id, data)`
+- `clearActiveTahunAjaran()`
+- `deleteTahunAjaran(id)`
+- `getMataKuliah()`
+- `createMataKuliah(data)`
+- `updateMataKuliah(kodeMk, data)`
+- `deleteMataKuliah(kodeMk)`
+- `getBobotNilai()`
+- `getJumlahPertemuan()`
+- `updateJumlahPertemuan(jumlah_pertemuan)`
+- `updateBobotNilai(...)`
+
+### `models/Matakuliah.js`
+
+File ini mengakses tabel `mata_kuliah`.
+
+Fungsinya:
+
+- Mengambil daftar mata kuliah.
+- Mencari mata kuliah berdasarkan kode.
+- Membuat data mata kuliah.
+
+Method penting:
+
+- `findAll(...)`
+- `findByKode(kode_mk)`
+- `create(...)`
+
+### `models/Jadwal.js`
+
+File ini mengakses tabel `jadwal`.
+
+Fungsinya:
+
+- Mengambil jadwal kuliah berdasarkan filter kode mata kuliah, hari, atau semester.
+- Membuat jadwal kuliah baru.
+
+Method penting:
+
+- `findAll(...)`
+- `create(...)`
+
+### `models/Krs.js`
+
+File ini mengakses tabel `krs`.
+
+Fungsinya:
+
+- Mengambil daftar KRS.
+- Mengecek KRS unik berdasarkan NIM, kode mata kuliah, dan tahun ajaran.
+- Membuat data KRS baru.
+
+Method penting:
+
+- `findAll(...)`
+- `findByUnique(nim, kode_mk, tahun_ajaran)`
+- `create(...)`
+
+### `models/Nilai.js`
+
+File ini mengakses tabel `nilai`, `krs`, `mahasiswa`, `mata_kuliah`, dan bobot nilai.
+
+Fungsinya:
+
+- Menghitung nilai akhir.
+- Menghitung grade.
+- Menormalkan input nilai.
+- Mengambil bobot nilai aktif.
+- Mengambil daftar mata kuliah.
+- Mengambil daftar mahasiswa untuk input nilai.
+- Mengambil rekap nilai.
+- Menyimpan nilai massal.
+- Menghapus nilai.
+- Mengambil nilai berdasarkan NIM.
+
+Method penting:
+
+- `calculateNilaiAkhir(...)`
+- `calculateGrade(...)`
+- `normalizeScore(value)`
+- `getActiveBobotNilai(...)`
+- `getMataKuliahList(...)`
+- `getInputList(...)`
+- `getRekap(...)`
+- `bulkUpsert(...)`
+- `deleteByKey(...)`
+- `findByNim(nim)`
+
+Catatan:
+
+- `bulkUpsert(...)` memakai pola insert/update, jadi jika nilai sudah ada akan diperbarui.
+- Grade dihitung dari nilai akhir.
+
+### `models/Kehadiran.js`
+
+File ini mengakses tabel `kehadiran` dan relasi akademik lain.
+
+Fungsinya:
+
+- Menyediakan daftar status kehadiran valid.
+- Menormalkan status kehadiran.
+- Mengambil daftar mahasiswa untuk input kehadiran.
+- Menyimpan data kehadiran massal.
+- Mengambil rekap kehadiran.
+- Mengambil kehadiran berdasarkan NIM.
+
+Method penting:
+
+- `validStatuses()`
+- `normalizeStatus(value)`
+- `getInputList(...)`
+- `bulkUpsert(...)`
+- `getRekap(...)`
+- `findByNim(nim)`
+
+Catatan:
+
+- Status yang valid adalah `hadir`, `izin`, `sakit`, dan `alpha`.
+- `bulkUpsert(...)` menyimpan banyak absensi sekaligus.
+
+### `models/Laporan.js`
+
+File ini mengakses tabel `laporan` dan data yang dibutuhkan untuk isi laporan.
+
+Fungsinya:
+
+- Mengambil daftar laporan dengan pagination.
+- Mengambil detail laporan.
+- Membuat laporan baru.
+- Mengubah laporan.
+- Menghapus laporan.
+- Generate laporan pembayaran.
+- Generate laporan mahasiswa.
+- Generate laporan keuangan.
+
+Method penting:
+
+- `findAll(...)`
+- `findById(id)`
+- `create(...)`
+- `update(id, data)`
+- `delete(id)`
+- `generateLaporanPembayaran(...)`
+- `generateLaporanMahasiswa(...)`
+- `generateLaporanKeuangan(...)`
+
+## Folder `utils`
+
+Folder ini berisi helper umum yang bisa dipakai banyak modul.
+
+### `utils/pagination.js`
+
+File ini menormalisasi parameter pagination.
+
+Fungsinya:
+
+- Mengubah `page` dan `limit` menjadi angka valid.
+- Memberi default `page = 1`.
+- Memberi default `limit = 10`.
+- Membatasi maximum limit menjadi `100`.
+- Menghasilkan `offset` untuk query SQL.
+
+Penjelasan kode:
+
+- `toPositiveInteger(...)` memastikan nilai adalah angka positif.
+- `normalizePagination(...)` mengembalikan object `{ page, limit, offset }`.
+- Model seperti `Mahasiswa`, `Pembayaran`, dan `Laporan` memakai helper ini.
+
+## Folder `seeds`
+
+Folder ini berisi script untuk mengisi data awal database.
+
+### `seeds/seed.js`
+
+File ini menjalankan proses seeding database.
+
+Fungsinya:
+
+- Menghubungkan backend ke database.
+- Membuat hash password dengan bcrypt.
+- Membuat user admin default.
+- Membuat beberapa user mahasiswa.
+- Membuat sample mahasiswa.
+- Membuat sample mata kuliah.
+- Membuat sample tahun ajaran.
+- Membuat bobot nilai default.
+- Membuat sample pembayaran.
+
+Penjelasan kode:
+
+- `seed()` adalah function utama.
+- Script memakai `pool` dari `config/database.js`.
+- Password tidak disimpan plain text, tetapi di-hash memakai bcrypt.
+- File ini dijalankan dengan command `npm run seed`.
+
+Credential seed:
+
+- Admin: `admin / admin123`
+- Mahasiswa: `2024001 / mhs123` dan seterusnya.
+
+## Folder `uploads`
+
+Folder ini tidak selalu ada sejak awal, tetapi dibuat otomatis saat upload foto mahasiswa.
+
+Fungsinya:
+
+- Menyimpan file upload dari endpoint mahasiswa.
+- Saat ini dipakai untuk foto mahasiswa di `uploads/mahasiswa`.
+- File di folder ini bisa diakses dari URL `/uploads/...` karena `server.js` memasang static route.
+
+## Alur Backend Per Modul
+
+### Alur Auth
+
+```text
+POST /api/login
+-> authRoutes.js
+-> authController.login
+-> User.findByUsername
+-> bcrypt.compare
+-> jwt.sign
+-> response token dan data user
+```
+
+### Alur Mahasiswa
+
+```text
+GET /api/mahasiswa
+-> mahasiswaRoutes.js
+-> verifyToken
+-> mahasiswaController.getAll
+-> Mahasiswa.findAll
+-> response data dan pagination
+```
+
+### Alur Pembayaran
+
+```text
+POST /api/pembayaran
+-> pembayaranRoutes.js
+-> verifyToken
+-> isAdmin
+-> pembayaranController.create
+-> Mahasiswa.findByNim
+-> Pembayaran.create
+-> response transaksi baru
+```
+
+### Alur Nilai
+
+```text
+POST /api/nilai/bulk
+-> nilaiRoutes.js
+-> verifyToken
+-> isAdmin
+-> nilaiController.bulkSave
+-> Nilai.bulkUpsert
+-> response jumlah nilai tersimpan
+```
+
+### Alur Kehadiran
+
+```text
+POST /api/akademik/kehadiran/bulk
+-> akademikRoutes.js
+-> verifyToken
+-> isAdmin
+-> akademikController.bulkSaveKehadiran
+-> Kehadiran.bulkUpsert
+-> response jumlah kehadiran tersimpan
+```
+
+### Alur Laporan
+
+```text
+POST /api/laporan/generate/pembayaran
+-> laporanRoutes.js
+-> verifyToken
+-> isAdmin
+-> laporanController.generatePembayaran
+-> Laporan.generateLaporanPembayaran
+-> response laporan yang dibuat
+```
+
+## Ringkasan Tanggung Jawab Tiap Layer
+
+```text
+server.js
+  Mendaftarkan middleware global, route, error handler, dan menjalankan server.
+
+routes/
+  Menentukan URL, HTTP method, middleware, dan controller.
+
+middleware/
+  Menjalankan pengecekan sebelum controller, seperti token dan role.
+
+controllers/
+  Mengatur alur request-response dan business logic ringan.
+
+models/
+  Menjalankan query SQL ke database.
+
+config/
+  Menyimpan konfigurasi database dan JWT.
+
+utils/
+  Menyimpan helper umum.
+
+seeds/
+  Mengisi data awal database.
+```
+
+## Ringkasan Penting
+
+Backend ini memakai pola yang cukup rapi:
+
+- Route tidak langsung query database.
+- Controller tidak menyimpan SQL panjang.
+- Model bertanggung jawab pada query database.
+- Middleware menjaga keamanan akses.
+- JWT dipakai untuk login dan role.
+- bcrypt dipakai agar password tidak disimpan dalam bentuk asli.
+- mysql2 pool dipakai agar koneksi database lebih efisien.
+
+Dengan struktur ini, jika ingin menambah fitur baru, pola umumnya adalah:
+
+1. Tambahkan query di `models`.
+2. Tambahkan logic response di `controllers`.
+3. Tambahkan endpoint di `routes`.
+4. Daftarkan route di `server.js` jika membuat route file baru.
+5. Panggil endpoint tersebut dari frontend service.
+
+## Penjelasan Kode Penting di Backend
+
+Bagian ini menjelaskan pola kode yang sering muncul di backend agar lebih mudah dipahami saat membaca file aslinya.
+
+### Pola Kode `server.js`
+
+Contoh pola kode:
+
+```js
+const express = require('express');
+const cors = require('cors');
+const morgan = require('morgan');
+require('dotenv').config();
+```
+
+Penjelasan:
+
+- `express` dipakai untuk membuat REST API.
+- `cors` dipakai agar frontend bisa mengakses backend.
+- `morgan` dipakai untuk mencatat log request HTTP di terminal.
+- `dotenv.config()` membaca isi file `.env` agar variable seperti `PORT`, `DB_HOST`, dan `JWT_SECRET` bisa dipakai.
+
+Contoh pola middleware:
+
+```js
+app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+app.use(morgan(process.env.LOG_LEVEL || 'dev'));
+```
+
+Penjelasan:
+
+- `app.use(...)` memasang middleware global.
+- `cors(...)` mengatur izin akses API.
+- `express.json(...)` membuat backend bisa membaca body JSON dari frontend.
+- `express.urlencoded(...)` membuat backend bisa membaca data form.
+- `morgan(...)` menampilkan log seperti method, URL, status, dan waktu response.
+
+Contoh pola pemasangan route:
+
+```js
+app.use('/api', authRoutes);
+app.use('/api/mahasiswa', mahasiswaRoutes);
+app.use('/api/pembayaran', pembayaranRoutes);
+```
+
+Penjelasan:
+
+- `authRoutes` dipasang di prefix `/api`, sehingga route `/login` menjadi `/api/login`.
+- `mahasiswaRoutes` dipasang di prefix `/api/mahasiswa`, sehingga route `/` menjadi `/api/mahasiswa`.
+- `pembayaranRoutes` dipasang di prefix `/api/pembayaran`, sehingga route `/dashboard/stats` menjadi `/api/pembayaran/dashboard/stats`.
+
+Contoh pola error handler:
+
+```js
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: `Route ${req.method} ${req.originalUrl} tidak ditemukan.`
+  });
+});
+```
+
+Penjelasan:
+
+- Middleware ini berjalan jika tidak ada route yang cocok.
+- Backend mengembalikan status `404`.
+- Response tetap berbentuk JSON agar frontend mudah membaca error.
+
+### Pola Kode `config/database.js`
+
+Contoh pola kode:
+
+```js
+const pool = mysql.createPool({
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT) || 3306,
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'siakad_db',
+  waitForConnections: true,
+  connectionLimit: 10
+});
+```
+
+Penjelasan:
+
+- `mysql.createPool(...)` membuat kumpulan koneksi database.
+- Pool lebih efisien daripada membuat koneksi baru setiap query.
+- Konfigurasi database dibaca dari `.env`.
+- Jika variable `.env` kosong, backend memakai nilai default.
+- `connectionLimit: 10` artinya maksimal 10 koneksi database aktif di pool.
+
+Contoh pola test koneksi:
+
+```js
+const connection = await pool.getConnection();
+console.log('Database MariaDB terhubung berhasil');
+connection.release();
+```
+
+Penjelasan:
+
+- `pool.getConnection()` mencoba mengambil satu koneksi dari pool.
+- Jika berhasil, artinya database bisa dihubungi.
+- `connection.release()` mengembalikan koneksi ke pool agar bisa dipakai request lain.
+
+### Pola Kode `middleware/auth.js`
+
+Contoh pola membaca token:
+
+```js
+const authHeader = req.headers['authorization'];
+const [scheme, token] = authHeader.trim().split(/\s+/);
+```
+
+Penjelasan:
+
+- Token dikirim frontend melalui header `Authorization`.
+- Format yang diharapkan adalah `Bearer <token>`.
+- `scheme` berisi kata `Bearer`.
+- `token` berisi JWT asli.
+
+Contoh pola verifikasi token:
+
+```js
+const decoded = jwt.verify(token, jwtConfig.secret, {
+  algorithms: [jwtConfig.algorithm]
+});
+req.user = decoded;
+req.token = token;
+next();
+```
+
+Penjelasan:
+
+- `jwt.verify(...)` mengecek token valid atau tidak.
+- Jika token valid, hasil decode disimpan ke `decoded`.
+- `req.user` berisi data user, misalnya id, username, role, dan NIM.
+- `req.token` menyimpan token asli agar bisa dipakai saat logout.
+- `next()` melanjutkan request ke middleware berikutnya atau controller.
+
+Contoh pola cek admin:
+
+```js
+const isAdmin = (req, res, next) => {
+  if (req.user && req.user.role === 'admin') {
+    next();
+  } else {
+    return res.status(403).json({
+      success: false,
+      message: 'Akses ditolak. Hanya admin yang dapat mengakses.'
+    });
+  }
+};
+```
+
+Penjelasan:
+
+- Middleware ini mengecek `req.user.role`.
+- Jika role adalah `admin`, request dilanjutkan.
+- Jika bukan admin, backend mengembalikan status `403 Forbidden`.
+
+### Pola Kode Route
+
+Contoh dari route mahasiswa:
+
+```js
+router.use(verifyToken);
+
+router.get('/', mahasiswaController.getAll);
+router.post('/', isAdmin, mahasiswaController.create);
+router.put('/:nim', isAdmin, mahasiswaController.update);
+router.delete('/:nim', isAdmin, mahasiswaController.delete);
+```
+
+Penjelasan:
+
+- `router.use(verifyToken)` berarti semua endpoint setelah baris ini wajib login.
+- `router.get('/')` menangani request GET daftar mahasiswa.
+- `router.post('/')` menangani tambah mahasiswa dan wajib admin.
+- `router.put('/:nim')` memakai parameter URL `nim`.
+- `router.delete('/:nim')` menghapus mahasiswa berdasarkan NIM dan wajib admin.
+
+Contoh penggunaan parameter:
+
+```js
+router.get('/:nim', mahasiswaController.getByNim);
+```
+
+Penjelasan:
+
+- Jika frontend memanggil `/api/mahasiswa/2024001`, maka `req.params.nim` bernilai `2024001`.
+- Nilai itu dipakai controller untuk mencari mahasiswa.
+
+### Pola Kode Controller
+
+Contoh pola controller sederhana:
+
+```js
+getByNim: async (req, res) => {
+  try {
+    const mahasiswa = await Mahasiswa.findByNim(req.params.nim);
+    if (!mahasiswa) {
+      return res.status(404).json({
+        success: false,
+        message: 'Mahasiswa tidak ditemukan'
+      });
+    }
+    res.json({ success: true, data: mahasiswa });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+```
+
+Penjelasan:
+
+- Controller memakai `async` karena memanggil database.
+- `req.params.nim` mengambil NIM dari URL.
+- `Mahasiswa.findByNim(...)` memanggil model.
+- Jika data tidak ditemukan, response status `404`.
+- Jika sukses, response `success: true` dan `data`.
+- Jika terjadi error server/database, response status `500`.
+
+Contoh pola controller dengan body request:
+
+```js
+const { nim, nama, email } = req.body;
+const mahasiswa = await Mahasiswa.create({ nim, nama, email });
+res.status(201).json({
+  success: true,
+  message: 'Mahasiswa berhasil ditambahkan',
+  data: mahasiswa
+});
+```
+
+Penjelasan:
+
+- `req.body` berisi data JSON dari frontend.
+- Data diambil memakai destructuring.
+- Controller memanggil model untuk menyimpan data.
+- Status `201` berarti data baru berhasil dibuat.
+
+### Pola Kode Model
+
+Contoh pola query SELECT:
+
+```js
+const [rows] = await pool.query(
+  'SELECT * FROM mahasiswa WHERE nim = ?',
+  [nim]
+);
+return rows[0] || null;
+```
+
+Penjelasan:
+
+- `pool.query(...)` menjalankan SQL ke database.
+- Tanda `?` adalah placeholder.
+- Nilai `[nim]` akan dimasukkan ke placeholder secara aman.
+- Pola ini membantu mencegah SQL injection.
+- `rows` adalah hasil query.
+- `rows[0] || null` mengembalikan satu data atau `null` jika kosong.
+
+Contoh pola query INSERT:
+
+```js
+const [result] = await pool.query(
+  `INSERT INTO mahasiswa (nim, nama, email)
+   VALUES (?, ?, ?)`,
+  [nim, nama, email]
+);
+return { id: result.insertId, nim, nama, email };
+```
+
+Penjelasan:
+
+- Query `INSERT` menambah data baru ke tabel.
+- `result.insertId` berisi id auto increment dari data yang baru dibuat.
+- Model mengembalikan object agar controller bisa mengirim response ke frontend.
+
+Contoh pola query UPDATE dinamis:
+
+```js
+const fields = [];
+const values = [];
+
+Object.keys(data).forEach(key => {
+  if (data[key] !== undefined) {
+    fields.push(`${key} = ?`);
+    values.push(data[key]);
+  }
+});
+```
+
+Penjelasan:
+
+- Pola ini dipakai ketika data yang diupdate tidak selalu lengkap.
+- `fields` menyimpan nama kolom yang akan diubah.
+- `values` menyimpan nilai untuk placeholder.
+- Hanya field yang tidak `undefined` yang ikut diupdate.
+
+Contoh pola pagination:
+
+```js
+const { page, limit, offset } = normalizePagination({ page, limit });
+```
+
+Penjelasan:
+
+- `page` adalah halaman aktif.
+- `limit` adalah jumlah data per halaman.
+- `offset` adalah posisi awal data untuk query SQL.
+- Contoh: page 2 limit 10 berarti offset 10.
+
+### Pola Response JSON
+
+Response sukses biasanya seperti ini:
+
+```js
+res.json({
+  success: true,
+  message: 'Data berhasil dimuat',
+  data: rows
+});
+```
+
+Penjelasan:
+
+- `success: true` menandakan request berhasil.
+- `message` memberi keterangan untuk frontend.
+- `data` berisi hasil utama.
+
+Response error biasanya seperti ini:
+
+```js
+res.status(500).json({
+  success: false,
+  message: 'Terjadi kesalahan server'
+});
+```
+
+Penjelasan:
+
+- `status(500)` menunjukkan error server.
+- `success: false` memudahkan frontend mengecek kegagalan.
+- `message` bisa ditampilkan di UI sebagai pesan error.
+
+### Pola Kode Login di `authController.js`
+
+Alur login secara kode:
+
+```js
+const user = await User.findByUsername(username);
+const isPasswordValid = await bcrypt.compare(password, user.password);
+const token = jwt.sign(payload, jwtConfig.secret, {
+  expiresIn: jwtConfig.expiresIn,
+  algorithm: jwtConfig.algorithm
+});
+```
+
+Penjelasan:
+
+- Backend mencari user dari database berdasarkan username.
+- Password input dibandingkan dengan password hash di database memakai `bcrypt.compare`.
+- Jika password benar, backend membuat token JWT.
+- Token JWT berisi identitas user yang akan dipakai frontend untuk request berikutnya.
+
+Data token biasanya berisi:
+
+```js
+{
+  id: user.id,
+  username: user.username,
+  role: user.role,
+  nim: user.nim
+}
+```
+
+Penjelasan:
+
+- `id` adalah id user.
+- `username` adalah username login.
+- `role` menentukan hak akses, misalnya admin atau mahasiswa.
+- `nim` dipakai jika user adalah mahasiswa.
+
+### Pola Kode Pembayaran
+
+Pada saat membuat pembayaran, controller mengecek mahasiswa dulu:
+
+```js
+const mahasiswa = await Mahasiswa.findByNim(nim);
+if (!mahasiswa) {
+  return res.status(404).json({
+    success: false,
+    message: 'Mahasiswa tidak ditemukan'
+  });
+}
+```
+
+Penjelasan:
+
+- Pembayaran harus terhubung dengan mahasiswa.
+- Jika NIM tidak ada di tabel mahasiswa, pembayaran tidak boleh dibuat.
+- Ini menjaga relasi database tetap valid.
+
+Nomor referensi bisa dibuat otomatis:
+
+```js
+const nomor_referensi = req.body.nomor_referensi || `REF-${uuidv4().slice(0, 8)}`;
+```
+
+Penjelasan:
+
+- Jika frontend mengirim nomor referensi, backend memakai nomor itu.
+- Jika tidak, backend membuat referensi otomatis memakai `uuid`.
+
+### Pola Kode Nilai
+
+Model nilai menghitung nilai akhir:
+
+```js
+nilaiAkhir =
+  nilaiTugas * bobotTugas +
+  nilaiUts * bobotUts +
+  nilaiUas * bobotUas;
+```
+
+Penjelasan:
+
+- Nilai akhir dihitung dari tugas, UTS, dan UAS.
+- Persentase bobot diambil dari pengaturan akademik.
+- Hasil nilai akhir dipakai untuk menentukan grade.
+
+Pola grade:
+
+```js
+if (nilaiAkhir >= 85) return 'A';
+if (nilaiAkhir >= 75) return 'B';
+if (nilaiAkhir >= 65) return 'C';
+if (nilaiAkhir >= 50) return 'D';
+return 'E';
+```
+
+Penjelasan:
+
+- Grade ditentukan berdasarkan rentang nilai akhir.
+- Semakin tinggi nilai akhir, semakin tinggi grade.
+
+### Pola Kode Kehadiran
+
+Status kehadiran dinormalisasi:
+
+```js
+static normalizeStatus(value) {
+  const status = String(value || '').toLowerCase();
+  return this.validStatuses().includes(status) ? status : 'hadir';
+}
+```
+
+Penjelasan:
+
+- Input status diubah menjadi huruf kecil.
+- Jika status termasuk valid, status dipakai.
+- Jika tidak valid atau kosong, default-nya menjadi `hadir`.
+
+Status valid:
+
+```js
+['hadir', 'izin', 'sakit', 'alpha']
+```
+
+Penjelasan:
+
+- Hanya empat status ini yang boleh masuk ke database.
+- Ini menjaga data absensi tetap konsisten.
+
+### Pola Kode Laporan
+
+Generate laporan biasanya memiliki pola:
+
+```js
+const laporan = await Laporan.generateLaporanPembayaran(
+  periode_mulai,
+  periode_selesai,
+  tahun_ajaran,
+  req.user.id
+);
+```
+
+Penjelasan:
+
+- Controller mengambil filter dari request body.
+- `req.user.id` dipakai sebagai user/admin yang membuat laporan.
+- Model mengumpulkan data laporan dari database.
+- Hasil laporan disimpan ke tabel `laporan`.
+
+### Pola Kode Upload Foto Mahasiswa
+
+Route upload memakai `multer`:
+
+```js
+router.post('/:nim/upload-foto', isAdmin, upload.single('foto'), ...)
+```
+
+Penjelasan:
+
+- Endpoint menerima satu file dengan field name `foto`.
+- Hanya admin yang boleh upload.
+- File disimpan ke folder `uploads/mahasiswa`.
+
+Filter file:
+
+```js
+const filetypes = /jpeg|jpg|png/;
+```
+
+Penjelasan:
+
+- Backend hanya menerima file gambar JPG/JPEG/PNG.
+- Jika format tidak sesuai, upload ditolak.
+
+Setelah upload:
+
+```js
+const fotoUrl = `/uploads/mahasiswa/${req.file.filename}`;
+Mahasiswa.update(req.params.nim, { foto_url: fotoUrl });
+```
+
+Penjelasan:
+
+- Backend membuat URL file foto.
+- URL tersebut disimpan ke kolom `foto_url` di tabel mahasiswa.
+
+### Pola Kode Seed Database
+
+File seed membuat password hash:
+
+```js
+const hashedPassword = await bcrypt.hash('admin123', 10);
+```
+
+Penjelasan:
+
+- Password asli `admin123` tidak disimpan langsung.
+- `bcrypt.hash(...)` membuat password menjadi hash.
+- Angka `10` adalah salt rounds, semakin tinggi semakin kuat tapi lebih lambat.
+
+Pola insert seed:
+
+```js
+await pool.query(
+  `INSERT INTO users (username, password, role)
+   VALUES (?, ?, ?)
+   ON DUPLICATE KEY UPDATE password = VALUES(password)`,
+  [username, hashedPassword, role]
+);
+```
+
+Penjelasan:
+
+- Data user dimasukkan ke tabel `users`.
+- Jika username sudah ada, data tidak membuat duplikat.
+- `ON DUPLICATE KEY UPDATE` memperbarui data lama.
+
+### Kesimpulan Penjelasan Kode
+
+Jika membaca kode backend ini, cara memahaminya bisa mengikuti urutan berikut:
+
+1. Cari endpoint di folder `routes`.
+2. Lihat middleware apa saja yang dipakai.
+3. Buka controller yang dipanggil route tersebut.
+4. Lihat model apa yang dipakai controller.
+5. Baca query SQL di model.
+6. Cocokkan query dengan tabel di `database/init.sql`.
+
+Dengan cara ini, alur satu fitur bisa dilacak dari URL API sampai database.

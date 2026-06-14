@@ -16,6 +16,8 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import javax.swing.table.TableCellRenderer;
 import java.awt.*;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 public class AkademikPanel extends JPanel {
 
@@ -37,8 +39,10 @@ public class AkademikPanel extends JPanel {
     private JLabel lblStatusSummary;
     private JLabel lblBobotBadge;
     private JButton btnSave;
+    private final Map<String, DraftNilai> pendingNilai = new LinkedHashMap<>();
     private boolean recalculating = false;
     private boolean loadingMahasiswaOptions = false;
+    private boolean skipDraftPersistOnce = false;
     private double bobotTugas = 30.0;
     private double bobotUts = 30.0;
     private double bobotUas = 40.0;
@@ -116,7 +120,7 @@ public class AkademikPanel extends JPanel {
         top.add(titleBlock, BorderLayout.WEST);
         top.add(lblBobotBadge, BorderLayout.EAST);
 
-        JPanel filterCard = new JPanel(new BorderLayout(18, 0)) {
+        JPanel filterCard = new JPanel(new BorderLayout(0, 14)) {
             @Override protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
@@ -129,27 +133,42 @@ public class AkademikPanel extends JPanel {
             }
         };
         filterCard.setOpaque(false);
-        filterCard.setBorder(new EmptyBorder(16, 18, 16, 18));
+        filterCard.setBorder(new EmptyBorder(18, 20, 18, 20));
+
+        JPanel filterHeader = new JPanel(new BorderLayout());
+        filterHeader.setOpaque(false);
+        JPanel filterText = new JPanel();
+        filterText.setOpaque(false);
+        filterText.setLayout(new BoxLayout(filterText, BoxLayout.Y_AXIS));
+        JLabel filterTitle = new JLabel("Filter Input Nilai");
+        filterTitle.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        filterTitle.setForeground(TEXT);
+        JLabel filterNote = new JLabel("Pilih periode, jurusan, mata kuliah, lalu batasi mahasiswa jika diperlukan.");
+        filterNote.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        filterNote.setForeground(MUTED);
+        filterText.add(filterTitle);
+        filterText.add(Box.createVerticalStrut(3));
+        filterText.add(filterNote);
+        filterHeader.add(filterText, BorderLayout.WEST);
 
         JPanel fields = new JPanel(new GridBagLayout());
         fields.setOpaque(false);
         GridBagConstraints g = new GridBagConstraints();
-        g.insets = new Insets(0, 0, 0, 12);
+        g.insets = new Insets(0, 0, 12, 12);
         g.fill = GridBagConstraints.HORIZONTAL;
-        g.gridy = 0;
 
         cmbTahunAjaran = new JComboBox<>();
-        styleCombo(cmbTahunAjaran, 145);
+        styleCombo(cmbTahunAjaran, 180);
 
         cmbJurusan = new JComboBox<>();
         cmbJurusan.addItem("Semua Jurusan");
-        styleCombo(cmbJurusan, 220);
+        styleCombo(cmbJurusan, 245);
 
         cmbMataKuliah = new JComboBox<>();
-        styleCombo(cmbMataKuliah, 280);
+        styleCombo(cmbMataKuliah, 360);
 
         cmbMahasiswa = new JComboBox<>();
-        styleCombo(cmbMahasiswa, 230);
+        styleCombo(cmbMahasiswa, 360);
         cmbMahasiswa.setToolTipText("Pilih mahasiswa dari daftar KRS sesuai filter aktif");
         cmbMahasiswa.getAccessibleContext().setAccessibleName("Dropdown mahasiswa");
         cmbMahasiswa.getAccessibleContext().setAccessibleDescription("Pilih semua mahasiswa atau satu mahasiswa dari daftar KRS sesuai jurusan, tahun ajaran, dan mata kuliah.");
@@ -170,22 +189,28 @@ public class AkademikPanel extends JPanel {
             }
         });
 
-        g.gridx = 0; g.weightx = 0;
+        g.gridy = 0;
+        g.gridx = 0; g.weightx = 0.20;
         fields.add(labeledField("Tahun Ajaran", cmbTahunAjaran), g);
-        g.gridx = 1; g.weightx = 0;
+        g.gridx = 1; g.weightx = 0.28;
         fields.add(labeledField("Jurusan", cmbJurusan), g);
-        g.gridx = 2; g.weightx = 1;
+        g.gridx = 2; g.weightx = 0.52; g.gridwidth = 2;
         fields.add(labeledField("Mata Kuliah", cmbMataKuliah), g);
-        g.gridx = 3; g.weightx = 0;
+        g.gridwidth = 1;
+        g.gridy = 1;
+        g.gridx = 0; g.weightx = 0.48; g.gridwidth = 2;
         fields.add(labeledField("Mahasiswa", cmbMahasiswa), g);
+        g.gridwidth = 1;
 
-        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 14));
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 20));
         actions.setOpaque(false);
         actions.add(btnLoad);
         actions.add(btnRefresh);
+        g.gridx = 2; g.weightx = 0.52; g.gridwidth = 2;
+        fields.add(actions, g);
 
+        filterCard.add(filterHeader, BorderLayout.NORTH);
         filterCard.add(fields, BorderLayout.CENTER);
-        filterCard.add(actions, BorderLayout.EAST);
 
         wrapper.add(top, BorderLayout.NORTH);
         wrapper.add(filterCard, BorderLayout.CENTER);
@@ -224,6 +249,9 @@ public class AkademikPanel extends JPanel {
         String active = null;
         for (JsonElement item : data) {
             JsonObject tahun = item.getAsJsonObject();
+            if ("draft".equalsIgnoreCase(getString(tahun, "status"))) {
+                continue;
+            }
             String label = getString(tahun, "tahun_ajaran");
             if (!label.isBlank()) {
                 cmbTahunAjaran.addItem(label);
@@ -278,7 +306,7 @@ public class AkademikPanel extends JPanel {
         String[] columns = {"NIM", "Nama", "Jurusan", "Tugas", "UTS", "UAS", "Nilai Akhir", "Grade", "Status", "Aksi"};
         tableModel = new DefaultTableModel(columns, 0) {
             @Override public boolean isCellEditable(int row, int col) {
-                return (col >= 3 && col <= 5) || col == 9;
+                return col == 9;
             }
         };
 
@@ -296,8 +324,8 @@ public class AkademikPanel extends JPanel {
         table.getColumnModel().getColumn(8).setCellRenderer(new StatusRenderer());
         table.getColumnModel().getColumn(9).setCellRenderer(new ActionRenderer());
         table.getColumnModel().getColumn(9).setCellEditor(new ActionEditor());
-        table.getColumnModel().getColumn(9).setMinWidth(126);
-        table.getColumnModel().getColumn(9).setMaxWidth(126);
+        table.getColumnModel().getColumn(9).setMinWidth(220);
+        table.getColumnModel().getColumn(9).setMaxWidth(220);
         tableModel.addTableModelListener(e -> {
             if (e.getType() == TableModelEvent.UPDATE && !recalculating && e.getColumn() >= 3 && e.getColumn() <= 5) {
                 recalculateRow(e.getFirstRow());
@@ -386,6 +414,7 @@ public class AkademikPanel extends JPanel {
         JPanel panel = new JPanel();
         panel.setOpaque(false);
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setAlignmentX(Component.LEFT_ALIGNMENT);
         JLabel label = smallLabel(labelText);
         panel.add(label);
         panel.add(Box.createVerticalStrut(6));
@@ -449,6 +478,11 @@ public class AkademikPanel extends JPanel {
     }
 
     private void loadInputList() {
+        if (skipDraftPersistOnce) {
+            skipDraftPersistOnce = false;
+        } else {
+            persistVisibleDrafts();
+        }
         MataKuliahItem selected = (MataKuliahItem) cmbMataKuliah.getSelectedItem();
         if (selected == null) {
             showState("Mata kuliah kosong", "Tambahkan data mata kuliah terlebih dahulu.");
@@ -494,11 +528,15 @@ public class AkademikPanel extends JPanel {
         recalculating = true;
         tableModel.setRowCount(0);
         int savedCount = 0;
+        String kodeMk = getString(mataKuliah, "kode_mk");
+        String tahunAjaran = String.valueOf(cmbTahunAjaran.getSelectedItem());
         for (JsonElement element : data) {
             JsonObject row = element.getAsJsonObject();
-            double tugas = getDouble(row, "nilai_tugas");
-            double uts = getDouble(row, "nilai_uts");
-            double uas = getDouble(row, "nilai_uas");
+            String nim = getString(row, "nim");
+            DraftNilai draft = pendingNilai.get(draftKey(kodeMk, tahunAjaran, nim));
+            double tugas = draft != null ? draft.tugas : getDouble(row, "nilai_tugas");
+            double uts = draft != null ? draft.uts : getDouble(row, "nilai_uts");
+            double uas = draft != null ? draft.uas : getDouble(row, "nilai_uas");
             double akhir = calculateFinal(tugas, uts, uas);
             String grade = calculateGrade(akhir);
             boolean saved = hasValue(row, "id_nilai");
@@ -506,7 +544,7 @@ public class AkademikPanel extends JPanel {
                 savedCount++;
             }
             tableModel.addRow(new Object[]{
-                    getString(row, "nim"),
+                    nim,
                     getString(row, "nama"),
                     getString(row, "jurusan"),
                     formatScore(tugas),
@@ -514,7 +552,7 @@ public class AkademikPanel extends JPanel {
                     formatScore(uas),
                     formatScore(akhir),
                     grade,
-                    saved ? "Tersimpan" : "Baru",
+                    draft != null ? "Diubah" : (saved ? "Tersimpan" : "Baru"),
                     "aksi"
             });
         }
@@ -528,6 +566,7 @@ public class AkademikPanel extends JPanel {
         lblCourseSummary.setText(kode + " - " + nama + " • Semester " + semester + " • " + cmbTahunAjaran.getSelectedItem() + " • " + jurusanInfo);
         lblCountSummary.setText("  " + data.size() + " Mahasiswa  ");
         lblStatusSummary.setText("  " + savedCount + " Tersimpan | " + (data.size() - savedCount) + " Baru  ");
+        updateStatusSummary();
         lblFormulaSummary.setText("  " + formulaText() + "  ");
         lblInfo.setText(data.size() == 0
                 ? "Belum ada mahasiswa yang mengambil mata kuliah ini di KRS."
@@ -536,7 +575,7 @@ public class AkademikPanel extends JPanel {
 
     private void saveAll() {
         MataKuliahItem selected = (MataKuliahItem) cmbMataKuliah.getSelectedItem();
-        if (selected == null || tableModel.getRowCount() == 0) return;
+        if (selected == null || (tableModel.getRowCount() == 0 && pendingNilai.isEmpty())) return;
         if (table.isEditing()) {
             table.getCellEditor().stopCellEditing();
         }
@@ -545,20 +584,29 @@ public class AkademikPanel extends JPanel {
             normalizeScoreCells(i);
             recalculateRow(i, false);
         }
+        persistVisibleDrafts();
 
         JsonArray nilai = new JsonArray();
-        for (int i = 0; i < tableModel.getRowCount(); i++) {
+        String tahunAjaran = (String) cmbTahunAjaran.getSelectedItem();
+        String prefix = selected.kodeMk + "|" + tahunAjaran + "|";
+        for (DraftNilai draft : pendingNilai.values()) {
+            if (!draft.key.startsWith(prefix)) continue;
             JsonObject item = new JsonObject();
-            item.addProperty("nim", String.valueOf(tableModel.getValueAt(i, 0)));
-            item.addProperty("nilai_tugas", parseScore(tableModel.getValueAt(i, 3)));
-            item.addProperty("nilai_uts", parseScore(tableModel.getValueAt(i, 4)));
-            item.addProperty("nilai_uas", parseScore(tableModel.getValueAt(i, 5)));
+            item.addProperty("nim", draft.nim);
+            item.addProperty("nilai_tugas", draft.tugas);
+            item.addProperty("nilai_uts", draft.uts);
+            item.addProperty("nilai_uas", draft.uas);
             nilai.add(item);
+        }
+        if (nilai.size() == 0) {
+            lblInfo.setText("Tidak ada perubahan nilai untuk disimpan.");
+            btnSave.setEnabled(tableModel.getRowCount() > 0);
+            return;
         }
 
         JsonObject body = new JsonObject();
         body.addProperty("kode_mk", selected.kodeMk);
-        body.addProperty("tahun_ajaran", (String) cmbTahunAjaran.getSelectedItem());
+        body.addProperty("tahun_ajaran", tahunAjaran);
         body.add("nilai", nilai);
 
         btnSave.setEnabled(false);
@@ -577,6 +625,8 @@ public class AkademikPanel extends JPanel {
                             success ? "Berhasil" : "Gagal",
                             success ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.WARNING_MESSAGE);
                     if (success) {
+                        pendingNilai.keySet().removeIf(key -> key.startsWith(prefix));
+                        skipDraftPersistOnce = true;
                         loadInputList();
                     } else {
                         btnSave.setEnabled(true);
@@ -678,11 +728,20 @@ public class AkademikPanel extends JPanel {
         }
     }
 
-    private void showNilaiDialog(int row) {
+    private void showNilaiDialog(int row, boolean inputMode) {
         if (row < 0 || row >= tableModel.getRowCount()) return;
 
         String nim = String.valueOf(tableModel.getValueAt(row, 0));
         String nama = String.valueOf(tableModel.getValueAt(row, 1));
+        String status = String.valueOf(tableModel.getValueAt(row, 8));
+        if (inputMode && !"Baru".equals(status)) {
+            JOptionPane.showMessageDialog(this, "Nilai mahasiswa ini sudah ada. Gunakan tombol Edit untuk mengubah nilai.", "Informasi", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        if (!inputMode && "Baru".equals(status)) {
+            JOptionPane.showMessageDialog(this, "Nilai mahasiswa ini belum pernah diinput. Gunakan tombol Input Nilai terlebih dahulu.", "Informasi", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
 
         JTextField txtTugas = scoreField(tableModel.getValueAt(row, 3));
         JTextField txtUts = scoreField(tableModel.getValueAt(row, 4));
@@ -727,7 +786,7 @@ public class AkademikPanel extends JPanel {
         int result = JOptionPane.showConfirmDialog(
                 this,
                 form,
-                "Input/Edit Nilai",
+                inputMode ? "Input Nilai" : "Edit Nilai",
                 JOptionPane.OK_CANCEL_OPTION,
                 JOptionPane.PLAIN_MESSAGE
         );
@@ -737,7 +796,74 @@ public class AkademikPanel extends JPanel {
             tableModel.setValueAt(formatScore(parseScore(txtUts.getText())), row, 4);
             tableModel.setValueAt(formatScore(parseScore(txtUas.getText())), row, 5);
             recalculateRow(row);
+            saveRowImmediately(row);
         }
+    }
+
+    private void saveRowImmediately(int row) {
+        MataKuliahItem selected = (MataKuliahItem) cmbMataKuliah.getSelectedItem();
+        if (selected == null || cmbTahunAjaran.getSelectedItem() == null || row < 0 || row >= tableModel.getRowCount()) {
+            return;
+        }
+
+        String nim = String.valueOf(tableModel.getValueAt(row, 0));
+        JsonArray nilai = new JsonArray();
+        JsonObject item = new JsonObject();
+        item.addProperty("nim", nim);
+        item.addProperty("nilai_tugas", parseScore(tableModel.getValueAt(row, 3)));
+        item.addProperty("nilai_uts", parseScore(tableModel.getValueAt(row, 4)));
+        item.addProperty("nilai_uas", parseScore(tableModel.getValueAt(row, 5)));
+        nilai.add(item);
+
+        JsonObject body = new JsonObject();
+        body.addProperty("kode_mk", selected.kodeMk);
+        body.addProperty("tahun_ajaran", (String) cmbTahunAjaran.getSelectedItem());
+        body.add("nilai", nilai);
+
+        btnSave.setEnabled(false);
+        lblInfo.setText("Menyimpan nilai " + nim + "...");
+        new SwingWorker<JsonObject, Void>() {
+            @Override protected JsonObject doInBackground() throws Exception {
+                return NilaiService.bulkSave(body);
+            }
+
+            @Override protected void done() {
+                try {
+                    JsonObject response = get();
+                    if (!response.get("success").getAsBoolean()) {
+                        btnSave.setEnabled(true);
+                        lblInfo.setText("Simpan nilai gagal.");
+                        JOptionPane.showMessageDialog(AkademikPanel.this, getString(response, "message"), "Gagal", JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
+
+                    JsonArray data = response.getAsJsonArray("data");
+                    if (data != null && data.size() > 0) {
+                        applySavedNilai(row, data.get(0).getAsJsonObject());
+                    }
+                    pendingNilai.remove(draftKey(selected.kodeMk, String.valueOf(cmbTahunAjaran.getSelectedItem()), nim));
+                    tableModel.setValueAt("Tersimpan", row, 8);
+                    updateStatusSummary();
+                    btnSave.setEnabled(tableModel.getRowCount() > 0);
+                    lblInfo.setText("Nilai " + nim + " berhasil tersimpan.");
+                } catch (Exception ex) {
+                    btnSave.setEnabled(true);
+                    lblInfo.setText("Gagal menyimpan nilai.");
+                    JOptionPane.showMessageDialog(AkademikPanel.this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }.execute();
+    }
+
+    private void applySavedNilai(int row, JsonObject nilai) {
+        if (row < 0 || row >= tableModel.getRowCount() || nilai == null) return;
+        recalculating = true;
+        tableModel.setValueAt(formatScore(getDouble(nilai, "nilai_tugas")), row, 3);
+        tableModel.setValueAt(formatScore(getDouble(nilai, "nilai_uts")), row, 4);
+        tableModel.setValueAt(formatScore(getDouble(nilai, "nilai_uas")), row, 5);
+        tableModel.setValueAt(formatScore(getDouble(nilai, "nilai_akhir")), row, 6);
+        tableModel.setValueAt(getString(nilai, "grade"), row, 7);
+        recalculating = false;
     }
 
     private JTextField scoreField(Object value) {
@@ -814,6 +940,7 @@ public class AkademikPanel extends JPanel {
         tableModel.setValueAt("E", row, 7);
         tableModel.setValueAt("Baru", row, 8);
         recalculating = false;
+        storeDraftFromRow(row);
     }
 
     private void recalculateRow(int row) {
@@ -835,9 +962,42 @@ public class AkademikPanel extends JPanel {
         tableModel.setValueAt(calculateGrade(akhir), row, 7);
         if (markChanged) {
             tableModel.setValueAt("Diubah", row, 8);
+            storeDraftFromRow(row);
             updateStatusSummary();
         }
         recalculating = false;
+    }
+
+    private void persistVisibleDrafts() {
+        if (table == null || tableModel == null || tableModel.getRowCount() == 0) return;
+        if (table.isEditing()) {
+            table.getCellEditor().stopCellEditing();
+        }
+        for (int i = 0; i < tableModel.getRowCount(); i++) {
+            if ("Diubah".equals(String.valueOf(tableModel.getValueAt(i, 8)))) {
+                storeDraftFromRow(i);
+            }
+        }
+    }
+
+    private void storeDraftFromRow(int row) {
+        MataKuliahItem selected = cmbMataKuliah == null ? null : (MataKuliahItem) cmbMataKuliah.getSelectedItem();
+        Object tahun = cmbTahunAjaran == null ? null : cmbTahunAjaran.getSelectedItem();
+        if (selected == null || tahun == null || row < 0 || row >= tableModel.getRowCount()) return;
+
+        String nim = String.valueOf(tableModel.getValueAt(row, 0));
+        String key = draftKey(selected.kodeMk, String.valueOf(tahun), nim);
+        pendingNilai.put(key, new DraftNilai(
+                key,
+                nim,
+                parseScore(tableModel.getValueAt(row, 3)),
+                parseScore(tableModel.getValueAt(row, 4)),
+                parseScore(tableModel.getValueAt(row, 5))
+        ));
+    }
+
+    private String draftKey(String kodeMk, String tahunAjaran, String nim) {
+        return String.valueOf(kodeMk) + "|" + String.valueOf(tahunAjaran) + "|" + String.valueOf(nim);
     }
 
     private void normalizeScoreCells(int row) {
@@ -927,6 +1087,7 @@ public class AkademikPanel extends JPanel {
         btn.setFont(new Font("Segoe UI", Font.BOLD, 12));
         btn.setForeground(TEXT);
         btn.setBackground(bg);
+        btn.setPreferredSize(new Dimension(118, 38));
         btn.setBorder(new EmptyBorder(9, 14, 9, 14));
         btn.setFocusPainted(false);
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
@@ -935,13 +1096,13 @@ public class AkademikPanel extends JPanel {
 
     private JLabel smallLabel(String text) {
         JLabel label = new JLabel(text);
-        label.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        label.setFont(new Font("Segoe UI", Font.BOLD, 11));
         label.setForeground(MUTED);
         return label;
     }
 
     private void styleCombo(JComboBox<?> combo, int width) {
-        combo.setPreferredSize(new Dimension(width, 36));
+        combo.setPreferredSize(new Dimension(width, 38));
         combo.setBackground(CARD_BG);
         combo.setForeground(TEXT);
         combo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
@@ -1030,6 +1191,22 @@ public class AkademikPanel extends JPanel {
         }
     }
 
+    private static class DraftNilai {
+        final String key;
+        final String nim;
+        final double tugas;
+        final double uts;
+        final double uas;
+
+        DraftNilai(String key, String nim, double tugas, double uts, double uas) {
+            this.key = key;
+            this.nim = nim;
+            this.tugas = tugas;
+            this.uts = uts;
+            this.uas = uas;
+        }
+    }
+
     private class GradeRenderer extends DefaultTableCellRenderer {
         @Override public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean foc, int r, int c) {
             JLabel label = (JLabel) super.getTableCellRendererComponent(t, v, sel, foc, r, c);
@@ -1054,12 +1231,14 @@ public class AkademikPanel extends JPanel {
         ActionRenderer() {
             setOpaque(false);
             setLayout(new FlowLayout(FlowLayout.CENTER, 4, 6));
-            add(actionChip("Edit", BLUE));
-            add(actionChip("Hapus", new Color(185, 28, 28)));
         }
 
         @Override public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean foc, int r, int c) {
+            removeAll();
             setBackground(sel ? t.getSelectionBackground() : (r % 2 == 0 ? TABLE_BG : ROW_ALT));
+            String status = String.valueOf(t.getModel().getValueAt(t.convertRowIndexToModel(r), 8));
+            add(actionChip("Baru".equals(status) ? "Input Nilai" : "Edit", "Baru".equals(status) ? GREEN : BLUE));
+            add(actionChip("Hapus", new Color(185, 28, 28)));
             return this;
         }
     }
@@ -1076,17 +1255,18 @@ public class AkademikPanel extends JPanel {
             JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 6));
             panel.setOpaque(true);
             panel.setBackground(t.getSelectionBackground());
-            JButton edit = actionChip("Edit", BLUE);
+            String status = String.valueOf(t.getModel().getValueAt(t.convertRowIndexToModel(r), 8));
+            JButton primary = actionChip("Baru".equals(status) ? "Input Nilai" : "Edit", "Baru".equals(status) ? GREEN : BLUE);
             JButton delete = actionChip("Hapus", new Color(185, 28, 28));
-            edit.addActionListener(e -> {
+            primary.addActionListener(e -> {
                 fireEditingStopped();
-                showNilaiDialog(row);
+                showNilaiDialog(row, "Baru".equals(status));
             });
             delete.addActionListener(e -> {
                 fireEditingStopped();
                 deleteNilai(row);
             });
-            panel.add(edit);
+            panel.add(primary);
             panel.add(delete);
             return panel;
         }

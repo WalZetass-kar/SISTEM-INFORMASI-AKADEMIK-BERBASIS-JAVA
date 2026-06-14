@@ -39,6 +39,27 @@ const seed = async () => {
       ) ENGINE=InnoDB
     `);
 
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS jurusan (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nama_jurusan VARCHAR(100) NOT NULL UNIQUE,
+        is_active TINYINT(1) NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB
+    `);
+
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS semester (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nomor INT NOT NULL UNIQUE,
+        nama_semester VARCHAR(50) NOT NULL,
+        is_active TINYINT(1) NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB
+    `);
+
     // Hash passwords
     const adminHash = await bcrypt.hash('admin123', 10);
     const mhsHash = await bcrypt.hash('mhs123', 10);
@@ -62,6 +83,27 @@ const seed = async () => {
       ['2024007', 'Dimas Prasetyo', 'dimas@univ.ac.id', '081234567896', 'Jl. Thamrin No.8', 'Manajemen Informatika', 'D3 Manajemen Informatika', 2023, 4, 'aktif'],
       ['2024008', 'Fitriani Rahma', 'fitri@univ.ac.id', '081234567897', 'Jl. Asia Afrika No.12', 'Sistem Informasi', 'S1 Sistem Informasi', 2024, 2, 'aktif'],
     ];
+
+    const jurusanData = [...new Set(mahasiswaData.map(mhs => mhs[5]))];
+    for (const jurusan of jurusanData) {
+      await pool.execute(
+        `INSERT INTO jurusan (nama_jurusan, is_active)
+         VALUES (?, 1)
+         ON DUPLICATE KEY UPDATE nama_jurusan = VALUES(nama_jurusan), is_active = VALUES(is_active)`,
+        [jurusan]
+      );
+    }
+    console.log(`✅ ${jurusanData.length} jurusan ready`);
+
+    for (let nomor = 1; nomor <= 8; nomor++) {
+      await pool.execute(
+        `INSERT INTO semester (nomor, nama_semester, is_active)
+         VALUES (?, ?, 1)
+         ON DUPLICATE KEY UPDATE nama_semester = VALUES(nama_semester), is_active = VALUES(is_active)`,
+        [nomor, `Semester ${nomor}`]
+      );
+    }
+    console.log('✅ 8 semester ready');
 
     for (const mhs of mahasiswaData) {
       await pool.execute(

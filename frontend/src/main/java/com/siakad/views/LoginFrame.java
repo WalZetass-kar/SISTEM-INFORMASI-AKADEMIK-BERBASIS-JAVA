@@ -577,7 +577,6 @@ public class LoginFrame extends JFrame {
                             LoginFrame.this.dispose();
                             MainFrame mainFrame = new MainFrame();
                             mainFrame.setVisible(true);
-                            mainFrame.playEntranceAnimation();
                         });
                     } else {
                         setStatus("❌ " + result, false);

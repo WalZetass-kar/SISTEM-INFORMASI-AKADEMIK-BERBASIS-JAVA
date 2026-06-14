@@ -14,6 +14,10 @@ public class AkademikService {
         return ApiService.get(Config.AKADEMIK_URL + "/settings");
     }
 
+    public static JsonObject getSemester() throws Exception {
+        return ApiService.get(Config.AKADEMIK_URL + "/semester");
+    }
+
     public static JsonObject createTahunAjaran(JsonObject body) throws Exception {
         return ApiService.post(Config.AKADEMIK_URL + "/tahun-ajaran", body);
     }
@@ -24,6 +28,18 @@ public class AkademikService {
 
     public static JsonObject deleteTahunAjaran(int id) throws Exception {
         return ApiService.delete(Config.AKADEMIK_URL + "/tahun-ajaran/" + id);
+    }
+
+    public static JsonObject createSemester(JsonObject body) throws Exception {
+        return ApiService.post(Config.AKADEMIK_URL + "/semester", body);
+    }
+
+    public static JsonObject updateSemester(int id, JsonObject body) throws Exception {
+        return ApiService.put(Config.AKADEMIK_URL + "/semester/" + id, body);
+    }
+
+    public static JsonObject deleteSemester(int id) throws Exception {
+        return ApiService.delete(Config.AKADEMIK_URL + "/semester/" + id);
     }
 
     public static JsonObject createMataKuliah(JsonObject body) throws Exception {
@@ -38,12 +54,28 @@ public class AkademikService {
         return ApiService.delete(Config.AKADEMIK_URL + "/mata-kuliah/" + ApiService.encodeQueryParam(kodeMk));
     }
 
+    public static JsonObject createJurusan(JsonObject body) throws Exception {
+        return ApiService.post(Config.AKADEMIK_URL + "/jurusan", body);
+    }
+
+    public static JsonObject updateJurusan(int id, JsonObject body) throws Exception {
+        return ApiService.put(Config.AKADEMIK_URL + "/jurusan/" + id, body);
+    }
+
+    public static JsonObject deleteJurusan(int id) throws Exception {
+        return ApiService.delete(Config.AKADEMIK_URL + "/jurusan/" + id);
+    }
+
     public static JsonObject updateBobotNilai(JsonObject body) throws Exception {
         return ApiService.put(Config.AKADEMIK_URL + "/bobot-nilai", body);
     }
 
     public static JsonObject updateJumlahPertemuan(JsonObject body) throws Exception {
         return ApiService.put(Config.AKADEMIK_URL + "/jumlah-pertemuan", body);
+    }
+
+    public static JsonObject updateJumlahPertemuanJurusan(JsonObject body) throws Exception {
+        return ApiService.put(Config.AKADEMIK_URL + "/jumlah-pertemuan-jurusan", body);
     }
 
     public static JsonObject getKehadiranInputList(String kodeMk, String tahunAjaran, String tanggal, String search, String jurusan) throws Exception {

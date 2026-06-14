@@ -20,6 +20,9 @@ public class MainFrame extends JFrame {
     private AnimatedContentPanel animatedContentPanel;
     private CardLayout cardLayout;
     private JButton activeBtn;
+    private InputKehadiranPanel inputKehadiranPanel;
+    private LihatNilaiMahasiswaPanel lihatNilaiMahasiswaPanel;
+    private RekapAkademikSayaPanel rekapAkademikSayaPanel;
 
     public static final String PANEL_DASHBOARD  = "dashboard";
     public static final String PANEL_MAHASISWA  = "mahasiswa";
@@ -32,6 +35,7 @@ public class MainFrame extends JFrame {
     public static final String PANEL_PENGATURAN_AKADEMIK = "akademik.pengaturan";
     public static final String PANEL_NILAI_SAYA = "akademik.nilaiSaya";
     public static final String PANEL_KEHADIRAN_SAYA = "akademik.kehadiranSaya";
+    public static final String PANEL_REKAP_AKADEMIK_SAYA = "akademik.rekapAkademikSaya";
     public static final String PANEL_INFO_AKADEMIK = "akademik.infoAkademik";
     public static final String PANEL_LAPORAN    = "laporan";
 
@@ -50,10 +54,13 @@ public class MainFrame extends JFrame {
     public MainFrame() {
         setTitle(Config.APP_NAME + " — " + JwtHelper.getInstance().getUsername().toUpperCase());
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setResizable(true);
         setSize(Config.DEFAULT_WIDTH, Config.DEFAULT_HEIGHT);
         setLocationRelativeTo(null);
-        setMinimumSize(new Dimension(1100, 700));
+        setMinimumSize(new Dimension(1024, 680));
         initUI();
+        installResizeRefresh();
+        openMaximized();
     }
 
     private void initUI() {
@@ -69,17 +76,50 @@ public class MainFrame extends JFrame {
         contentPanel.add(new PembayaranPanel(), PANEL_PEMBAYARAN);
         contentPanel.add(new KrsJadwalPanel(), PANEL_KRS_JADWAL);
         contentPanel.add(new AkademikPanel(), PANEL_INPUT_NILAI);
-        contentPanel.add(new InputKehadiranPanel(), PANEL_INPUT_KEHADIRAN);
-        contentPanel.add(new LihatNilaiMahasiswaPanel(), PANEL_LIHAT_NILAI);
+        inputKehadiranPanel = new InputKehadiranPanel();
+        contentPanel.add(inputKehadiranPanel, PANEL_INPUT_KEHADIRAN);
+        lihatNilaiMahasiswaPanel = new LihatNilaiMahasiswaPanel();
+        contentPanel.add(lihatNilaiMahasiswaPanel, PANEL_LIHAT_NILAI);
         contentPanel.add(new RekapAbsensiPanel(), PANEL_REKAP_ABSENSI);
         contentPanel.add(new PengaturanAkademikPanel(), PANEL_PENGATURAN_AKADEMIK);
         contentPanel.add(new NilaiSayaPanel(), PANEL_NILAI_SAYA);
         contentPanel.add(new KehadiranSayaPanel(), PANEL_KEHADIRAN_SAYA);
+        rekapAkademikSayaPanel = new RekapAkademikSayaPanel();
+        contentPanel.add(rekapAkademikSayaPanel, PANEL_REKAP_AKADEMIK_SAYA);
         contentPanel.add(new InfoAkademikPanel(), PANEL_INFO_AKADEMIK);
         contentPanel.add(new LaporanPanel(), PANEL_LAPORAN);
         add(contentPanel, BorderLayout.CENTER);
 
         showPanel(PANEL_DASHBOARD);
+    }
+
+    private void openMaximized() {
+        SwingUtilities.invokeLater(() -> {
+            Rectangle usableScreen = GraphicsEnvironment
+                    .getLocalGraphicsEnvironment()
+                    .getMaximumWindowBounds();
+            setMaximizedBounds(usableScreen);
+            setExtendedState(getExtendedState() | JFrame.MAXIMIZED_BOTH);
+            revalidateContent();
+        });
+    }
+
+    private void installResizeRefresh() {
+        addComponentListener(new ComponentAdapter() {
+            @Override public void componentResized(ComponentEvent e) {
+                revalidateContent();
+            }
+        });
+        addWindowStateListener(e -> revalidateContent());
+    }
+
+    private void revalidateContent() {
+        if (contentPanel != null) {
+            contentPanel.revalidate();
+            contentPanel.repaint();
+        }
+        revalidate();
+        repaint();
     }
 
     private static float easeOutCubic(float value) {
@@ -174,7 +214,7 @@ public class MainFrame extends JFrame {
         JPanel navPanel = new JPanel();
         navPanel.setOpaque(false);
         navPanel.setLayout(new BoxLayout(navPanel, BoxLayout.Y_AXIS));
-        navPanel.setBorder(new EmptyBorder(16, 12, 16, 12));
+        navPanel.setBorder(new EmptyBorder(14, 12, 10, 12));
 
         JLabel lblMenuSection = makeMenuSection("NAVIGASI");
         navPanel.add(lblMenuSection);
@@ -195,7 +235,6 @@ public class MainFrame extends JFrame {
             navPanel.repaint();
         });
         JButton btnLaporan    = buildNavButton("📋", "Laporan & Cetak", PANEL_LAPORAN);
-        JButton btnLogoutNav  = buildLogoutNavButton();
 
         navPanel.add(btnDashboard);
         navPanel.add(Box.createVerticalStrut(4));
@@ -213,15 +252,24 @@ public class MainFrame extends JFrame {
             navPanel.add(btnLaporan);
             navPanel.add(Box.createVerticalStrut(4));
         }
-        navPanel.add(Box.createVerticalStrut(8));
-        navPanel.add(btnLogoutNav);
         setActiveButton(btnDashboard);
+
+        JScrollPane navScroll = new JScrollPane(navPanel);
+        navScroll.setBorder(null);
+        navScroll.setOpaque(false);
+        navScroll.getViewport().setOpaque(false);
+        navScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        navScroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
+        navScroll.getVerticalScrollBar().setUnitIncrement(14);
+        navScroll.getVerticalScrollBar().setPreferredSize(new Dimension(6, 0));
+        navScroll.getVerticalScrollBar().setOpaque(false);
+        navScroll.setWheelScrollingEnabled(true);
 
         // ── Bottom: user card + logout ──
         JPanel bottomPanel = buildUserCard();
 
         sidebar.add(logoPanel, BorderLayout.NORTH);
-        sidebar.add(navPanel, BorderLayout.CENTER);
+        sidebar.add(navScroll, BorderLayout.CENTER);
         sidebar.add(bottomPanel, BorderLayout.SOUTH);
         return sidebar;
     }
@@ -238,23 +286,25 @@ public class MainFrame extends JFrame {
         JPanel submenu = new JPanel();
         submenu.setOpaque(false);
         submenu.setLayout(new BoxLayout(submenu, BoxLayout.Y_AXIS));
-        submenu.setBorder(new EmptyBorder(2, 20, 6, 0));
+        submenu.setBorder(new EmptyBorder(4, 20, 6, 0));
         submenu.setAlignmentX(Component.LEFT_ALIGNMENT);
         if (JwtHelper.getInstance().isAdmin()) {
             submenu.add(buildSubNavButton("A+", "Input Nilai", PANEL_INPUT_NILAI));
-            submenu.add(Box.createVerticalStrut(3));
+            submenu.add(Box.createVerticalStrut(2));
             submenu.add(buildSubNavButton("✓", "Input Kehadiran", PANEL_INPUT_KEHADIRAN));
-            submenu.add(Box.createVerticalStrut(3));
+            submenu.add(Box.createVerticalStrut(2));
             submenu.add(buildSubNavButton("★", "Lihat Nilai Mahasiswa", PANEL_LIHAT_NILAI));
-            submenu.add(Box.createVerticalStrut(3));
+            submenu.add(Box.createVerticalStrut(2));
             submenu.add(buildSubNavButton("Σ", "Rekap Absensi", PANEL_REKAP_ABSENSI));
-            submenu.add(Box.createVerticalStrut(3));
+            submenu.add(Box.createVerticalStrut(2));
             submenu.add(buildSubNavButton("⚙", "Pengaturan Akademik", PANEL_PENGATURAN_AKADEMIK));
         } else {
             submenu.add(buildSubNavButton("A+", "Nilai Saya", PANEL_NILAI_SAYA));
-            submenu.add(Box.createVerticalStrut(3));
+            submenu.add(Box.createVerticalStrut(2));
             submenu.add(buildSubNavButton("✓", "Kehadiran Saya", PANEL_KEHADIRAN_SAYA));
-            submenu.add(Box.createVerticalStrut(3));
+            submenu.add(Box.createVerticalStrut(2));
+            submenu.add(buildSubNavButton("Σ", "Rekap Akademik Saya", PANEL_REKAP_AKADEMIK_SAYA));
+            submenu.add(Box.createVerticalStrut(2));
             submenu.add(buildSubNavButton("i", "Info Akademik", PANEL_INFO_AKADEMIK));
         }
         submenu.setVisible(false);
@@ -289,8 +339,8 @@ public class MainFrame extends JFrame {
             public void setActive(boolean a) { active = a; repaint(); }
             public boolean isActive() { return active; }
         };
-        btn.setPreferredSize(new Dimension(196, 34));
-        btn.setMaximumSize(new Dimension(196, 34));
+        btn.setPreferredSize(new Dimension(196, 30));
+        btn.setMaximumSize(new Dimension(196, 30));
         btn.setBorderPainted(false);
         btn.setContentAreaFilled(false);
         btn.setFocusPainted(false);
@@ -306,38 +356,6 @@ public class MainFrame extends JFrame {
     private void setNavChevron(JButton btn, boolean expanded) {
         btn.putClientProperty("chevron", expanded ? "⌃" : "⌄");
         btn.repaint();
-    }
-
-    private JButton buildLogoutNavButton() {
-        JButton btn = new JButton() {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-                Color bg = getModel().isRollover() ? new Color(127, 29, 29, 190) : new Color(127, 29, 29, 90);
-                g2.setColor(bg);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
-                g2.setColor(new Color(239, 68, 68, 90));
-                g2.fillRoundRect(0, 2, 3, getHeight() - 4, 3, 3);
-
-                drawDoorIcon(g2, 15, getHeight() / 2 - 9, 16, new Color(254, 202, 202));
-
-                g2.setFont(new Font("Segoe UI", Font.BOLD, 13));
-                g2.setColor(new Color(254, 226, 226));
-                g2.drawString("Logout", 42, getHeight() / 2 + 5);
-                g2.dispose();
-            }
-        };
-        btn.setPreferredSize(new Dimension(216, 42));
-        btn.setMaximumSize(new Dimension(216, 42));
-        btn.setBorderPainted(false);
-        btn.setContentAreaFilled(false);
-        btn.setFocusPainted(false);
-        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btn.setAlignmentX(Component.LEFT_ALIGNMENT);
-        btn.setToolTipText("Keluar dari akun");
-        btn.addActionListener(e -> doLogout());
-        return btn;
     }
 
     private JButton buildNavButton(String icon, String label, String panelName) {
@@ -531,6 +549,15 @@ public class MainFrame extends JFrame {
 
     public void showPanel(String panelName) {
         cardLayout.show(contentPanel, panelName);
+        if (PANEL_INPUT_KEHADIRAN.equals(panelName) && inputKehadiranPanel != null) {
+            inputKehadiranPanel.onPanelShown();
+        }
+        if (PANEL_LIHAT_NILAI.equals(panelName) && lihatNilaiMahasiswaPanel != null) {
+            lihatNilaiMahasiswaPanel.onPanelShown();
+        }
+        if (PANEL_REKAP_AKADEMIK_SAYA.equals(panelName) && rekapAkademikSayaPanel != null) {
+            rekapAkademikSayaPanel.onPanelShown();
+        }
         if (animatedContentPanel != null) {
             animatedContentPanel.playReveal();
         }

@@ -95,7 +95,7 @@ public class RekapAbsensiPanel extends JPanel {
         titleBlock.add(Box.createVerticalStrut(2));
         titleBlock.add(subtitle);
 
-        JPanel filterCard = new JPanel(new BorderLayout(18, 0)) {
+        JPanel filterCard = new JPanel(new BorderLayout(0, 14)) {
             @Override protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
@@ -108,44 +108,62 @@ public class RekapAbsensiPanel extends JPanel {
             }
         };
         filterCard.setOpaque(false);
-        filterCard.setBorder(new EmptyBorder(16, 18, 16, 18));
+        filterCard.setBorder(new EmptyBorder(18, 20, 18, 20));
+
+        JPanel filterHeader = new JPanel(new BorderLayout());
+        filterHeader.setOpaque(false);
+        JPanel filterText = new JPanel();
+        filterText.setOpaque(false);
+        filterText.setLayout(new BoxLayout(filterText, BoxLayout.Y_AXIS));
+        JLabel filterTitle = new JLabel("Filter Rekap");
+        filterTitle.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        filterTitle.setForeground(TEXT);
+        JLabel filterNote = new JLabel("Tentukan tahun ajaran, jurusan, mata kuliah, dan rentang tanggal absensi.");
+        filterNote.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        filterNote.setForeground(MUTED);
+        filterText.add(filterTitle);
+        filterText.add(Box.createVerticalStrut(3));
+        filterText.add(filterNote);
+        filterHeader.add(filterText, BorderLayout.WEST);
 
         JPanel fields = new JPanel(new GridBagLayout());
         fields.setOpaque(false);
         GridBagConstraints g = new GridBagConstraints();
-        g.insets = new Insets(0, 0, 0, 12);
+        g.insets = new Insets(0, 0, 12, 12);
         g.fill = GridBagConstraints.HORIZONTAL;
-        g.gridy = 0;
 
         cmbTahunAjaran = new JComboBox<>();
-        styleCombo(cmbTahunAjaran, 130);
+        styleCombo(cmbTahunAjaran, 170);
         cmbJurusan = new JComboBox<>();
         cmbJurusan.addItem("Semua Jurusan");
-        styleCombo(cmbJurusan, 175);
+        styleCombo(cmbJurusan, 220);
         cmbMataKuliah = new JComboBox<>();
-        styleCombo(cmbMataKuliah, 250);
+        styleCombo(cmbMataKuliah, 320);
         txtTanggalMulai = new JTextField();
-        styleTextField(txtTanggalMulai, 112);
+        styleTextField(txtTanggalMulai, 150);
         txtTanggalMulai.setEditable(false);
         txtTanggalMulai.setToolTipText("Pilih tanggal mulai dari kalender");
         txtTanggalSelesai = new JTextField();
-        styleTextField(txtTanggalSelesai, 112);
+        styleTextField(txtTanggalSelesai, 150);
         txtTanggalSelesai.setEditable(false);
         txtTanggalSelesai.setToolTipText("Pilih tanggal selesai dari kalender");
         txtSearch = new JTextField();
-        styleTextField(txtSearch, 165);
+        styleTextField(txtSearch, 260);
 
-        g.gridx = 0; g.weightx = 0;
+        g.gridy = 0;
+        g.gridx = 0; g.weightx = 0.18;
         fields.add(labeledField("Tahun Ajaran", cmbTahunAjaran), g);
-        g.gridx = 1;
+        g.gridx = 1; g.weightx = 0.24;
         fields.add(labeledField("Jurusan", cmbJurusan), g);
-        g.gridx = 2; g.weightx = 1;
+        g.gridx = 2; g.weightx = 0.58; g.gridwidth = 2;
         fields.add(labeledField("Mata Kuliah", cmbMataKuliah), g);
-        g.gridx = 3; g.weightx = 0;
+        g.gridwidth = 1;
+        g.gridy = 1;
+        g.gridx = 0; g.weightx = 0.18;
         fields.add(labeledField("Tanggal Mulai", datePickerField(txtTanggalMulai)), g);
-        g.gridx = 4;
+        g.gridx = 1; g.weightx = 0.18;
         fields.add(labeledField("Tanggal Selesai", datePickerField(txtTanggalSelesai)), g);
-        g.gridx = 5;
+        g.gridx = 2; g.weightx = 0.34;
         fields.add(labeledField("Cari", txtSearch), g);
 
         JButton btnLoad = buildButton("Tampilkan", BLUE);
@@ -158,13 +176,15 @@ public class RekapAbsensiPanel extends JPanel {
             loadAcademicSettings();
         });
 
-        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 14));
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 20));
         actions.setOpaque(false);
         actions.add(btnLoad);
         actions.add(btnRefresh);
+        g.gridx = 3; g.weightx = 0.30;
+        fields.add(actions, g);
 
+        filterCard.add(filterHeader, BorderLayout.NORTH);
         filterCard.add(fields, BorderLayout.CENTER);
-        filterCard.add(actions, BorderLayout.EAST);
 
         wrapper.add(titleBlock, BorderLayout.NORTH);
         wrapper.add(filterCard, BorderLayout.CENTER);
@@ -174,6 +194,7 @@ public class RekapAbsensiPanel extends JPanel {
     private JPanel datePickerField(JTextField field) {
         JPanel panel = new JPanel(new BorderLayout(4, 0));
         panel.setOpaque(false);
+        panel.setPreferredSize(new Dimension(field.getPreferredSize().width + 74, 38));
         panel.add(field, BorderLayout.CENTER);
 
         JButton pick = smallIconButton("...");
@@ -194,7 +215,7 @@ public class RekapAbsensiPanel extends JPanel {
 
     private JButton smallIconButton(String text) {
         JButton button = new JButton(text);
-        button.setPreferredSize(new Dimension(34, 38));
+        button.setPreferredSize(new Dimension(32, 38));
         button.setFont(new Font("Segoe UI", Font.BOLD, 11));
         button.setForeground(TEXT);
         button.setBackground(CARD_BG);
@@ -408,6 +429,9 @@ public class RekapAbsensiPanel extends JPanel {
         String active = null;
         for (JsonElement item : data) {
             JsonObject tahun = item.getAsJsonObject();
+            if ("draft".equalsIgnoreCase(getString(tahun, "status"))) {
+                continue;
+            }
             String label = getString(tahun, "tahun_ajaran");
             if (!label.isBlank()) {
                 cmbTahunAjaran.addItem(label);
@@ -531,7 +555,7 @@ public class RekapAbsensiPanel extends JPanel {
                     getInt(row, "sakit"),
                     getInt(row, "alpha"),
                     formatPercent(getDouble(row, "persentase_hadir")),
-                    getString(row, "status_kehadiran")
+                    getString(row, "status_absensi")
             });
         }
         String tahunAjaran = String.valueOf(cmbTahunAjaran.getSelectedItem());
@@ -552,13 +576,14 @@ public class RekapAbsensiPanel extends JPanel {
                 + " A:" + getInt(summary, "total_alpha") + "  ");
         lblInfo.setText(data.size() == 0
                 ? "Belum ada KRS yang cocok dengan filter."
-                : "Status: Aman >= 75%, Perhatian 60-74%, Bermasalah < 60%.");
+                : "Kolom Status menampilkan status absensi pada tanggal/periode filter.");
     }
 
     private JPanel labeledField(String labelText, JComponent field) {
         JPanel panel = new JPanel();
         panel.setOpaque(false);
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setAlignmentX(Component.LEFT_ALIGNMENT);
         JLabel label = new JLabel(labelText);
         label.setFont(new Font("Segoe UI", Font.BOLD, 11));
         label.setForeground(MUTED);
@@ -581,6 +606,7 @@ public class RekapAbsensiPanel extends JPanel {
         button.setFont(new Font("Segoe UI", Font.BOLD, 12));
         button.setForeground(TEXT);
         button.setBackground(bg);
+        button.setPreferredSize(new Dimension(118, 38));
         button.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(bg.equals(CARD_BG) ? BORDER : bg.darker()), new EmptyBorder(8, 14, 8, 14)));
         button.setFocusPainted(false);
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
@@ -749,9 +775,11 @@ public class RekapAbsensiPanel extends JPanel {
             String status = String.valueOf(value);
             label.setHorizontalAlignment(SwingConstants.CENTER);
             label.setFont(new Font("Segoe UI", Font.BOLD, 11));
-            if ("Aman".equals(status)) label.setForeground(new Color(134, 239, 172));
-            else if ("Perhatian".equals(status)) label.setForeground(new Color(253, 224, 71));
-            else if ("Bermasalah".equals(status)) label.setForeground(new Color(252, 165, 165));
+            if ("hadir".equals(status)) label.setForeground(new Color(134, 239, 172));
+            else if ("izin".equals(status)) label.setForeground(new Color(147, 197, 253));
+            else if ("sakit".equals(status)) label.setForeground(new Color(253, 224, 71));
+            else if ("alpha".equals(status)) label.setForeground(new Color(252, 165, 165));
+            else if ("Campuran".equals(status)) label.setForeground(new Color(216, 180, 254));
             else label.setForeground(new Color(148, 163, 184));
             return label;
         }
