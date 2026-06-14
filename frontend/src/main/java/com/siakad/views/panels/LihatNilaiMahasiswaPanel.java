@@ -35,6 +35,7 @@ public class LihatNilaiMahasiswaPanel extends JPanel {
     private JLabel lblAverageSummary;
     private JLabel lblGradeSummary;
     private boolean loadingFilters = false;
+    private boolean initialLoadDone = false;
 
     private static final Color BG = new Color(13, 19, 38);
     private static final Color CARD_BG = new Color(18, 26, 48);
@@ -60,6 +61,12 @@ public class LihatNilaiMahasiswaPanel extends JPanel {
             loadAcademicSettings();
         } else {
             showState("Akses terbatas", "Rekap nilai mahasiswa hanya tersedia untuk admin.");
+        }
+    }
+
+    public void onPanelShown() {
+        if (JwtHelper.getInstance().isAdmin() && initialLoadDone) {
+            loadAcademicSettings();
         }
     }
 
@@ -91,7 +98,7 @@ public class LihatNilaiMahasiswaPanel extends JPanel {
         titleBlock.add(Box.createVerticalStrut(2));
         titleBlock.add(subtitle);
 
-        JPanel filterCard = new JPanel(new BorderLayout(18, 0)) {
+        JPanel filterCard = new JPanel(new BorderLayout(0, 14)) {
             @Override protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
@@ -104,42 +111,57 @@ public class LihatNilaiMahasiswaPanel extends JPanel {
             }
         };
         filterCard.setOpaque(false);
-        filterCard.setBorder(new EmptyBorder(16, 18, 16, 18));
+        filterCard.setBorder(new EmptyBorder(18, 20, 18, 20));
+
+        JPanel filterHeader = new JPanel(new BorderLayout());
+        filterHeader.setOpaque(false);
+        JPanel filterText = new JPanel();
+        filterText.setOpaque(false);
+        filterText.setLayout(new BoxLayout(filterText, BoxLayout.Y_AXIS));
+        JLabel filterTitle = new JLabel("Filter Rekap Nilai");
+        filterTitle.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        filterTitle.setForeground(TEXT);
+        JLabel filterNote = new JLabel("Pilih periode, jurusan, mata kuliah, atau cari mahasiswa tertentu.");
+        filterNote.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        filterNote.setForeground(MUTED);
+        filterText.add(filterTitle);
+        filterText.add(Box.createVerticalStrut(3));
+        filterText.add(filterNote);
+        filterHeader.add(filterText, BorderLayout.WEST);
 
         JPanel fields = new JPanel(new GridBagLayout());
         fields.setOpaque(false);
         GridBagConstraints g = new GridBagConstraints();
-        g.insets = new Insets(0, 0, 0, 12);
+        g.insets = new Insets(0, 0, 12, 12);
         g.fill = GridBagConstraints.HORIZONTAL;
-        g.gridy = 0;
 
         cmbTahunAjaran = new JComboBox<>();
-        styleCombo(cmbTahunAjaran, 145);
+        styleCombo(cmbTahunAjaran, 180);
 
         cmbJurusan = new JComboBox<>();
         cmbJurusan.addItem("Semua Jurusan");
-        styleCombo(cmbJurusan, 210);
+        styleCombo(cmbJurusan, 245);
 
         cmbMataKuliah = new JComboBox<>();
-        styleCombo(cmbMataKuliah, 285);
+        styleCombo(cmbMataKuliah, 360);
 
         txtSearch = new JTextField();
-        styleTextField(txtSearch, 210);
+        styleTextField(txtSearch, 360);
         txtSearch.setToolTipText("Opsional: cari data spesifik berdasarkan NIM, nama, kode MK, atau nama mata kuliah");
         txtSearch.getAccessibleContext().setAccessibleName("Cari nilai mahasiswa spesifik");
         txtSearch.getAccessibleContext().setAccessibleDescription("Field opsional. Kosongkan untuk menampilkan semua data sesuai tahun ajaran, jurusan, dan mata kuliah yang dipilih.");
-        cmbTahunAjaran.addActionListener(e -> loadRekapFromFilterChange());
-        cmbJurusan.addActionListener(e -> loadRekapFromFilterChange());
-        cmbMataKuliah.addActionListener(e -> loadRekapFromFilterChange());
-
-        g.gridx = 0; g.weightx = 0;
+        g.gridy = 0;
+        g.gridx = 0; g.weightx = 0.20;
         fields.add(labeledField("Tahun Ajaran", cmbTahunAjaran), g);
-        g.gridx = 1;
+        g.gridx = 1; g.weightx = 0.28;
         fields.add(labeledField("Jurusan", cmbJurusan), g);
-        g.gridx = 2; g.weightx = 1;
+        g.gridx = 2; g.weightx = 0.52; g.gridwidth = 2;
         fields.add(labeledField("Mata Kuliah", cmbMataKuliah), g);
-        g.gridx = 3; g.weightx = 0;
+        g.gridwidth = 1;
+        g.gridy = 1;
+        g.gridx = 0; g.weightx = 0.48; g.gridwidth = 2;
         fields.add(labeledField("Cari Spesifik", txtSearch), g);
+        g.gridwidth = 1;
 
         JButton btnLoad = buildButton("Tampilkan", BLUE);
         JButton btnRefresh = buildButton("Refresh", CARD_BG);
@@ -149,13 +171,15 @@ public class LihatNilaiMahasiswaPanel extends JPanel {
             loadAcademicSettings();
         });
 
-        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 14));
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 20));
         actions.setOpaque(false);
         actions.add(btnLoad);
         actions.add(btnRefresh);
+        g.gridx = 2; g.weightx = 0.52; g.gridwidth = 2;
+        fields.add(actions, g);
 
+        filterCard.add(filterHeader, BorderLayout.NORTH);
         filterCard.add(fields, BorderLayout.CENTER);
-        filterCard.add(actions, BorderLayout.EAST);
 
         wrapper.add(titleBlock, BorderLayout.NORTH);
         wrapper.add(filterCard, BorderLayout.CENTER);
@@ -286,6 +310,9 @@ public class LihatNilaiMahasiswaPanel extends JPanel {
         String active = null;
         for (JsonElement item : data) {
             JsonObject tahun = item.getAsJsonObject();
+            if ("draft".equalsIgnoreCase(getString(tahun, "status"))) {
+                continue;
+            }
             String label = getString(tahun, "tahun_ajaran");
             if (!label.isBlank()) {
                 cmbTahunAjaran.addItem(label);
@@ -357,23 +384,14 @@ public class LihatNilaiMahasiswaPanel extends JPanel {
 
                     rootCard.show(rootPanel, "content");
                     loadingFilters = false;
-                    loadRekap();
+                    initialLoadDone = true;
+                    lblInfo.setText("Pilih filter lalu tekan Tampilkan untuk memuat data nilai.");
                 } catch (Exception ex) {
                     loadingFilters = false;
                     showState("Gagal memuat mata kuliah", ex.getMessage());
                 }
             }
         }.execute();
-    }
-
-    private void loadRekapFromFilterChange() {
-        if (loadingFilters || cmbTahunAjaran == null || cmbMataKuliah == null) {
-            return;
-        }
-        if (cmbTahunAjaran.getSelectedItem() == null || cmbMataKuliah.getSelectedItem() == null) {
-            return;
-        }
-        loadRekap();
     }
 
     private void loadRekap() {
@@ -463,6 +481,7 @@ public class LihatNilaiMahasiswaPanel extends JPanel {
         JPanel panel = new JPanel();
         panel.setOpaque(false);
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setAlignmentX(Component.LEFT_ALIGNMENT);
         JLabel label = new JLabel(labelText);
         label.setFont(new Font("Segoe UI", Font.BOLD, 11));
         label.setForeground(MUTED);
@@ -488,6 +507,7 @@ public class LihatNilaiMahasiswaPanel extends JPanel {
         button.setFont(new Font("Segoe UI", Font.BOLD, 12));
         button.setForeground(TEXT);
         button.setBackground(bg);
+        button.setPreferredSize(new Dimension(118, 38));
         button.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(bg.equals(CARD_BG) ? BORDER : bg.darker()),
                 new EmptyBorder(8, 14, 8, 14)

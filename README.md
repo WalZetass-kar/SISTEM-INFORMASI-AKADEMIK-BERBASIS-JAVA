@@ -54,18 +54,39 @@ Untuk Ubuntu/Debian:
 sudo apt update
 sudo apt install -y nodejs npm mariadb-server mariadb-client openjdk-17-jdk maven
 ```
-`
-Catatan: di mesin ini Node.js dan npm sudah tersedia, tetapi Java, Maven, dan MariaDB/MySQL client belum terdeteksi di terminal.
+
+Untuk Windows:
+
+1. Install Node.js LTS dari <https://nodejs.org/>.
+2. Install MariaDB Server atau MySQL Server. XAMPP/MySQL juga bisa dipakai untuk development.
+3. Install JDK 17, lalu pastikan `java -version` terbaca di PowerShell/CMD.
+4. Install Maven, lalu pastikan `mvn -version` terbaca di PowerShell/CMD.
+
+Command `npm`, `mysql`, dan `mvn` harus bisa dipanggil dari terminal. Jika belum, tambahkan folder instalasinya ke `PATH` Windows.
 
 ### 1. Konfigurasi Backend
 
-File environment development sudah disiapkan di:
+File environment development dibuat dari template:
 
 ```bash
-backend/.env
+backend/.env.example
 ```
 
-Default konfigurasi lokal:
+Copy menjadi `backend/.env`, lalu sesuaikan user/password database lokal.
+
+Ubuntu/Debian:
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+Windows PowerShell/CMD:
+
+```powershell
+copy backend\.env.example backend\.env
+```
+
+Contoh konfigurasi lokal:
 
 ```env
 PORT=3000
@@ -80,23 +101,44 @@ Jika MariaDB/MySQL root kamu memakai password, ubah `DB_PASSWORD` di `backend/.e
 
 ### 2. Database
 
-Pastikan service database aktif:
+Pastikan service database aktif.
+
+Ubuntu/Debian:
 
 ```bash
 sudo systemctl enable --now mariadb
 sudo systemctl status mariadb
 ```
 
-Import schema dan data awal:
+Windows:
+
+- Jika memakai MariaDB/MySQL installer, pastikan service MySQL/MariaDB berjalan dari Services.
+- Jika memakai XAMPP, aktifkan module MySQL dari XAMPP Control Panel.
+
+Import schema dan data awal.
+
+Ubuntu/Debian:
 
 ```bash
 mysql -u root -p < database/init.sql
 ```
 
-Jika user root MariaDB tidak memakai password:
+Windows PowerShell/CMD dari root project:
+
+```powershell
+mysql -u root -p < database\init.sql
+```
+
+Jika user root MariaDB/MySQL tidak memakai password:
 
 ```bash
 mysql -u root < database/init.sql
+```
+
+Windows tanpa password:
+
+```powershell
+mysql -u root < database\init.sql
 ```
 
 ### 3. Backend
@@ -114,6 +156,12 @@ Verifikasi backend:
 
 ```bash
 curl http://localhost:3000/api
+```
+
+PowerShell:
+
+```powershell
+Invoke-RestMethod http://localhost:3000/api
 ```
 
 ### 4. Frontend
