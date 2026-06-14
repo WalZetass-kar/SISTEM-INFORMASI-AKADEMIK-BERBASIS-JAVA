@@ -15,7 +15,8 @@ class Krs {
         k.kode_mk,
         mk.nama_mk,
         mk.sks,
-        mk.semester,
+        k.semester,
+        mk.semester AS semester_mata_kuliah,
         k.tahun_ajaran,
         k.status,
         COALESCE(
@@ -72,8 +73,8 @@ class Krs {
     }
 
     query += ` GROUP BY
-      k.id, k.nim, m.nama, k.kode_mk, mk.nama_mk, mk.sks, mk.semester, k.tahun_ajaran, k.status
-      ORDER BY k.tahun_ajaran DESC, mk.semester ASC, k.kode_mk ASC`;
+      k.id, k.nim, m.nama, k.kode_mk, mk.nama_mk, mk.sks, k.semester, mk.semester, k.tahun_ajaran, k.status
+      ORDER BY k.tahun_ajaran DESC, k.semester ASC, k.kode_mk ASC`;
 
     const [rows] = await pool.execute(query, params);
     return rows;

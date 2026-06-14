@@ -4,6 +4,7 @@ const Jadwal = require('../models/Jadwal');
 const Krs = require('../models/Krs');
 const Kehadiran = require('../models/Kehadiran');
 const AkademikSettings = require('../models/AkademikSettings');
+const Jurusan = require('../models/Jurusan');
 
 const VALID_HARI = ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
 const TAHUN_AJARAN_REGEX = /^\d{4}\/\d{4}$/;
@@ -29,23 +30,67 @@ const isValidDate = (value) => {
 const akademikController = {
   getSettings: async (req, res) => {
     try {
-      const [tahunAjaran, mataKuliah, bobotNilai] = await Promise.all([
+      const [tahunAjaran, semester, mataKuliah, bobotNilai, jumlahPertemuan, jumlahPertemuanJurusan, jurusan] = await Promise.all([
         AkademikSettings.getTahunAjaran(),
+        AkademikSettings.getSemester(),
         AkademikSettings.getMataKuliah(),
-        AkademikSettings.getBobotNilai()
+        AkademikSettings.getBobotNilai(),
+        AkademikSettings.getJumlahPertemuan(),
+        AkademikSettings.getJumlahPertemuanJurusan(),
+        Jurusan.findAll()
       ]);
-      const jumlahPertemuan = await AkademikSettings.getJumlahPertemuan();
       res.json({
         success: true,
         data: {
           tahun_ajaran: tahunAjaran,
+          semester,
           mata_kuliah: mataKuliah,
+          jurusan,
           bobot_nilai: bobotNilai,
-          jumlah_pertemuan: jumlahPertemuan
+          jumlah_pertemuan: jumlahPertemuan,
+          jumlah_pertemuan_jurusan: jumlahPertemuanJurusan
         }
       });
     } catch (error) {
       res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+    }
+  },
+
+  getSemester: async (req, res) => {
+    try {
+      const data = await AkademikSettings.getSemester({ activeOnly: true });
+      res.json({ success: true, data });
+    } catch (error) {
+      res.status(error.statusCode || 500).json({ success: false, message: error.message || 'Terjadi kesalahan server.' });
+    }
+  },
+
+  createSemester: async (req, res) => {
+    try {
+      const data = await AkademikSettings.createSemester(req.body);
+      res.status(201).json({ success: true, message: 'Semester berhasil ditambahkan.', data });
+    } catch (error) {
+      res.status(error.statusCode || 500).json({ success: false, message: error.message || 'Terjadi kesalahan server.' });
+    }
+  },
+
+  updateSemester: async (req, res) => {
+    try {
+      const updated = await AkademikSettings.updateSemester(req.params.id, req.body);
+      if (!updated) return res.status(404).json({ success: false, message: 'Semester tidak ditemukan.' });
+      res.json({ success: true, message: 'Semester berhasil diperbarui.' });
+    } catch (error) {
+      res.status(error.statusCode || 500).json({ success: false, message: error.message || 'Terjadi kesalahan server.' });
+    }
+  },
+
+  deleteSemester: async (req, res) => {
+    try {
+      const deleted = await AkademikSettings.deleteSemester(req.params.id);
+      if (!deleted) return res.status(404).json({ success: false, message: 'Semester tidak ditemukan.' });
+      res.json({ success: true, message: 'Semester berhasil dinonaktifkan. Data lama tetap tersimpan.' });
+    } catch (error) {
+      res.status(error.statusCode || 500).json({ success: false, message: error.message || 'Terjadi kesalahan server.' });
     }
   },
 
@@ -109,6 +154,39 @@ const akademikController = {
     }
   },
 
+  createJurusan: async (req, res) => {
+    try {
+      const data = await Jurusan.create(req.body);
+      res.status(201).json({ success: true, message: 'Jurusan berhasil ditambahkan.', data });
+    } catch (error) {
+      res.status(error.statusCode || 500).json({ success: false, message: error.message || 'Terjadi kesalahan server.' });
+    }
+  },
+
+  updateJurusan: async (req, res) => {
+    try {
+      const data = await Jurusan.update(req.params.id, req.body);
+      if (!data) return res.status(404).json({ success: false, message: 'Jurusan tidak ditemukan.' });
+      res.json({ success: true, message: 'Jurusan berhasil diperbarui.', data });
+    } catch (error) {
+      res.status(error.statusCode || 500).json({ success: false, message: error.message || 'Terjadi kesalahan server.' });
+    }
+  },
+
+  deleteJurusan: async (req, res) => {
+    try {
+      const result = await Jurusan.delete(req.params.id);
+      if (!result) return res.status(404).json({ success: false, message: 'Jurusan tidak ditemukan.' });
+      res.json({
+        success: true,
+        message: 'Jurusan berhasil dinonaktifkan. Data mahasiswa lama tetap tersimpan.',
+        data: result
+      });
+    } catch (error) {
+      res.status(error.statusCode || 500).json({ success: false, message: error.message || 'Terjadi kesalahan server.' });
+    }
+  },
+
   updateBobotNilai: async (req, res) => {
     try {
       const data = await AkademikSettings.updateBobotNilai(req.body);
@@ -127,6 +205,18 @@ const akademikController = {
     }
   },
 
+  updateJumlahPertemuanJurusan: async (req, res) => {
+    try {
+      const data = await AkademikSettings.updateJumlahPertemuanJurusan(
+        req.body.jurusan,
+        req.body.jumlah_pertemuan
+      );
+      res.json({ success: true, message: 'Jumlah pertemuan jurusan berhasil disimpan.', data });
+    } catch (error) {
+      res.status(error.statusCode || 500).json({ success: false, message: error.message || 'Terjadi kesalahan server.' });
+    }
+  },
+
   getMatakuliah: async (req, res) => {
     try {
       const { search, semester } = req.query;
@@ -140,11 +230,11 @@ const akademikController = {
 
   createMatakuliah: async (req, res) => {
     try {
-      const { kode_mk, nama_mk, sks, semester } = req.body;
+      const { kode_mk, nama_mk, sks, semester, jurusan, dosen_pengampu } = req.body;
       if (!kode_mk || !nama_mk || sks === undefined || semester === undefined) {
         return res.status(400).json({ success: false, message: 'Kode mata kuliah, nama mata kuliah, SKS, dan semester wajib diisi.' });
       }
-      const data = await Matakuliah.create({ kode_mk, nama_mk, sks, semester });
+      const data = await Matakuliah.create({ kode_mk, nama_mk, sks, semester, jurusan, dosen_pengampu });
       res.status(201).json({ success: true, message: 'Mata kuliah berhasil ditambahkan.', data });
     } catch (error) {
       console.error('Create matakuliah error:', error);
@@ -221,6 +311,12 @@ const akademikController = {
         if (!req.user.nim) return res.status(403).json({ success: false, message: 'Akun belum terhubung dengan NIM.' });
         if (nim !== req.user.nim) return res.status(403).json({ success: false, message: 'Akses ditolak. Anda hanya dapat mengelola KRS milik sendiri.' });
       }
+
+      const mahasiswa = await Mahasiswa.findByNim(nim);
+      if (!mahasiswa) return res.status(404).json({ success: false, message: 'Mahasiswa tidak ditemukan.' });
+      if (mahasiswa.status !== 'aktif') {
+        return res.status(400).json({ success: false, message: 'KRS hanya bisa dibuat untuk mahasiswa aktif.' });
+      }
       
       const matakuliah = await Matakuliah.findByKode(kode_mk);
       if (!matakuliah) return res.status(404).json({ success: false, message: 'Mata kuliah tidak ditemukan.' });
@@ -228,7 +324,7 @@ const akademikController = {
       const data = await Krs.create({
         nim,
         kode_mk,
-        semester: matakuliah.semester,
+        semester: mahasiswa.semester || 1,
         tahun_ajaran,
         status: 'diambil'
       });
