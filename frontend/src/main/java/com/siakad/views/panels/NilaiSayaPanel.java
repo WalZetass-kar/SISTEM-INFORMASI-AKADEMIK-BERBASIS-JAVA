@@ -3,6 +3,7 @@ package com.siakad.views.panels;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.siakad.services.AkademikService;
 import com.siakad.services.NilaiService;
 
 import javax.swing.*;
@@ -11,8 +12,6 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import java.awt.*;
-import java.util.Set;
-import java.util.TreeSet;
 
 public class NilaiSayaPanel extends JPanel {
     private final CardLayout rootCard = new CardLayout();
@@ -171,13 +170,15 @@ public class NilaiSayaPanel extends JPanel {
     private void loadData() {
         rootCard.show(rootPanel, "skeleton");
         skeleton.start();
-        new SwingWorker<JsonObject, Void>() {
-            @Override protected JsonObject doInBackground() throws Exception { return NilaiService.getMyNilai(); }
+        new SwingWorker<NilaiResponse, Void>() {
+            @Override protected NilaiResponse doInBackground() throws Exception {
+                return new NilaiResponse(NilaiService.getMyNilai(), AkademikService.getSemester());
+            }
             @Override protected void done() {
                 skeleton.stop();
                 try {
-                    JsonObject response = get();
-                    if (!response.get("success").getAsBoolean()) throw new Exception(response.get("message").getAsString());
+                    NilaiResponse response = get();
+                    if (!response.nilai.get("success").getAsBoolean()) throw new Exception(response.nilai.get("message").getAsString());
                     fill(response);
                     rootCard.show(rootPanel, "content");
                 } catch (Exception e) {
@@ -188,26 +189,28 @@ public class NilaiSayaPanel extends JPanel {
         }.execute();
     }
 
-    private void fill(JsonObject response) {
-        allNilaiData = response.getAsJsonArray("data");
-        populateSemesterOptions(allNilaiData);
+    private void fill(NilaiResponse response) {
+        allNilaiData = response.nilai.getAsJsonArray("data");
+        populateSemesterOptions(response.semester);
         applySemesterFilter();
     }
 
-    private void populateSemesterOptions(JsonArray data) {
+    private void populateSemesterOptions(JsonObject semesterResponse) {
         loadingSemesterOptions = true;
         Object previous = cmbSemester.getSelectedItem();
         cmbSemester.removeAllItems();
         cmbSemester.addItem("Semua Semester");
 
-        Set<Integer> semesters = new TreeSet<>();
-        for (JsonElement el : data) {
-            JsonObject o = el.getAsJsonObject();
-            int semester = number(o, "semester");
-            if (semester > 0) semesters.add(semester);
-        }
-        for (Integer semester : semesters) {
-            cmbSemester.addItem("Semester " + semester);
+        if (semesterResponse != null && semesterResponse.has("success") && semesterResponse.get("success").getAsBoolean()) {
+            JsonArray data = semesterResponse.getAsJsonArray("data");
+            for (JsonElement el : data) {
+                JsonObject o = el.getAsJsonObject();
+                int nomor = number(o, "nomor");
+                String nama = s(o, "nama_semester");
+                if (nomor > 0) {
+                    cmbSemester.addItem(nomor + " - " + (nama.isBlank() ? "Semester " + nomor : nama));
+                }
+            }
         }
 
         if (previous != null) {
@@ -289,9 +292,10 @@ public class NilaiSayaPanel extends JPanel {
     private int selectedSemester() {
         Object selected = cmbSemester.getSelectedItem();
         if (selected == null) return 0;
-        String text = String.valueOf(selected).replace("Semester", "").trim();
+        String text = String.valueOf(selected).trim();
+        if ("Semua Semester".equalsIgnoreCase(text)) return 0;
         try {
-            return "Semua".equalsIgnoreCase(text) || "Semua Semester".equals(selected) ? 0 : Integer.parseInt(text);
+            return Integer.parseInt(text.split("\\D+")[0]);
         } catch (NumberFormatException ex) {
             return 0;
         }
@@ -376,6 +380,16 @@ public class NilaiSayaPanel extends JPanel {
             label.setHorizontalAlignment(SwingConstants.CENTER);
             label.setForeground("Lulus".equals(String.valueOf(v)) ? GREEN : RED);
             return label;
+        }
+    }
+
+    private static class NilaiResponse {
+        private final JsonObject nilai;
+        private final JsonObject semester;
+
+        private NilaiResponse(JsonObject nilai, JsonObject semester) {
+            this.nilai = nilai;
+            this.semester = semester;
         }
     }
 }

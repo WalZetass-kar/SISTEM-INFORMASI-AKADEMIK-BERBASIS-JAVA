@@ -14,6 +14,7 @@ import com.itextpdf.text.pdf.PdfPCell;
 import com.itextpdf.text.pdf.PdfPTable;
 import com.itextpdf.text.pdf.PdfWriter;
 import com.siakad.services.AkademikService;
+import com.siakad.services.MahasiswaService;
 import com.siakad.utils.JwtHelper;
 
 import javax.swing.*;
@@ -53,6 +54,7 @@ public class KrsJadwalPanel extends JPanel {
     private JLabel lblJadwalInfo;
 
     private JsonArray matakuliahCache = new JsonArray();
+    private JsonArray jurusanCache = new JsonArray();
     private JsonArray jadwalCache = new JsonArray();
     private JsonArray currentKrsCache = new JsonArray();
     private JsonObject currentKrsSummary = null;
@@ -313,7 +315,7 @@ public class KrsJadwalPanel extends JPanel {
         topCard.add(info, BorderLayout.WEST);
         topCard.add(actions, BorderLayout.EAST);
 
-        String[] columns = {"Kode MK", "Nama Mata Kuliah", "SKS", "Semester"};
+        String[] columns = {"Kode MK", "Nama Mata Kuliah", "SKS", "Semester", "Jurusan"};
         matakuliahTableModel = new DefaultTableModel(columns, 0) {
             @Override public boolean isCellEditable(int rowIndex, int columnIndex) { return false; }
         };
@@ -407,9 +409,32 @@ public class KrsJadwalPanel extends JPanel {
     }
 
     private void refreshAllData() {
+        loadJurusan();
         loadMatakuliah();
         loadJadwal();
         loadKrs();
+    }
+
+    private void loadJurusan() {
+        startBusy();
+        new SwingWorker<JsonObject, Void>() {
+            @Override protected JsonObject doInBackground() throws Exception {
+                return MahasiswaService.getJurusanList();
+            }
+
+            @Override protected void done() {
+                try {
+                    JsonObject response = get();
+                    if (response.get("success").getAsBoolean()) {
+                        jurusanCache = response.getAsJsonArray("data");
+                    }
+                } catch (Exception ignored) {
+                    jurusanCache = new JsonArray();
+                } finally {
+                    stopBusy();
+                }
+            }
+        }.execute();
     }
 
     private void loadMatakuliah() {
@@ -508,7 +533,8 @@ public class KrsJadwalPanel extends JPanel {
                     safe(mk, "kode_mk"),
                     safe(mk, "nama_mk"),
                     safe(mk, "sks"),
-                    safe(mk, "semester")
+                    safe(mk, "semester"),
+                    safe(mk, "jurusan")
             });
         }
         lblMatakuliahInfo.setText(data.size() + " mata kuliah tersedia");
@@ -570,13 +596,15 @@ public class KrsJadwalPanel extends JPanel {
         JTextField fKode = makeField();
         JTextField fNama = makeField();
         JTextField fSks = makeField();
-        JTextField fSemester = makeField();
+        JSpinner spSemester = makeSpinner(1, 1, 14, 1);
+        JComboBox<String> cmbJurusan = buildJurusanCombo();
 
         int row = 0;
         addFormRow(form, g, row++, "Kode Mata Kuliah *", fKode);
         addFormRow(form, g, row++, "Nama Mata Kuliah *", fNama);
         addFormRow(form, g, row++, "SKS *", fSks);
-        addFormRow(form, g, row++, "Semester *", fSemester);
+        addFormRow(form, g, row++, "Semester *", spSemester);
+        addFormRow(form, g, row++, "Jurusan *", cmbJurusan);
 
         JButton btnSave = buildBtn("Simpan Mata Kuliah", BLUE, 200);
         g.gridx = 0;
@@ -586,18 +614,19 @@ public class KrsJadwalPanel extends JPanel {
         form.add(btnSave, g);
 
         btnSave.addActionListener(e -> {
-            if (isBlank(fKode) || isBlank(fNama) || isBlank(fSks) || isBlank(fSemester)) {
+            String selectedJurusan = String.valueOf(cmbJurusan.getSelectedItem());
+            if (isBlank(fKode) || isBlank(fNama) || isBlank(fSks)
+                    || selectedJurusan.isBlank() || selectedJurusan.startsWith("Belum ada")) {
                 JOptionPane.showMessageDialog(dialog, "Semua field wajib harus diisi.", "Validasi", JOptionPane.WARNING_MESSAGE);
                 return;
             }
 
             int sks;
-            int semester;
+            int semester = ((Number) spSemester.getValue()).intValue();
             try {
                 sks = Integer.parseInt(fSks.getText().trim());
-                semester = Integer.parseInt(fSemester.getText().trim());
             } catch (NumberFormatException ex) {
-                JOptionPane.showMessageDialog(dialog, "SKS dan semester harus berupa angka.", "Validasi", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(dialog, "SKS harus berupa angka.", "Validasi", JOptionPane.WARNING_MESSAGE);
                 return;
             }
 
@@ -606,6 +635,7 @@ public class KrsJadwalPanel extends JPanel {
             body.addProperty("nama_mk", fNama.getText().trim());
             body.addProperty("sks", sks);
             body.addProperty("semester", semester);
+            body.addProperty("jurusan", selectedJurusan);
 
             submitDialog(dialog, () -> AkademikService.createMatakuliah(body), this::loadMatakuliah);
         });
@@ -727,10 +757,7 @@ public class KrsJadwalPanel extends JPanel {
         }
 
         JComboBox<MatakuliahOption> cmbMatakuliah = buildMatakuliahCombo();
-        JTextField fTahunAjaran = makeField();
-        fTahunAjaran.setText(txtTahunAjaranFilter.getText().trim().isEmpty()
-                ? defaultAcademicYear()
-                : txtTahunAjaranFilter.getText().trim());
+        JComboBox<String> cmbTahunAjaran = buildTahunAjaranCombo(txtTahunAjaranFilter.getText().trim());
 
         JLabel lblPreview = new JLabel("Pilih mata kuliah untuk melihat ringkasan.");
         lblPreview.setFont(new Font("Segoe UI", Font.PLAIN, 11));
@@ -750,7 +777,7 @@ public class KrsJadwalPanel extends JPanel {
         int row = 0;
         addFormRow(form, g, row++, "NIM *", fNim);
         addFormRow(form, g, row++, "Mata Kuliah *", cmbMatakuliah);
-        addFormRow(form, g, row++, "Tahun Ajaran *", fTahunAjaran);
+        addFormRow(form, g, row++, "Tahun Ajaran *", cmbTahunAjaran);
         g.gridx = 1;
         g.gridy = row++;
         form.add(lblPreview, g);
@@ -764,7 +791,8 @@ public class KrsJadwalPanel extends JPanel {
 
         btnSave.addActionListener(e -> {
             MatakuliahOption option = (MatakuliahOption) cmbMatakuliah.getSelectedItem();
-            if (option == null || isBlank(fNim) || isBlank(fTahunAjaran)) {
+            String tahunAjaran = String.valueOf(cmbTahunAjaran.getSelectedItem()).trim();
+            if (option == null || isBlank(fNim) || tahunAjaran.isBlank() || tahunAjaran.startsWith("Memuat") || tahunAjaran.startsWith("Belum ada")) {
                 JOptionPane.showMessageDialog(dialog, "Semua field wajib harus diisi.", "Validasi", JOptionPane.WARNING_MESSAGE);
                 return;
             }
@@ -772,13 +800,13 @@ public class KrsJadwalPanel extends JPanel {
             JsonObject body = new JsonObject();
             body.addProperty("nim", fNim.getText().trim());
             body.addProperty("kode_mk", option.kodeMk());
-            body.addProperty("tahun_ajaran", fTahunAjaran.getText().trim());
+            body.addProperty("tahun_ajaran", tahunAjaran);
 
             submitDialog(dialog, () -> AkademikService.createKrs(body), () -> {
                 if (JwtHelper.getInstance().isAdmin()) {
                     txtNimFilter.setText(fNim.getText().trim());
                 }
-                txtTahunAjaranFilter.setText(fTahunAjaran.getText().trim());
+                txtTahunAjaranFilter.setText(tahunAjaran);
                 loadKrs();
             });
         });
@@ -1027,6 +1055,25 @@ public class KrsJadwalPanel extends JPanel {
         return field;
     }
 
+    private JSpinner makeSpinner(int value, int min, int max, int step) {
+        JSpinner spinner = new JSpinner(new SpinnerNumberModel(value, min, max, step));
+        spinner.setPreferredSize(new Dimension(220, 34));
+        spinner.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        spinner.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BORDER_COLOR, 1),
+                new EmptyBorder(3, 10, 3, 10)));
+        JComponent editor = spinner.getEditor();
+        if (editor instanceof JSpinner.DefaultEditor defaultEditor) {
+            JTextField field = defaultEditor.getTextField();
+            field.setBackground(new Color(13, 19, 38));
+            field.setForeground(TEXT_PRIMARY);
+            field.setCaretColor(TEXT_PRIMARY);
+            field.setBorder(BorderFactory.createEmptyBorder());
+            field.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        }
+        return spinner;
+    }
+
     private JLabel makeLabel(String text) {
         JLabel label = new JLabel(text);
         label.setFont(new Font("Segoe UI", Font.BOLD, 11));
@@ -1112,10 +1159,112 @@ public class KrsJadwalPanel extends JPanel {
                     safe(mk, "nama_mk"),
                     parseInteger(safe(mk, "sks")),
                     parseInteger(safe(mk, "semester")),
+                    safe(mk, "jurusan"),
                     "-".equals(dosen) ? "" : dosen
             ));
         }
         styleCombo(combo);
+        return combo;
+    }
+
+    private JComboBox<String> buildJurusanCombo() {
+        JComboBox<String> combo = new JComboBox<>();
+        for (JsonElement item : jurusanCache) {
+            String jurusan = item.getAsString();
+            if (jurusan != null && !jurusan.isBlank()) {
+                combo.addItem(jurusan);
+            }
+        }
+        if (combo.getItemCount() == 0) {
+            combo.addItem("Belum ada jurusan");
+        }
+        styleCombo(combo);
+        return combo;
+    }
+
+    private JComboBox<String> buildTahunAjaranCombo(String preferred) {
+        JComboBox<String> combo = new JComboBox<>();
+        combo.addItem("Memuat tahun ajaran...");
+        styleCombo(combo);
+        new SwingWorker<JsonObject, Void>() {
+            @Override protected JsonObject doInBackground() throws Exception {
+                return AkademikService.getSettings();
+            }
+
+            @Override protected void done() {
+                try {
+                    JsonObject response = get();
+                    combo.removeAllItems();
+                    String active = null;
+                    if (response.get("success").getAsBoolean()) {
+                        JsonArray data = response.getAsJsonObject("data").getAsJsonArray("tahun_ajaran");
+                        for (JsonElement item : data) {
+                            JsonObject tahun = item.getAsJsonObject();
+                            if ("draft".equalsIgnoreCase(safe(tahun, "status"))) {
+                                continue;
+                            }
+                            String tahunAjaran = safe(tahun, "tahun_ajaran");
+                            if (tahunAjaran.isBlank() || "-".equals(tahunAjaran)) {
+                                continue;
+                            }
+                            combo.addItem(tahunAjaran);
+                            if ("aktif".equalsIgnoreCase(safe(tahun, "status"))) {
+                                active = tahunAjaran;
+                            }
+                        }
+                    }
+                    if (combo.getItemCount() == 0) {
+                        combo.addItem("Belum ada tahun ajaran");
+                    } else if (preferred != null && !preferred.isBlank()) {
+                        combo.setSelectedItem(preferred);
+                    } else if (active != null) {
+                        combo.setSelectedItem(active);
+                    }
+                } catch (Exception ex) {
+                    combo.removeAllItems();
+                    combo.addItem(preferred != null && !preferred.isBlank() ? preferred : defaultAcademicYear());
+                }
+            }
+        }.execute();
+        return combo;
+    }
+
+    private JComboBox<SemesterOption> buildSemesterCombo() {
+        JComboBox<SemesterOption> combo = new JComboBox<>();
+        combo.addItem(new SemesterOption(0, "Memuat semester..."));
+        styleCombo(combo);
+        new SwingWorker<JsonObject, Void>() {
+            @Override protected JsonObject doInBackground() throws Exception {
+                return AkademikService.getSettings();
+            }
+
+            @Override protected void done() {
+                try {
+                    JsonObject response = get();
+                    combo.removeAllItems();
+                    if (response.get("success").getAsBoolean()) {
+                        JsonArray data = response.getAsJsonObject("data").getAsJsonArray("semester");
+                        for (JsonElement item : data) {
+                            JsonObject semester = item.getAsJsonObject();
+                            if (semester.has("is_active") && !semester.get("is_active").isJsonNull()
+                                    && semester.get("is_active").getAsInt() == 0) {
+                                continue;
+                            }
+                            combo.addItem(new SemesterOption(
+                                    parseInteger(safe(semester, "nomor")),
+                                    safe(semester, "nama_semester")
+                            ));
+                        }
+                    }
+                    if (combo.getItemCount() == 0) {
+                        combo.addItem(new SemesterOption(0, "Belum ada semester aktif"));
+                    }
+                } catch (Exception ex) {
+                    combo.removeAllItems();
+                    combo.addItem(new SemesterOption(0, "Gagal memuat semester"));
+                }
+            }
+        }.execute();
         return combo;
     }
 
@@ -1186,9 +1335,16 @@ public class KrsJadwalPanel extends JPanel {
         JsonObject execute() throws Exception;
     }
 
-    private record MatakuliahOption(String kodeMk, String namaMk, int sks, int semester, String dosen) {
+    private record MatakuliahOption(String kodeMk, String namaMk, int sks, int semester, String jurusan, String dosen) {
         @Override public String toString() {
-            return kodeMk + " - " + namaMk;
+            String jurusanLabel = "-".equals(jurusan) || jurusan.isBlank() ? "" : " - " + jurusan;
+            return kodeMk + " - " + namaMk + jurusanLabel;
+        }
+    }
+
+    private record SemesterOption(int nomor, String nama) {
+        @Override public String toString() {
+            return nomor > 0 ? nomor + " - " + nama : nama;
         }
     }
 }

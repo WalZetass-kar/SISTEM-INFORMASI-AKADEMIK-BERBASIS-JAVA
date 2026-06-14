@@ -1,7 +1,9 @@
 package com.siakad.views.panels;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.siakad.services.AkademikService;
 import com.siakad.services.PembayaranService;
 import com.siakad.utils.JwtHelper;
 
@@ -354,7 +356,7 @@ public class PembayaranPanel extends JPanel {
         JTextField fNim      = makeField();
         JTextField fJumlah   = makeField();
         JTextField fTanggal  = makeField(); fTanggal.setToolTipText("Format: YYYY-MM-DD");
-        JTextField fSemester = makeField();
+        JComboBox<SemesterOption> cmbSemester = buildSemesterCombo();
         JTextField fTA       = makeField(); fTA.setText("2024/2025");
         JComboBox<String> cJenis  = new JComboBox<>(new String[]{"ukt", "spp", "praktikum", "wisuda", "lainnya"});
         JComboBox<String> cMetode = new JComboBox<>(new String[]{"transfer_bank", "virtual_account", "tunai", "qris"});
@@ -373,7 +375,7 @@ public class PembayaranPanel extends JPanel {
         addRow(p, g, r++, "Jumlah (Rp) *", fJumlah);
         addRow(p, g, r++, "Tanggal Bayar *", fTanggal);
         addRow(p, g, r++, "Metode Pembayaran", cMetode);
-        addRow(p, g, r++, "Semester *", fSemester);
+        addRow(p, g, r++, "Semester *", cmbSemester);
         addRow(p, g, r++, "Tahun Ajaran *", fTA);
         g.gridx = 0; g.gridy = r; p.add(makeLabel("Keterangan"), g);
         g.gridx = 1; p.add(new JScrollPane(fKet) {{ setBorder(null); }}, g); r++;
@@ -384,17 +386,20 @@ public class PembayaranPanel extends JPanel {
 
         btnSave.addActionListener(e -> {
             if (fNim.getText().isEmpty() || fJumlah.getText().isEmpty()
-                    || fTanggal.getText().isEmpty() || fSemester.getText().isEmpty() || fTA.getText().isEmpty()) {
+                    || fTanggal.getText().isEmpty() || fTA.getText().isEmpty()) {
                 JOptionPane.showMessageDialog(d, "Isi semua field wajib (*).", "Validasi", JOptionPane.WARNING_MESSAGE);
                 return;
             }
             double jumlah;
-            int semester;
             try {
                 jumlah = Double.parseDouble(fJumlah.getText().trim());
-                semester = Integer.parseInt(fSemester.getText().trim());
             } catch (NumberFormatException ex) {
-                JOptionPane.showMessageDialog(d, "Jumlah dan semester harus berupa angka.", "Validasi", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(d, "Jumlah harus berupa angka.", "Validasi", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            SemesterOption selectedSemester = (SemesterOption) cmbSemester.getSelectedItem();
+            if (selectedSemester == null || selectedSemester.nomor() <= 0) {
+                JOptionPane.showMessageDialog(d, "Pilih semester dari master semester terlebih dahulu.", "Validasi", JOptionPane.WARNING_MESSAGE);
                 return;
             }
             JsonObject body = new JsonObject();
@@ -403,7 +408,7 @@ public class PembayaranPanel extends JPanel {
             body.addProperty("jumlah", jumlah);
             body.addProperty("tanggal_bayar", fTanggal.getText().trim());
             body.addProperty("metode_pembayaran", (String) cMetode.getSelectedItem());
-            body.addProperty("semester", semester);
+            body.addProperty("semester", selectedSemester.nomor());
             body.addProperty("tahun_ajaran", fTA.getText().trim());
             body.addProperty("keterangan", fKet.getText().trim());
 
@@ -513,11 +518,64 @@ public class PembayaranPanel extends JPanel {
         p.add(field, g);
     }
 
-    private void styleCombo(JComboBox<String> c, int width) {
+    private void styleCombo(JComboBox<?> c, int width) {
         c.setBackground(CARD_BG);
         c.setForeground(TEXT_MUTED);
         c.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         if (width > 0) c.setPreferredSize(new Dimension(width, 36));
+    }
+
+    private JComboBox<SemesterOption> buildSemesterCombo() {
+        JComboBox<SemesterOption> combo = new JComboBox<>();
+        combo.addItem(new SemesterOption(0, "Memuat semester..."));
+        styleCombo(combo, 0);
+        new SwingWorker<JsonObject, Void>() {
+            @Override protected JsonObject doInBackground() throws Exception {
+                return AkademikService.getSettings();
+            }
+
+            @Override protected void done() {
+                try {
+                    JsonObject response = get();
+                    combo.removeAllItems();
+                    if (response.get("success").getAsBoolean()) {
+                        JsonArray data = response.getAsJsonObject("data").getAsJsonArray("semester");
+                        for (JsonElement item : data) {
+                            JsonObject semester = item.getAsJsonObject();
+                            if (semester.has("is_active") && !semester.get("is_active").isJsonNull()
+                                    && semester.get("is_active").getAsInt() == 0) {
+                                continue;
+                            }
+                            combo.addItem(new SemesterOption(
+                                    parseInt(safe(semester, "nomor")),
+                                    safe(semester, "nama_semester")
+                            ));
+                        }
+                    }
+                    if (combo.getItemCount() == 0) {
+                        combo.addItem(new SemesterOption(0, "Belum ada semester aktif"));
+                    }
+                } catch (Exception ex) {
+                    combo.removeAllItems();
+                    combo.addItem(new SemesterOption(0, "Gagal memuat semester"));
+                }
+            }
+        }.execute();
+        return combo;
+    }
+
+    private int parseInt(String value) {
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (Exception ignored) {
+            return 0;
+        }
+    }
+
+    private record SemesterOption(int nomor, String nama) {
+        @Override public String toString() {
+            return nomor > 0 ? nomor + " - " + nama : nama;
+        }
     }
 
     private JButton buildBtn(String text, Color bg, int width) {

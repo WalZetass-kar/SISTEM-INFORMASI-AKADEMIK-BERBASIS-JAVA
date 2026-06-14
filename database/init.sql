@@ -102,6 +102,31 @@ CREATE TABLE IF NOT EXISTS bobot_nilai (
 ) ENGINE=InnoDB;
 
 -- ============================================================
+-- TABEL: semester (Master Semester)
+-- Digunakan oleh: Modul Mahasiswa, Mata Kuliah, Pembayaran, KRS
+-- ============================================================
+CREATE TABLE IF NOT EXISTS semester (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nomor INT NOT NULL UNIQUE,
+  nama_semester VARCHAR(50) NOT NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- TABEL: jurusan (Master Jurusan)
+-- Digunakan oleh: Modul Mahasiswa, Mata Kuliah, Akademik
+-- ============================================================
+CREATE TABLE IF NOT EXISTS jurusan (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nama_jurusan VARCHAR(100) NOT NULL UNIQUE,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- ============================================================
 -- TABEL: akademik_config (Konfigurasi Umum Akademik)
 -- Digunakan oleh: Modul Akademik - Pertemuan, Absensi, Nilai
 -- ============================================================
@@ -109,6 +134,18 @@ CREATE TABLE IF NOT EXISTS akademik_config (
   config_key VARCHAR(50) PRIMARY KEY,
   config_value VARCHAR(100) NOT NULL,
   description VARCHAR(255) DEFAULT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- TABEL: akademik_pertemuan_jurusan (Jumlah Pertemuan per Jurusan)
+-- Digunakan oleh: Modul Akademik - Input Kehadiran
+-- ============================================================
+CREATE TABLE IF NOT EXISTS akademik_pertemuan_jurusan (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  jurusan VARCHAR(100) NOT NULL UNIQUE,
+  jumlah_pertemuan INT NOT NULL DEFAULT 12,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
@@ -258,6 +295,24 @@ INSERT INTO users (username, password, role, nim) VALUES
 ON DUPLICATE KEY UPDATE password = VALUES(password), role = VALUES(role), nim = VALUES(nim);
 
 -- Sample mahasiswa
+INSERT INTO jurusan (nama_jurusan, is_active) VALUES
+  ('Teknik Informatika', 1),
+  ('Sistem Informasi', 1)
+ON DUPLICATE KEY UPDATE nama_jurusan = VALUES(nama_jurusan), is_active = VALUES(is_active);
+
+INSERT INTO semester (nomor, nama_semester, is_active) VALUES
+  (1, 'Semester 1', 1),
+  (2, 'Semester 2', 1),
+  (3, 'Semester 3', 1),
+  (4, 'Semester 4', 1),
+  (5, 'Semester 5', 1),
+  (6, 'Semester 6', 1),
+  (7, 'Semester 7', 1),
+  (8, 'Semester 8', 1)
+ON DUPLICATE KEY UPDATE
+  nama_semester = VALUES(nama_semester),
+  is_active = VALUES(is_active);
+
 INSERT INTO mahasiswa (nim, nama, email, jurusan, program_studi, angkatan, semester, status) VALUES
   ('2024001', 'Ahmad Fauzan', 'ahmad@univ.ac.id', 'Teknik Informatika', 'S1 Informatika', 2024, 2, 'aktif'),
   ('2024002', 'Siti Nurhaliza', 'siti@univ.ac.id', 'Teknik Informatika', 'S1 Informatika', 2024, 2, 'aktif'),
@@ -310,6 +365,12 @@ INSERT INTO akademik_config (config_key, config_value, description) VALUES
 ON DUPLICATE KEY UPDATE
   config_value = VALUES(config_value),
   description = VALUES(description);
+
+INSERT INTO akademik_pertemuan_jurusan (jurusan, jumlah_pertemuan) VALUES
+  ('Teknik Informatika', 12),
+  ('Sistem Informasi', 12)
+ON DUPLICATE KEY UPDATE
+  jumlah_pertemuan = VALUES(jumlah_pertemuan);
 
 -- Sample KRS agar modul nilai dan kehadiran memiliki daftar mahasiswa per mata kuliah
 INSERT INTO krs (nim, kode_mk, semester, tahun_ajaran, status) VALUES

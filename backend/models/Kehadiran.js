@@ -141,6 +141,8 @@ class Kehadiran {
         SUM(CASE WHEN kh.status = 'izin' THEN 1 ELSE 0 END) AS izin,
         SUM(CASE WHEN kh.status = 'sakit' THEN 1 ELSE 0 END) AS sakit,
         SUM(CASE WHEN kh.status = 'alpha' THEN 1 ELSE 0 END) AS alpha,
+        COUNT(DISTINCT kh.status) AS distinct_status,
+        MAX(kh.status) AS status_absensi,
         MAX(kh.updated_at) AS updated_at
       FROM krs k
       INNER JOIN mahasiswa m ON m.nim = k.nim
@@ -211,6 +213,9 @@ class Kehadiran {
         sakit: Number(row.sakit || 0),
         alpha: Number(row.alpha || 0),
         persentase_hadir: persentase,
+        status_absensi: total === 0
+          ? 'Belum Ada Data'
+          : (Number(row.distinct_status || 0) === 1 ? row.status_absensi : 'Campuran'),
         status_kehadiran: status
       };
     });

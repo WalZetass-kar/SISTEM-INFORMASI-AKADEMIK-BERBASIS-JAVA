@@ -1,0 +1,645 @@
+# Penjelasan Struktur Folder dan File Frontend Java Swing
+
+Project frontend berada di folder `frontend/`. Bagian ini dibuat memakai Java Swing sebagai aplikasi desktop, Maven sebagai build tool, FlatLaf untuk tampilan modern, Gson untuk membaca JSON dari backend, dan `HttpURLConnection` untuk komunikasi REST API.
+
+Secara umum alur frontend adalah:
+
+1. Aplikasi dijalankan dari `Main.java`.
+2. User melihat halaman login di `LoginFrame.java`.
+3. Login dikirim ke backend melalui `AuthService`.
+4. Token JWT disimpan sementara di `JwtHelper`.
+5. Jika login berhasil, aplikasi membuka `MainFrame.java`.
+6. `MainFrame` menampilkan sidebar dan mengganti halaman memakai `CardLayout`.
+7. Setiap menu utama ditampilkan sebagai `JPanel` di folder `views/panels`.
+8. Panel-panel frontend mengambil data dari backend melalui class service di folder `services`.
+
+## Struktur Folder Frontend
+
+```text
+frontend/
+├── pom.xml
+└── src/main/java/com/siakad/
+    ├── Main.java
+    ├── services/
+    ├── utils/
+    └── views/
+        └── panels/
+```
+
+## `frontend/pom.xml`
+
+File ini adalah konfigurasi Maven untuk project frontend.
+
+Fungsinya:
+
+- Menentukan identitas project: `groupId`, `artifactId`, dan `version`.
+- Menentukan Java yang dipakai, yaitu Java 17 melalui `maven.compiler.release`.
+- Mengatur dependency/library yang dipakai frontend.
+- Mengatur class utama aplikasi, yaitu `com.siakad.Main`.
+
+Dependency penting:
+
+- `gson`: membaca dan membuat data JSON.
+- `flatlaf`: memberi tampilan modern pada Java Swing.
+- `jfreechart`: membuat chart/grafik di dashboard.
+- `itextpdf`: mendukung pembuatan/cetak PDF.
+- `poi-ooxml`: mendukung export Excel.
+
+## `frontend/src/main/java/com/siakad/Main.java`
+
+File ini adalah entry point aplikasi frontend.
+
+Fungsinya:
+
+- Menjalankan aplikasi Java Swing.
+- Mengatur Look and Feel memakai `FlatDarkLaf`.
+- Mengatur beberapa style global Swing seperti lengkungan tombol, komponen input, dan scrollbar.
+- Menjalankan GUI di Event Dispatch Thread memakai `SwingUtilities.invokeLater`.
+- Membuka `LoginFrame` sebagai tampilan pertama aplikasi.
+
+Penjelasan kode:
+
+- `JPopupMenu.setDefaultLightWeightPopupEnabled(false)` dan `ToolTipManager...` digunakan agar popup Swing tidak tertutup di Linux/Wayland.
+- `UIManager.setLookAndFeel(new FlatDarkLaf())` mengaktifkan tema gelap modern.
+- `SwingUtilities.invokeLater(...)` memastikan komponen Swing dibuat di thread yang benar.
+- `new LoginFrame().setVisible(true)` menampilkan form login.
+
+## Folder `services`
+
+Folder `services` berisi class penghubung antara frontend Java Swing dan backend Express API.
+
+Panel-panel UI tidak langsung membuat koneksi HTTP sendiri. Panel cukup memanggil service, lalu service memanggil endpoint backend. Dengan pola ini, kode UI dan kode komunikasi API menjadi lebih terpisah.
+
+### `services/ApiService.java`
+
+File ini adalah HTTP client utama untuk seluruh frontend.
+
+Fungsinya:
+
+- Menyediakan method `get`, `post`, `put`, dan `delete`.
+- Membuat koneksi HTTP memakai `HttpURLConnection`.
+- Mengatur header request, seperti `Content-Type`, `Accept`, dan `Authorization`.
+- Mengubah object Java menjadi JSON memakai Gson.
+- Membaca response backend dan mengubahnya menjadi `JsonObject`.
+- Menambahkan JWT token otomatis jika user sudah login.
+
+Penjelasan kode:
+
+- `createConnection(...)` membuat koneksi ke URL backend.
+- Jika user sudah login, token diambil dari `JwtHelper`, lalu dikirim sebagai header `Authorization: Bearer <token>`.
+- `writeBody(...)` mengubah body request menjadi JSON dan mengirimkannya ke backend.
+- `readResponse(...)` membaca response sukses maupun error dari server.
+- Jika response server bukan JSON valid, method akan mengembalikan object error sederhana.
+
+### `services/AuthService.java`
+
+File ini menangani proses autentikasi.
+
+Fungsinya:
+
+- Login user.
+- Logout user.
+- Menyimpan token dan data user ke `JwtHelper` setelah login sukses.
+- Mengambil pesan error login dari backend.
+
+Penjelasan kode:
+
+- `login(...)` membuat JSON berisi username dan password.
+- Data dikirim ke endpoint `/api/login`.
+- Jika berhasil, response backend berisi `token` dan `user`.
+- Token, username, role, id user, dan NIM disimpan ke singleton `JwtHelper`.
+- `logout()` memanggil endpoint logout, lalu membersihkan data sesi di `JwtHelper`.
+
+### `services/MahasiswaService.java`
+
+File ini menangani komunikasi API untuk modul mahasiswa.
+
+Fungsinya:
+
+- Mengambil daftar mahasiswa dengan pagination dan pencarian.
+- Mengambil detail mahasiswa berdasarkan NIM.
+- Mengambil daftar jurusan.
+- Menambah mahasiswa.
+- Mengubah data mahasiswa.
+- Menghapus mahasiswa.
+
+Endpoint yang digunakan berasal dari `Config.MAHASISWA_URL`, yaitu `/api/mahasiswa`.
+
+### `services/PembayaranService.java`
+
+File ini menangani komunikasi API untuk modul pembayaran.
+
+Fungsinya:
+
+- Mengambil daftar pembayaran.
+- Mengambil detail pembayaran.
+- Mengambil riwayat pembayaran berdasarkan NIM.
+- Membuat data pembayaran baru.
+- Mengubah data pembayaran.
+- Mengubah status pembayaran, misalnya `pending`, `lunas`, `gagal`, atau `refund`.
+- Menghapus pembayaran.
+- Mengecek status pembayaran mahasiswa.
+- Mengambil statistik dashboard pembayaran.
+- Mengambil daftar tahun ajaran.
+
+Penjelasan kode:
+
+- Method `getAll(...)` membangun query parameter seperti page, limit, search, status, dan tahun ajaran.
+- Method `updateStatus(...)` mengirim status baru ke endpoint `/api/pembayaran/:id/status`.
+- Method `cekStatus(...)` digunakan untuk melihat apakah mahasiswa sudah membayar pada semester dan tahun ajaran tertentu.
+
+### `services/AkademikService.java`
+
+File ini menangani komunikasi API untuk modul akademik.
+
+Fungsinya:
+
+- Mengambil pengaturan akademik.
+- Membuat, mengubah, dan menghapus tahun ajaran.
+- Membuat, mengubah, dan menghapus mata kuliah.
+- Mengubah bobot nilai.
+- Mengubah jumlah pertemuan.
+- Mengambil daftar input kehadiran.
+- Menyimpan kehadiran secara massal.
+- Mengambil rekap kehadiran.
+- Mengambil kehadiran mahasiswa yang sedang login.
+- Mengambil info akademik mahasiswa.
+- Mengambil dan membuat data KRS.
+- Mengambil dan membuat data jadwal.
+
+Penjelasan kode:
+
+- Service ini memakai beberapa base URL dari `Config`, seperti `AKADEMIK_URL`, `MATAKULIAH_URL`, `KRS_URL`, dan `JADWAL_URL`.
+- Query parameter selalu di-encode memakai `ApiService.encodeQueryParam(...)` agar karakter seperti `/` pada tahun ajaran tetap aman di URL.
+- Method seperti `getKehadiranInputList(...)` dan `getKehadiranRekap(...)` dipakai oleh panel absensi.
+
+### `services/NilaiService.java`
+
+File ini menangani komunikasi API untuk modul nilai.
+
+Fungsinya:
+
+- Mengambil daftar mata kuliah untuk input nilai.
+- Mengambil daftar mahasiswa yang akan diinput nilainya.
+- Mengambil rekap nilai.
+- Menyimpan nilai secara massal.
+- Menghapus nilai.
+- Mengambil nilai milik mahasiswa yang sedang login.
+
+Penjelasan kode:
+
+- `getInputList(...)` mengambil mahasiswa berdasarkan mata kuliah dan tahun ajaran.
+- `bulkSave(...)` mengirim banyak data nilai sekaligus ke backend.
+- `getMyNilai()` dipakai oleh halaman mahasiswa untuk melihat nilainya sendiri.
+
+### `services/LaporanService.java`
+
+File ini menangani komunikasi API untuk modul laporan.
+
+Fungsinya:
+
+- Mengambil daftar laporan.
+- Mengambil detail laporan.
+- Generate laporan pembayaran.
+- Generate laporan mahasiswa.
+- Generate laporan keuangan.
+- Menghapus laporan.
+
+Penjelasan kode:
+
+- `generatePembayaran(...)` mengirim filter periode dan tahun ajaran.
+- `generateMahasiswa()` membuat laporan data mahasiswa.
+- `generateKeuangan(...)` membuat laporan keuangan berdasarkan tahun ajaran.
+
+## Folder `utils`
+
+Folder `utils` berisi class bantuan/global yang dipakai banyak bagian frontend.
+
+### `utils/Config.java`
+
+File ini menyimpan konfigurasi aplikasi.
+
+Fungsinya:
+
+- Menentukan base URL backend: `http://localhost:3000/api`.
+- Menyimpan endpoint penting seperti login, logout, mahasiswa, pembayaran, akademik, nilai, laporan, KRS, jadwal.
+- Menyimpan informasi aplikasi seperti nama dan versi.
+- Menyimpan ukuran default window aplikasi.
+
+Penjelasan kode:
+
+- Semua URL endpoint dibuat sebagai konstanta `public static final`.
+- Dengan cara ini, jika URL backend berubah, developer cukup mengganti di satu file.
+
+### `utils/JwtHelper.java`
+
+File ini menyimpan data sesi login user.
+
+Fungsinya:
+
+- Menyimpan token JWT.
+- Menyimpan username, role, NIM, dan id user.
+- Mengecek apakah user sudah login.
+- Mengecek apakah user admin atau mahasiswa.
+- Membuat header Authorization.
+- Menghapus sesi saat logout.
+
+Penjelasan kode:
+
+- Class ini memakai singleton pattern melalui `getInstance()`.
+- Singleton membuat data login bisa diakses dari banyak file tanpa membuat object baru.
+- `isAdmin()` dan `isMahasiswa()` dipakai untuk membedakan tampilan dan akses menu.
+- `clear()` membersihkan semua data saat user logout.
+
+## Folder `views`
+
+Folder `views` berisi tampilan utama aplikasi Swing, seperti halaman login, frame utama, dan animasi transisi.
+
+### `views/LoginFrame.java`
+
+File ini merepresentasikan halaman login aplikasi.
+
+Fungsinya:
+
+- Menampilkan UI login.
+- Mengambil input username dan password.
+- Mengirim login ke backend melalui `AuthService`.
+- Menampilkan pesan error jika login gagal.
+- Membuka animasi transisi jika login berhasil.
+
+Penjelasan kode:
+
+- Class ini extends `JFrame`, artinya dia adalah window utama untuk login.
+- UI dibagi menjadi panel kiri dan panel kanan.
+- Panel kiri berisi branding dan informasi fitur.
+- Panel kanan berisi form login.
+- Tombol login memanggil service autentikasi.
+- Jika login sukses, `SplashTransition` dijalankan lalu `MainFrame` dibuka.
+
+### `views/MainFrame.java`
+
+File ini merepresentasikan window utama setelah user login.
+
+Fungsinya:
+
+- Menampilkan sidebar navigasi.
+- Menampilkan content area di tengah.
+- Mengatur perpindahan halaman memakai `CardLayout`.
+- Menampilkan menu berbeda berdasarkan role admin atau mahasiswa.
+- Menangani logout.
+
+Penjelasan kode:
+
+- `contentPanel` memakai `CardLayout`, sehingga banyak panel bisa disimpan di satu tempat dan ditampilkan bergantian.
+- Konstanta seperti `PANEL_DASHBOARD`, `PANEL_MAHASISWA`, dan `PANEL_PEMBAYARAN` digunakan sebagai nama kartu.
+- `buildSidebar()` membuat sidebar berisi logo, menu, submenu akademik, dan user card.
+- `buildAkademikSubmenu()` membuat submenu akademik yang berbeda untuk admin dan mahasiswa.
+- Admin melihat menu seperti Input Nilai, Input Kehadiran, Rekap Absensi, dan Pengaturan Akademik.
+- Mahasiswa melihat menu seperti Nilai Saya, Kehadiran Saya, dan Info Akademik.
+- `showPanel(...)` digunakan untuk mengganti panel yang sedang tampil.
+
+### `views/SplashTransition.java`
+
+File ini merepresentasikan animasi loading setelah login berhasil.
+
+Fungsinya:
+
+- Menampilkan dialog animasi sebelum masuk dashboard.
+- Memberi efek transisi agar perpindahan dari login ke aplikasi utama terasa lebih halus.
+- Menjalankan callback setelah animasi selesai.
+
+Penjelasan kode:
+
+- Class ini extends `JDialog`.
+- Terdapat class kecil `Particle` untuk efek partikel.
+- Method `paint(...)` menggambar animasi secara manual memakai `Graphics2D`.
+- Method `animate(...)` menjalankan timer animasi, mengubah teks loading, lalu memanggil `onComplete`.
+
+## Folder `views/panels`
+
+Folder ini berisi halaman-halaman utama yang ditampilkan di dalam `MainFrame`.
+
+Setiap file biasanya extends `JPanel`. Artinya setiap modul adalah panel yang bisa dipasang ke content area utama. Banyak panel memakai pola yang sama:
+
+- Membuat layout UI.
+- Menampilkan skeleton/loading ketika data sedang dimuat.
+- Memanggil service untuk mengambil data.
+- Mengisi tabel, label, chart, atau form.
+- Menampilkan error state jika backend gagal diakses.
+
+### `views/panels/DashboardPanel.java`
+
+File ini merepresentasikan halaman dashboard.
+
+Fungsinya:
+
+- Menampilkan ringkasan pembayaran.
+- Menampilkan statistik seperti total pendapatan, lunas, pending, gagal/refund.
+- Menampilkan chart pembayaran per bulan.
+- Menampilkan chart distribusi status pembayaran.
+- Menampilkan data berbeda untuk admin dan mahasiswa.
+
+Penjelasan kode:
+
+- Saat panel dibuat, `loadData()` langsung dipanggil.
+- Jika user admin, data diambil dari `PembayaranService.getDashboardStats(...)`.
+- Jika user mahasiswa, dashboard menampilkan riwayat/status pembayaran miliknya.
+- Chart dibuat menggunakan JFreeChart.
+- Panel memakai `SkeletonPanel` saat loading dan `StatePanel` saat terjadi error.
+
+### `views/panels/MahasiswaPanel.java`
+
+File ini merepresentasikan halaman data mahasiswa.
+
+Fungsinya:
+
+- Untuk admin: menampilkan daftar mahasiswa, pencarian, pagination, tambah, edit, dan hapus mahasiswa.
+- Untuk mahasiswa: menampilkan profil mahasiswa miliknya sendiri.
+
+Penjelasan kode:
+
+- Panel mengecek role melalui `JwtHelper`.
+- Jika admin, method `initUI(...)` membuat tampilan tabel mahasiswa.
+- Jika mahasiswa, method `initProfileUI(...)` membuat tampilan profil.
+- `loadData()` mengambil data dari `MahasiswaService`.
+- Admin bisa membuka form melalui `showForm(...)`.
+- Tabel mahasiswa diisi dari response JSON backend.
+
+### `views/panels/PembayaranPanel.java`
+
+File ini merepresentasikan halaman pembayaran UKT.
+
+Fungsinya:
+
+- Untuk admin: menampilkan semua transaksi pembayaran, filter, input pembayaran, edit, verifikasi status, dan hapus.
+- Untuk mahasiswa: menampilkan riwayat pembayaran miliknya.
+
+Penjelasan kode:
+
+- `loadData()` mengambil data pembayaran sesuai role.
+- Admin memakai `PembayaranService.getAll(...)`.
+- Mahasiswa memakai `PembayaranService.getByNim(...)`.
+- Filter yang tersedia antara lain search, status, dan tahun ajaran.
+- Panel memakai pagination untuk daftar pembayaran admin.
+- Form input pembayaran dibuat dengan dialog Swing.
+
+### `views/panels/KrsJadwalPanel.java`
+
+File ini merepresentasikan halaman KRS dan jadwal kuliah.
+
+Fungsinya:
+
+- Menampilkan data KRS.
+- Menampilkan data mata kuliah.
+- Menampilkan jadwal kuliah.
+- Menyediakan tab untuk Input KRS, Mata Kuliah, dan Jadwal Kuliah.
+- Menyediakan ringkasan jumlah KRS, total SKS, dan jumlah jadwal.
+
+Penjelasan kode:
+
+- Panel memakai `JTabbedPane` untuk membagi fitur menjadi beberapa tab.
+- `refreshAllData()` memuat ulang data KRS, mata kuliah, dan jadwal.
+- Data diambil lewat `AkademikService`.
+- Admin dapat menambahkan KRS, mata kuliah, dan jadwal melalui dialog input.
+- Tabel dibuat memakai `DefaultTableModel`.
+
+### `views/panels/AkademikPanel.java`
+
+File ini merepresentasikan halaman input nilai untuk admin.
+
+Fungsinya:
+
+- Menampilkan daftar mahasiswa berdasarkan mata kuliah dan tahun ajaran.
+- Menginput nilai tugas, UTS, dan UAS.
+- Menghitung/menampilkan nilai akhir dan grade.
+- Menyimpan nilai secara massal.
+
+Penjelasan kode:
+
+- Panel hanya boleh diakses admin.
+- `loadAcademicSettings()` mengambil data tahun ajaran dan bobot nilai.
+- `loadInputList()` mengambil daftar mahasiswa dari `NilaiService`.
+- User mengisi nilai pada tabel.
+- `saveAll()` mengirim data nilai ke backend melalui `NilaiService.bulkSave(...)`.
+- Ada filter jurusan, mata kuliah, tahun ajaran, dan pencarian mahasiswa.
+
+### `views/panels/InputKehadiranPanel.java`
+
+File ini merepresentasikan halaman input kehadiran mahasiswa.
+
+Fungsinya:
+
+- Menampilkan daftar mahasiswa berdasarkan mata kuliah, tahun ajaran, dan tanggal.
+- Menginput status hadir, izin, sakit, atau alpha.
+- Mengisi keterangan kehadiran.
+- Menyimpan data kehadiran secara massal.
+
+Penjelasan kode:
+
+- Panel hanya tersedia untuk admin.
+- `loadAcademicSettings()` memuat tahun ajaran dan konfigurasi akademik.
+- `loadInputList()` mengambil daftar mahasiswa dari backend.
+- Tabel menyediakan kolom status dan keterangan.
+- `saveAll()` mengirim data ke `AkademikService.bulkSaveKehadiran(...)`.
+- Ringkasan hadir/izin/sakit/alpha diperbarui ketika data tabel berubah.
+
+### `views/panels/LihatNilaiMahasiswaPanel.java`
+
+File ini merepresentasikan halaman rekap nilai mahasiswa untuk admin.
+
+Fungsinya:
+
+- Menampilkan rekap nilai mahasiswa.
+- Memfilter berdasarkan tahun ajaran, jurusan, mata kuliah, dan pencarian.
+- Menampilkan nilai tugas, UTS, UAS, nilai akhir, dan grade.
+
+Penjelasan kode:
+
+- Panel hanya tersedia untuk admin.
+- `loadAcademicSettings()` mengambil pilihan tahun ajaran.
+- `loadMataKuliah()` mengambil daftar mata kuliah.
+- `loadRekap()` mengambil data rekap nilai dari `NilaiService.getRekap(...)`.
+- Data ditampilkan di `JTable`.
+
+### `views/panels/RekapAbsensiPanel.java`
+
+File ini merepresentasikan halaman rekap absensi untuk admin.
+
+Fungsinya:
+
+- Menampilkan rekap kehadiran mahasiswa.
+- Memfilter berdasarkan tahun ajaran, mata kuliah, tanggal mulai, tanggal selesai, jurusan, dan pencarian.
+- Menampilkan jumlah hadir, izin, sakit, alpha, dan persentase kehadiran.
+
+Penjelasan kode:
+
+- Panel hanya tersedia untuk admin.
+- Terdapat date picker sederhana untuk memilih tanggal.
+- `loadRekap()` mengambil data dari `AkademikService.getKehadiranRekap(...)`.
+- Data ditampilkan di tabel.
+- Panel juga menampilkan ringkasan total data absensi.
+
+### `views/panels/PengaturanAkademikPanel.java`
+
+File ini merepresentasikan halaman pengaturan akademik.
+
+Fungsinya:
+
+- Mengelola tahun ajaran.
+- Melihat dan mengelola mata kuliah.
+- Mengatur bobot nilai tugas, UTS, dan UAS.
+- Mengatur jumlah pertemuan.
+
+Penjelasan kode:
+
+- Panel memuat data awal melalui `loadSettings()`.
+- Tahun ajaran bisa ditambah, diedit, dan dihapus.
+- Mata kuliah bisa dikelola sesuai endpoint akademik.
+- Bobot nilai disimpan melalui `AkademikService.updateBobotNilai(...)`.
+- Jumlah pertemuan disimpan melalui `AkademikService.updateJumlahPertemuan(...)`.
+
+### `views/panels/NilaiSayaPanel.java`
+
+File ini merepresentasikan halaman nilai untuk mahasiswa.
+
+Fungsinya:
+
+- Menampilkan daftar nilai milik mahasiswa yang sedang login.
+- Menampilkan ringkasan IPK/IPS atau statistik nilai jika tersedia dari backend.
+- Memfilter nilai berdasarkan semester.
+
+Penjelasan kode:
+
+- `loadData()` mengambil data dari `NilaiService.getMyNilai()`.
+- `fill(...)` mengisi label statistik dan tabel.
+- `populateSemesterOptions(...)` membuat pilihan semester dari data yang tersedia.
+- `applySemesterFilter()` memfilter baris tabel berdasarkan semester.
+- Tabel memakai renderer khusus untuk grade dan status agar tampil lebih informatif.
+
+### `views/panels/KehadiranSayaPanel.java`
+
+File ini merepresentasikan halaman kehadiran untuk mahasiswa.
+
+Fungsinya:
+
+- Menampilkan riwayat kehadiran mahasiswa yang sedang login.
+- Menampilkan statistik hadir, izin, sakit, alpha, dan persentase.
+
+Penjelasan kode:
+
+- `loadData()` mengambil data dari `AkademikService.getKehadiranSaya()`.
+- `fill(...)` mengisi tabel dan ringkasan statistik.
+- Tabel memakai renderer khusus untuk status kehadiran.
+- Jika gagal memuat data, panel menampilkan `StatePanel`.
+
+### `views/panels/InfoAkademikPanel.java`
+
+File ini merepresentasikan halaman informasi akademik mahasiswa.
+
+Fungsinya:
+
+- Menampilkan informasi akademik mahasiswa.
+- Menampilkan data seperti identitas mahasiswa, tahun ajaran aktif, semester, KRS, dan ringkasan akademik.
+
+Penjelasan kode:
+
+- `loadData()` memanggil `AkademikService.getInfoAkademikSaya()`.
+- `fill(...)` mengisi data yang diterima dari backend ke label dan tabel.
+- Panel memakai `SkeletonPanel` saat loading.
+- Panel memakai `StatePanel` jika terjadi error.
+
+### `views/panels/LaporanPanel.java`
+
+File ini merepresentasikan halaman laporan dan cetak.
+
+Fungsinya:
+
+- Menampilkan daftar laporan.
+- Generate laporan pembayaran.
+- Generate laporan mahasiswa.
+- Generate laporan keuangan.
+- Menghapus laporan.
+
+Penjelasan kode:
+
+- `loadData()` mengambil daftar laporan dari `LaporanService.getAll(...)`.
+- Tersedia kartu aksi untuk generate laporan.
+- `showGeneratePembayaranDialog()` membuka dialog filter periode laporan pembayaran.
+- `showGenerateKeuanganDialog()` membuka dialog tahun ajaran untuk laporan keuangan.
+- Setelah laporan berhasil dibuat, data laporan dimuat ulang.
+
+### `views/panels/SkeletonPanel.java`
+
+File ini merepresentasikan tampilan loading skeleton.
+
+Fungsinya:
+
+- Memberi tampilan placeholder ketika data sedang dimuat.
+- Membuat aplikasi terasa lebih responsif.
+- Menyediakan beberapa bentuk skeleton seperti dashboard, tabel, dan laporan.
+
+Penjelasan kode:
+
+- Class ini extends `JPanel`.
+- Timer digunakan untuk membuat efek shimmer.
+- `paintComponent(...)` menggambar blok-blok skeleton memakai `Graphics2D`.
+- Method `start()` menjalankan animasi.
+- Method `stop()` menghentikan animasi.
+
+### `views/panels/StatePanel.java`
+
+File ini merepresentasikan tampilan state kosong/error.
+
+Fungsinya:
+
+- Menampilkan pesan ketika data kosong.
+- Menampilkan pesan ketika terjadi error.
+- Menyediakan tombol aksi seperti "Muat ulang" atau "Coba lagi".
+
+Penjelasan kode:
+
+- `showState(...)` menerima icon, judul, pesan, teks tombol, dan action.
+- Jika action tersedia, tombol akan menjalankan `Runnable` yang diberikan.
+- Panel ini dipakai banyak halaman agar tampilan error konsisten.
+
+### `views/panels/AkademikComingSoonPanel.java`
+
+File ini merepresentasikan panel placeholder untuk fitur akademik yang belum selesai.
+
+Fungsinya:
+
+- Menampilkan informasi bahwa sebuah fitur belum tersedia.
+- Menjaga agar menu tetap bisa dibuat walaupun modul belum diimplementasikan penuh.
+
+Penjelasan kode:
+
+- Constructor menerima `featureName` dan `description`.
+- Panel menggambar card sederhana berisi nama fitur dan deskripsi.
+- Saat ini file ini tidak menjadi panel utama di `MainFrame`, karena modul akademik utama sudah memakai panel lain seperti `AkademikPanel`, `InputKehadiranPanel`, dan `PengaturanAkademikPanel`.
+
+## Ringkasan Pola Kode Frontend
+
+Frontend ini memakai pola sederhana:
+
+- `Main.java` menjalankan aplikasi.
+- `LoginFrame.java` menangani login.
+- `JwtHelper.java` menyimpan sesi login.
+- `MainFrame.java` mengatur layout utama dan navigasi.
+- Folder `panels` berisi halaman fitur.
+- Folder `services` menghubungkan UI ke backend.
+- `Config.java` menyimpan URL dan konfigurasi global.
+
+Pola loading data pada banyak panel biasanya seperti ini:
+
+1. Tampilkan `SkeletonPanel`.
+2. Jalankan request API di background memakai `SwingWorker`.
+3. Jika sukses, isi tabel/label/chart.
+4. Jika gagal, tampilkan `StatePanel`.
+5. Tampilkan kembali panel utama.
+
+Pola role user:
+
+- Admin bisa mengakses fitur manajemen seperti mahasiswa, pembayaran, input nilai, input kehadiran, rekap, pengaturan akademik, dan laporan.
+- Mahasiswa hanya melihat data miliknya sendiri seperti profil, pembayaran, nilai, kehadiran, dan info akademik.
+
+Dengan struktur ini, frontend lebih mudah dikembangkan karena setiap modul sudah dipisahkan berdasarkan tanggung jawabnya masing-masing.

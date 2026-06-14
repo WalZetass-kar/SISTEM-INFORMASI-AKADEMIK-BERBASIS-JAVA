@@ -1,6 +1,7 @@
 package com.siakad;
 
 import com.formdev.flatlaf.FlatDarkLaf;
+import com.siakad.utils.SwingUi;
 import com.siakad.views.LoginFrame;
 import javax.swing.*;
 
@@ -10,9 +11,8 @@ import javax.swing.*;
  */
 public class Main {
     public static void main(String[] args) {
-        // Linux/Wayland can hide lightweight Swing popups behind the main window.
-        JPopupMenu.setDefaultLightWeightPopupEnabled(false);
-        ToolTipManager.sharedInstance().setLightWeightPopupEnabled(false);
+        // Keep Swing popups predictable across Windows and Linux desktops.
+        SwingUi.installPopupFixes();
 
         // Set Look and Feel
         try {
@@ -22,6 +22,7 @@ public class Main {
             UIManager.put("TextComponent.arc", 8);
             UIManager.put("ScrollBar.thumbArc", 999);
             UIManager.put("ScrollBar.thumbInsets", new java.awt.Insets(2, 2, 2, 2));
+            SwingUi.applyPopupDefaults();
         } catch (Exception e) {
             System.err.println("Gagal set Look and Feel: " + e.getMessage());
         }
@@ -29,6 +30,7 @@ public class Main {
         // Launch GUI on EDT
         SwingUtilities.invokeLater(() -> {
             LoginFrame loginFrame = new LoginFrame();
+            SwingUi.configurePopups(loginFrame);
             loginFrame.setVisible(true);
         });
     }

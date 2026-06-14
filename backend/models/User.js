@@ -84,6 +84,17 @@ class User {
   }
 
   /**
+   * Hapus akun user mahasiswa berdasarkan NIM
+   */
+  static async deleteByNim(nim) {
+    const [result] = await pool.execute(
+      'DELETE FROM users WHERE role = ? AND nim = ?',
+      ['mahasiswa', nim]
+    );
+    return result.affectedRows > 0;
+  }
+
+  /**
    * Aktifkan user
    */
   static async activate(id) {

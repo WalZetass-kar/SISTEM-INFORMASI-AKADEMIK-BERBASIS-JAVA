@@ -14,8 +14,11 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
+import java.util.HashMap;
+import java.util.Map;
 
 public class InputKehadiranPanel extends JPanel {
 
@@ -27,7 +30,6 @@ public class InputKehadiranPanel extends JPanel {
     private JComboBox<MataKuliahItem> cmbMataKuliah;
     private JComboBox<String> cmbTahunAjaran;
     private JComboBox<String> cmbJurusan;
-    private JTextField txtTanggal;
     private JComboBox<Integer> cmbPertemuan;
     private JTextField txtSearch;
     private JTable table;
@@ -38,8 +40,13 @@ public class InputKehadiranPanel extends JPanel {
     private JLabel lblSavedSummary;
     private JLabel lblDistributionSummary;
     private JButton btnSave;
+    private JButton btnEdit;
     private boolean loadingRows = false;
+    private boolean editingSavedRows = false;
+    private boolean initialLoadDone = false;
     private int jumlahPertemuan = 12;
+    private final Map<String, String> tanggalMulaiByTahunAjaran = new HashMap<>();
+    private final Map<String, Integer> jumlahPertemuanByJurusan = new HashMap<>();
 
     private static final Color BG = new Color(13, 19, 38);
     private static final Color CARD_BG = new Color(18, 26, 48);
@@ -66,6 +73,12 @@ public class InputKehadiranPanel extends JPanel {
             loadAcademicSettings();
         } else {
             showState("Akses terbatas", "Input kehadiran hanya tersedia untuk admin.");
+        }
+    }
+
+    public void onPanelShown() {
+        if (JwtHelper.getInstance().isAdmin() && initialLoadDone) {
+            loadAcademicSettings();
         }
     }
 
@@ -128,13 +141,12 @@ public class InputKehadiranPanel extends JPanel {
 
         cmbMataKuliah = new JComboBox<>();
         styleCombo(cmbMataKuliah, 380);
-
-        txtTanggal = new JTextField(LocalDate.now().toString());
-        styleTextField(txtTanggal, 170);
+        cmbMataKuliah.addActionListener(e -> updatePertemuanOptionsForSelectedJurusan());
 
         cmbPertemuan = new JComboBox<>();
         styleCombo(cmbPertemuan, 150);
         populatePertemuanOptions(12);
+        cmbJurusan.addActionListener(e -> updatePertemuanOptionsForSelectedJurusan());
 
         txtSearch = new JTextField();
         styleTextField(txtSearch, 270);
@@ -153,10 +165,8 @@ public class InputKehadiranPanel extends JPanel {
         g.gridy = 1;
         g.gridx = 0; g.weightx = 0.22;
         g.insets = new Insets(0, 0, 0, 18);
-        fields.add(labeledField("Tanggal", txtTanggal), g);
-        g.gridx = 1; g.weightx = 0.18;
         fields.add(labeledField("Pertemuan", cmbPertemuan), g);
-        g.gridx = 2; g.weightx = 0.60;
+        g.gridx = 1; g.weightx = 0.60;
         g.insets = new Insets(0, 0, 0, 0);
         fields.add(labeledField("Cari Nama/NIM", txtSearch), g);
 
@@ -193,7 +203,9 @@ public class InputKehadiranPanel extends JPanel {
         String[] columns = {"NIM", "Nama", "Jurusan", "Status", "Keterangan", "Tersimpan"};
         tableModel = new DefaultTableModel(columns, 0) {
             @Override public boolean isCellEditable(int row, int col) {
-                return col == 3 || col == 4;
+                if (col != 3 && col != 4) return false;
+                String saveStatus = String.valueOf(getValueAt(row, 5));
+                return editingSavedRows || !"Tersimpan".equals(saveStatus);
             }
         };
 
@@ -208,12 +220,25 @@ public class InputKehadiranPanel extends JPanel {
         };
         styleTable(table);
 
-        JComboBox<String> statusEditor = new JComboBox<>(new String[]{"hadir", "izin", "sakit", "alpha"});
-        statusEditor.setBackground(CARD_BG);
-        statusEditor.setForeground(TEXT);
-        table.getColumnModel().getColumn(3).setCellEditor(new DefaultCellEditor(statusEditor));
+        StatusCellEditor statusCellEditor = new StatusCellEditor();
+        table.getColumnModel().getColumn(3).setCellEditor(statusCellEditor);
         table.getColumnModel().getColumn(3).setCellRenderer(new StatusRenderer());
+        table.getColumnModel().getColumn(3).setHeaderValue("Status ▾");
         table.getColumnModel().getColumn(5).setCellRenderer(new SavedRenderer());
+        table.addMouseListener(new MouseAdapter() {
+            @Override public void mousePressed(MouseEvent e) {
+                int row = table.rowAtPoint(e.getPoint());
+                int col = table.columnAtPoint(e.getPoint());
+                if (row < 0 || col != 3 || !table.isCellEditable(row, col)) {
+                    return;
+                }
+                table.editCellAt(row, col, e);
+                Component editor = table.getEditorComponent();
+                if (editor instanceof JComboBox<?> combo) {
+                    SwingUtilities.invokeLater(combo::showPopup);
+                }
+            }
+        });
         tableModel.addTableModelListener(e -> {
             if (loadingRows || e.getFirstRow() < 0) return;
             if (e.getColumn() == 3 || e.getColumn() == 4) {
@@ -252,7 +277,7 @@ public class InputKehadiranPanel extends JPanel {
         JLabel tableTitle = new JLabel("Daftar Kehadiran");
         tableTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
         tableTitle.setForeground(TEXT);
-        lblCourseSummary = new JLabel("Pilih mata kuliah dan tanggal untuk mulai mengisi kehadiran.");
+        lblCourseSummary = new JLabel("Pilih mata kuliah dan pertemuan untuk mulai mengisi kehadiran.");
         lblCourseSummary.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         lblCourseSummary.setForeground(MUTED);
         headerText.add(tableTitle);
@@ -288,11 +313,23 @@ public class InputKehadiranPanel extends JPanel {
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         actions.setOpaque(false);
         JButton btnReset = buildButton("Reset", CARD_BG);
-        btnSave = buildButton("Simpan Semua", GREEN);
-        btnSave.setEnabled(false);
+        btnEdit = buildButton("Edit", BLUE);
+        btnSave = buildButton("Simpan", GREEN);
+        btnEdit.setVisible(false);
+        btnSave.setVisible(false);
         btnReset.addActionListener(e -> loadInputList());
+        btnEdit.addActionListener(e -> {
+            editingSavedRows = true;
+            btnEdit.setVisible(false);
+            lblInfo.setText("Silakan ubah status atau keterangan mahasiswa, lalu tekan Simpan.");
+            if (table.getRowCount() > 0) {
+                table.requestFocusInWindow();
+                table.setRowSelectionInterval(0, 0);
+            }
+        });
         btnSave.addActionListener(e -> saveAll());
         actions.add(btnReset);
+        actions.add(btnEdit);
         actions.add(btnSave);
 
         footer.add(lblInfo, BorderLayout.WEST);
@@ -319,10 +356,12 @@ public class InputKehadiranPanel extends JPanel {
                     if (jumlahPertemuan <= 0) {
                         jumlahPertemuan = 12;
                     }
+                    populatePertemuanJurusan(response.getAsJsonObject("data").getAsJsonArray("jumlah_pertemuan_jurusan"));
                     populatePertemuanOptions(jumlahPertemuan);
                     populateTahunAjaran(response.getAsJsonObject("data").getAsJsonArray("tahun_ajaran"));
                     loadJurusanList();
                     loadMataKuliah();
+                    initialLoadDone = true;
                 } catch (Exception ex) {
                     showState("Gagal memuat pengaturan akademik", ex.getMessage());
                 } finally {
@@ -334,12 +373,17 @@ public class InputKehadiranPanel extends JPanel {
 
     private void populateTahunAjaran(JsonArray data) {
         cmbTahunAjaran.removeAllItems();
+        tanggalMulaiByTahunAjaran.clear();
         String active = null;
         for (JsonElement item : data) {
             JsonObject tahun = item.getAsJsonObject();
+            if ("draft".equalsIgnoreCase(getString(tahun, "status"))) {
+                continue;
+            }
             String label = getString(tahun, "tahun_ajaran");
             if (!label.isBlank()) {
                 cmbTahunAjaran.addItem(label);
+                tanggalMulaiByTahunAjaran.put(label, getString(tahun, "tanggal_mulai"));
                 if ("aktif".equals(getString(tahun, "status"))) {
                     active = label;
                 }
@@ -347,6 +391,19 @@ public class InputKehadiranPanel extends JPanel {
         }
         if (active != null) {
             cmbTahunAjaran.setSelectedItem(active);
+        }
+    }
+
+    private void populatePertemuanJurusan(JsonArray data) {
+        jumlahPertemuanByJurusan.clear();
+        if (data == null) return;
+        for (JsonElement item : data) {
+            JsonObject row = item.getAsJsonObject();
+            String jurusan = getString(row, "jurusan");
+            int total = getInt(row, "jumlah_pertemuan");
+            if (!jurusan.isBlank() && total > 0) {
+                jumlahPertemuanByJurusan.put(jurusan, total);
+            }
         }
     }
 
@@ -376,9 +433,11 @@ public class InputKehadiranPanel extends JPanel {
                     if (previous != null) {
                         cmbJurusan.setSelectedItem(previous);
                     }
+                    updatePertemuanOptionsForSelectedJurusan();
                 } catch (Exception ex) {
                     cmbJurusan.removeAllItems();
                     cmbJurusan.addItem("Semua Jurusan");
+                    updatePertemuanOptionsForSelectedJurusan();
                 }
             }
         }.execute();
@@ -405,7 +464,8 @@ public class InputKehadiranPanel extends JPanel {
                         cmbMataKuliah.addItem(new MataKuliahItem(
                                 getString(mk, "kode_mk"),
                                 getString(mk, "nama_mk"),
-                                getInt(mk, "semester")
+                                getInt(mk, "semester"),
+                                getString(mk, "jurusan")
                         ));
                     }
 
@@ -414,7 +474,7 @@ public class InputKehadiranPanel extends JPanel {
                         loadInputList();
                     } else {
                         tableModel.setRowCount(0);
-                        btnSave.setEnabled(false);
+                        updateSummaries();
                         lblInfo.setText("Belum ada data mata kuliah.");
                     }
                 } catch (Exception ex) {
@@ -434,9 +494,12 @@ public class InputKehadiranPanel extends JPanel {
             showState("Tahun ajaran kosong", "Aktifkan atau tambahkan tahun ajaran di Pengaturan Akademik.");
             return;
         }
-        String tanggal = txtTanggal.getText().trim();
-        if (!isValidDate(tanggal)) {
-            JOptionPane.showMessageDialog(this, "Format tanggal harus YYYY-MM-DD.", "Tanggal tidak valid", JOptionPane.WARNING_MESSAGE);
+        String tanggal = computedAttendanceDate();
+        if (tanggal.isBlank()) {
+            JOptionPane.showMessageDialog(this,
+                    "Tanggal mulai tahun ajaran belum diatur. Lengkapi di Pengaturan Akademik.",
+                    "Tanggal otomatis belum tersedia",
+                    JOptionPane.WARNING_MESSAGE);
             return;
         }
 
@@ -472,6 +535,7 @@ public class InputKehadiranPanel extends JPanel {
 
     private void fillRows(JsonArray data, JsonObject mataKuliah) {
         loadingRows = true;
+        editingSavedRows = false;
         tableModel.setRowCount(0);
         for (JsonElement element : data) {
             JsonObject row = element.getAsJsonObject();
@@ -487,13 +551,12 @@ public class InputKehadiranPanel extends JPanel {
         }
         loadingRows = false;
 
-        btnSave.setEnabled(data.size() > 0);
         String kode = getString(mataKuliah, "kode_mk");
         String nama = getString(mataKuliah, "nama_mk");
         String semester = getString(mataKuliah, "semester");
         String jurusan = selectedJurusan();
         String jurusanInfo = jurusan.isBlank() ? "Semua Jurusan" : jurusan;
-        lblCourseSummary.setText(kode + " - " + nama + " | Semester " + semester + " | " + cmbTahunAjaran.getSelectedItem() + " | " + txtTanggal.getText().trim() + " | " + jurusanInfo);
+        lblCourseSummary.setText(kode + " - " + nama + " | Semester " + semester + " | " + cmbTahunAjaran.getSelectedItem() + " | Pertemuan " + cmbPertemuan.getSelectedItem() + " | " + jurusanInfo);
         lblCountSummary.setText("  " + data.size() + " Mahasiswa  ");
         updateSummaries();
         lblInfo.setText(data.size() == 0
@@ -507,9 +570,12 @@ public class InputKehadiranPanel extends JPanel {
         if (table.isEditing()) {
             table.getCellEditor().stopCellEditing();
         }
-        String tanggal = txtTanggal.getText().trim();
-        if (!isValidDate(tanggal)) {
-            JOptionPane.showMessageDialog(this, "Format tanggal harus YYYY-MM-DD.", "Tanggal tidak valid", JOptionPane.WARNING_MESSAGE);
+        String tanggal = computedAttendanceDate();
+        if (tanggal.isBlank()) {
+            JOptionPane.showMessageDialog(this,
+                    "Tanggal mulai tahun ajaran belum diatur. Lengkapi di Pengaturan Akademik.",
+                    "Tanggal otomatis belum tersedia",
+                    JOptionPane.WARNING_MESSAGE);
             return;
         }
         Integer pertemuan = (Integer) cmbPertemuan.getSelectedItem();
@@ -534,7 +600,9 @@ public class InputKehadiranPanel extends JPanel {
         body.addProperty("pertemuan", pertemuan);
         body.add("items", items);
 
-        btnSave.setEnabled(false);
+        btnSave.setVisible(false);
+        if (btnEdit != null) btnEdit.setVisible(false);
+        editingSavedRows = false;
         lblInfo.setText("Menyimpan kehadiran...");
         new SwingWorker<JsonObject, Void>() {
             @Override protected JsonObject doInBackground() throws Exception {
@@ -552,11 +620,11 @@ public class InputKehadiranPanel extends JPanel {
                     if (success) {
                         loadInputList();
                     } else {
-                        btnSave.setEnabled(true);
+                        btnSave.setVisible(true);
                         lblInfo.setText("Simpan kehadiran gagal.");
                     }
                 } catch (Exception ex) {
-                    btnSave.setEnabled(true);
+                    btnSave.setVisible(true);
                     lblInfo.setText("Gagal menyimpan kehadiran.");
                     JOptionPane.showMessageDialog(InputKehadiranPanel.this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                 }
@@ -681,6 +749,18 @@ public class InputKehadiranPanel extends JPanel {
         }
         lblSavedSummary.setText("  " + saved + " Tersimpan | " + changed + " Diubah | " + fresh + " Baru  ");
         lblDistributionSummary.setText("  H:" + hadir + " I:" + izin + " S:" + sakit + " A:" + alpha + "  ");
+        updateActionButtons(saved, changed);
+    }
+
+    private void updateActionButtons(int saved, int changed) {
+        if (btnSave != null) {
+            btnSave.setVisible(changed > 0);
+        }
+        if (btnEdit != null) {
+            btnEdit.setVisible(changed == 0 && saved > 0);
+        }
+        revalidate();
+        repaint();
     }
 
     private void populatePertemuanOptions(int total) {
@@ -696,13 +776,41 @@ public class InputKehadiranPanel extends JPanel {
         cmbPertemuan.setSelectedItem(Math.min(previous, safeTotal));
     }
 
-    private boolean isValidDate(String value) {
-        if (value == null || !value.matches("\\d{4}-\\d{2}-\\d{2}")) return false;
+    private void updatePertemuanOptionsForSelectedJurusan() {
+        String jurusan = selectedJurusanForPertemuan();
+        int total = jurusan.isBlank()
+                ? jumlahPertemuan
+                : jumlahPertemuanByJurusan.getOrDefault(jurusan, jumlahPertemuan);
+        populatePertemuanOptions(total);
+    }
+
+    private String selectedJurusanForPertemuan() {
+        String jurusan = selectedJurusan();
+        if (!jurusan.isBlank()) {
+            return jurusan;
+        }
+        Object selected = cmbMataKuliah == null ? null : cmbMataKuliah.getSelectedItem();
+        if (selected instanceof MataKuliahItem item && item.jurusan != null) {
+            return item.jurusan.trim();
+        }
+        return "";
+    }
+
+    private String computedAttendanceDate() {
+        Object tahun = cmbTahunAjaran.getSelectedItem();
+        Object pertemuan = cmbPertemuan.getSelectedItem();
+        if (tahun == null || !(pertemuan instanceof Integer)) {
+            return "";
+        }
+        String startDate = tanggalMulaiByTahunAjaran.getOrDefault(String.valueOf(tahun), "");
+        if (startDate == null || startDate.length() < 10) {
+            return "";
+        }
         try {
-            LocalDate.parse(value);
-            return true;
-        } catch (DateTimeParseException ex) {
-            return false;
+            LocalDate start = LocalDate.parse(startDate.substring(0, 10));
+            return start.plusWeeks(((Integer) pertemuan) - 1L).toString();
+        } catch (Exception ex) {
+            return "";
         }
     }
 
@@ -739,11 +847,13 @@ public class InputKehadiranPanel extends JPanel {
         final String kodeMk;
         final String namaMk;
         final int semester;
+        final String jurusan;
 
-        MataKuliahItem(String kodeMk, String namaMk, int semester) {
+        MataKuliahItem(String kodeMk, String namaMk, int semester, String jurusan) {
             this.kodeMk = kodeMk;
             this.namaMk = namaMk;
             this.semester = semester;
+            this.jurusan = jurusan;
         }
 
         @Override public String toString() {
@@ -755,9 +865,15 @@ public class InputKehadiranPanel extends JPanel {
         @Override public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
             JLabel label = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
             String status = String.valueOf(value);
+            label.setText(status + "  ▾");
             label.setHorizontalAlignment(SwingConstants.CENTER);
             label.setFont(new Font("Segoe UI", Font.BOLD, 11));
             label.setForeground(Color.WHITE);
+            label.setToolTipText("Klik untuk memilih status kehadiran");
+            label.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(new Color(255, 255, 255, 90), 1),
+                    new EmptyBorder(0, 8, 0, 8)
+            ));
             if (!isSelected) {
                 if ("hadir".equals(status)) label.setBackground(new Color(22, 101, 52));
                 else if ("izin".equals(status)) label.setBackground(new Color(37, 99, 235));
@@ -765,6 +881,27 @@ public class InputKehadiranPanel extends JPanel {
                 else label.setBackground(new Color(185, 28, 28));
             }
             return label;
+        }
+    }
+
+    private class StatusCellEditor extends DefaultCellEditor {
+        private final JComboBox<String> combo;
+
+        StatusCellEditor() {
+            super(new JComboBox<>(new String[]{"hadir", "izin", "sakit", "alpha"}));
+            combo = (JComboBox<String>) getComponent();
+            combo.setBackground(CARD_BG);
+            combo.setForeground(TEXT);
+            combo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+            combo.setBorder(BorderFactory.createLineBorder(BORDER));
+            setClickCountToStart(1);
+        }
+
+        @Override public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
+            Component component = super.getTableCellEditorComponent(table, value, isSelected, row, column);
+            combo.setSelectedItem(value == null ? "hadir" : String.valueOf(value));
+            SwingUtilities.invokeLater(combo::showPopup);
+            return component;
         }
     }
 
