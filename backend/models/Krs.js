@@ -12,6 +12,9 @@ class Krs {
         k.id AS id_krs,
         k.nim,
         m.nama AS nama_mahasiswa,
+        m.jurusan,
+        m.program_studi,
+        m.semester AS semester_mahasiswa,
         k.kode_mk,
         mk.nama_mk,
         mk.sks,
@@ -72,7 +75,8 @@ class Krs {
     }
 
     query += ` GROUP BY
-      k.id, k.nim, m.nama, k.kode_mk, mk.nama_mk, mk.sks, mk.semester, k.tahun_ajaran, k.status
+      k.id, k.nim, m.nama, m.jurusan, m.program_studi, m.semester,
+      k.kode_mk, mk.nama_mk, mk.sks, mk.semester, k.tahun_ajaran, k.status
       ORDER BY k.tahun_ajaran DESC, mk.semester ASC, k.kode_mk ASC`;
 
     const [rows] = await pool.execute(query, params);
