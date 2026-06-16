@@ -27,8 +27,11 @@ import javax.swing.table.TableCellRenderer;
 import java.awt.*;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.time.LocalDate;
 import java.time.Year;
+import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashSet;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -858,7 +861,10 @@ public class KrsJadwalPanel extends JPanel {
             return;
         }
 
-        String nama = currentKrsSummary != null ? safe(currentKrsSummary, "nama_mahasiswa") : "-";
+        JsonObject firstKrs = currentKrsCache.get(0).getAsJsonObject();
+        String nama = currentKrsSummary != null
+                ? safe(currentKrsSummary, "nama_mahasiswa")
+                : safe(firstKrs, "nama_mahasiswa");
         int totalSks = currentKrsSummary != null
                 ? parseInteger(safe(currentKrsSummary, "total_sks"))
                 : calculateTotalSks(currentKrsCache);
@@ -890,69 +896,196 @@ public class KrsJadwalPanel extends JPanel {
     }
 
     private void exportKrsPdf(File file, String nim, String nama, String tahunAjaran, int totalSks) throws Exception {
-        Document document = new Document(PageSize.A4.rotate(), 36, 36, 36, 36);
+        Document document = new Document(PageSize.A4, 54, 45, 48, 45);
         PdfWriter.getInstance(document, new FileOutputStream(file));
         document.open();
 
-        com.itextpdf.text.Font titleFont = com.itextpdf.text.FontFactory.getFont(
-                com.itextpdf.text.FontFactory.HELVETICA_BOLD, 16, BaseColor.BLACK);
-        com.itextpdf.text.Font subtitleFont = com.itextpdf.text.FontFactory.getFont(
-                com.itextpdf.text.FontFactory.HELVETICA, 11, BaseColor.DARK_GRAY);
-        com.itextpdf.text.Font headerFont = com.itextpdf.text.FontFactory.getFont(
-                com.itextpdf.text.FontFactory.HELVETICA_BOLD, 10, BaseColor.WHITE);
+        JsonObject firstKrs = currentKrsCache.get(0).getAsJsonObject();
+        String jurusan = valueOrDefault(safe(firstKrs, "jurusan"), "-");
+        String programStudi = valueOrDefault(safe(firstKrs, "program_studi"), "-");
+        String semester = valueOrDefault(safe(firstKrs, "semester_mahasiswa"), safe(firstKrs, "semester"));
+        String tanggal = LocalDate.now().format(DateTimeFormatter.ofPattern("d MMMM yyyy", new Locale("id", "ID")));
+
+        com.itextpdf.text.Font kopTitleFont = com.itextpdf.text.FontFactory.getFont(
+                com.itextpdf.text.FontFactory.TIMES_BOLD, 14, BaseColor.BLACK);
+        com.itextpdf.text.Font kopMidFont = com.itextpdf.text.FontFactory.getFont(
+                com.itextpdf.text.FontFactory.TIMES_BOLD, 13, BaseColor.BLACK);
+        com.itextpdf.text.Font kopSmallFont = com.itextpdf.text.FontFactory.getFont(
+                com.itextpdf.text.FontFactory.TIMES_ROMAN, 9, BaseColor.BLACK);
         com.itextpdf.text.Font bodyFont = com.itextpdf.text.FontFactory.getFont(
-                com.itextpdf.text.FontFactory.HELVETICA, 9, BaseColor.BLACK);
+                com.itextpdf.text.FontFactory.TIMES_ROMAN, 11, BaseColor.BLACK);
+        com.itextpdf.text.Font bodyBoldFont = com.itextpdf.text.FontFactory.getFont(
+                com.itextpdf.text.FontFactory.TIMES_BOLD, 11, BaseColor.BLACK);
+        com.itextpdf.text.Font tableHeaderFont = com.itextpdf.text.FontFactory.getFont(
+                com.itextpdf.text.FontFactory.TIMES_BOLD, 10, BaseColor.BLACK);
+        com.itextpdf.text.Font tableBodyFont = com.itextpdf.text.FontFactory.getFont(
+                com.itextpdf.text.FontFactory.TIMES_ROMAN, 10, BaseColor.BLACK);
+        com.itextpdf.text.Font logoFont = com.itextpdf.text.FontFactory.getFont(
+                com.itextpdf.text.FontFactory.TIMES_BOLD, 12, BaseColor.BLACK);
 
-        Paragraph title = new Paragraph("Kartu Rencana Studi (KRS)", titleFont);
-        title.setAlignment(Element.ALIGN_CENTER);
-        document.add(title);
+        addLetterHeader(document, kopTitleFont, kopMidFont, kopSmallFont, logoFont);
 
-        Paragraph meta = new Paragraph(
-                "NIM: " + nim + "    Nama: " + nama + "    Tahun Ajaran: " + tahunAjaran + "    Total SKS: " + totalSks,
-                subtitleFont);
-        meta.setSpacingBefore(8f);
-        meta.setSpacingAfter(14f);
-        document.add(meta);
+        PdfPTable metaTable = new PdfPTable(new float[]{1.6f, 0.2f, 4.1f, 1.4f});
+        metaTable.setWidthPercentage(100);
+        metaTable.setSpacingBefore(28f);
+        addPlainCell(metaTable, "Nomor", bodyFont, Element.ALIGN_LEFT);
+        addPlainCell(metaTable, ":", bodyFont, Element.ALIGN_CENTER);
+        addPlainCell(metaTable, "/KRS/SIAKAD/" + Year.now().getValue(), bodyFont, Element.ALIGN_LEFT);
+        addPlainCell(metaTable, tanggal, bodyFont, Element.ALIGN_RIGHT);
+        addPlainCell(metaTable, "Lampiran", bodyFont, Element.ALIGN_LEFT);
+        addPlainCell(metaTable, ":", bodyFont, Element.ALIGN_CENTER);
+        addPlainCell(metaTable, "-", bodyFont, Element.ALIGN_LEFT);
+        addPlainCell(metaTable, "", bodyFont, Element.ALIGN_RIGHT);
+        addPlainCell(metaTable, "Perihal", bodyFont, Element.ALIGN_LEFT);
+        addPlainCell(metaTable, ":", bodyFont, Element.ALIGN_CENTER);
+        addPlainCell(metaTable, "Pengisian KRS", bodyBoldFont, Element.ALIGN_LEFT);
+        addPlainCell(metaTable, "", bodyFont, Element.ALIGN_RIGHT);
+        document.add(metaTable);
 
-        PdfPTable table = new PdfPTable(new float[]{1.5f, 3.4f, 0.8f, 2.8f, 1.6f, 2.1f});
-        table.setWidthPercentage(100);
+        Paragraph recipient = new Paragraph();
+        recipient.setFont(bodyFont);
+        recipient.setSpacingBefore(30f);
+        recipient.add("Yth. Wakil Rektor Bidang Akademik\n");
+        recipient.add("Universitas\n");
+        recipient.add("di\n");
+        recipient.add("Tempat");
+        document.add(recipient);
 
-        addPdfHeader(table, "Kode MK", headerFont);
-        addPdfHeader(table, "Mata Kuliah", headerFont);
-        addPdfHeader(table, "SKS", headerFont);
-        addPdfHeader(table, "Jadwal", headerFont);
-        addPdfHeader(table, "Ruangan", headerFont);
-        addPdfHeader(table, "Dosen", headerFont);
+        Paragraph opening = new Paragraph(
+                "Sehubungan dengan pengisian Kartu Rencana Studi (KRS), berikut kami sampaikan data mahasiswa dan mata kuliah yang diambil pada tahun ajaran "
+                        + tahunAjaran + ".", bodyFont);
+        opening.setAlignment(Element.ALIGN_JUSTIFIED);
+        opening.setFirstLineIndent(0f);
+        opening.setSpacingBefore(28f);
+        opening.setLeading(0f, 1.25f);
+        document.add(opening);
 
+        PdfPTable identityTable = new PdfPTable(new float[]{1.9f, 0.2f, 4.4f});
+        identityTable.setWidthPercentage(78);
+        identityTable.setHorizontalAlignment(Element.ALIGN_LEFT);
+        identityTable.setSpacingBefore(6f);
+        addInfoRow(identityTable, "nama", nama, bodyFont, bodyBoldFont);
+        addInfoRow(identityTable, "NIM", nim, bodyFont, bodyBoldFont);
+        addInfoRow(identityTable, "jurusan", jurusan, bodyFont, bodyBoldFont);
+        addInfoRow(identityTable, "program studi", programStudi, bodyFont, bodyBoldFont);
+        addInfoRow(identityTable, "semester", semester + " (" + totalSks + " SKS)", bodyFont, bodyBoldFont);
+        document.add(identityTable);
+
+        PdfPTable table = new PdfPTable(new float[]{0.6f, 2.4f, 4.3f, 1.2f});
+        table.setWidthPercentage(92);
+        table.setHorizontalAlignment(Element.ALIGN_CENTER);
+        table.setSpacingBefore(18f);
+
+        addLetterTableHeader(table, "NO", tableHeaderFont);
+        addLetterTableHeader(table, "Kode Mata Kuliah", tableHeaderFont);
+        addLetterTableHeader(table, "Mata Kuliah", tableHeaderFont);
+        addLetterTableHeader(table, "Jumlah SKS", tableHeaderFont);
+
+        int no = 1;
         for (JsonElement element : currentKrsCache) {
             JsonObject item = element.getAsJsonObject();
-            addPdfCell(table, safe(item, "kode_mk"), bodyFont);
-            addPdfCell(table, safe(item, "nama_mk"), bodyFont);
-            addPdfCell(table, safe(item, "sks"), bodyFont);
-            addPdfCell(table, safe(item, "jadwal"), bodyFont);
-            addPdfCell(table, safe(item, "ruangan"), bodyFont);
-            addPdfCell(table, safe(item, "dosen"), bodyFont);
+            addLetterTableCell(table, String.valueOf(no++), tableBodyFont, Element.ALIGN_CENTER);
+            addLetterTableCell(table, safe(item, "kode_mk"), tableBodyFont, Element.ALIGN_LEFT);
+            addLetterTableCell(table, safe(item, "nama_mk"), tableBodyFont, Element.ALIGN_LEFT);
+            addLetterTableCell(table, safe(item, "sks"), tableBodyFont, Element.ALIGN_CENTER);
         }
-
+        addLetterTableCell(table, "", tableBodyFont, Element.ALIGN_CENTER);
+        addLetterTableCell(table, "", tableBodyFont, Element.ALIGN_LEFT);
+        addLetterTableCell(table, "Total SKS", tableHeaderFont, Element.ALIGN_RIGHT);
+        addLetterTableCell(table, String.valueOf(totalSks), tableHeaderFont, Element.ALIGN_CENTER);
         document.add(table);
-        document.add(Chunk.NEWLINE);
-        document.add(new Paragraph("Dokumen dicetak dari modul KRS & Jadwal Kuliah.", subtitleFont));
+
+        Paragraph closing = new Paragraph("Atas kerja sama yang baik, kami ucapkan terima kasih.", bodyFont);
+        closing.setSpacingBefore(22f);
+        document.add(closing);
+
+        PdfPTable signTable = new PdfPTable(new float[]{3.4f, 2.6f});
+        signTable.setWidthPercentage(100);
+        signTable.setSpacingBefore(48f);
+        addPlainCell(signTable, "", bodyFont, Element.ALIGN_LEFT);
+        addPlainCell(signTable, "a.n. Dekan\nWakil Dekan Bidang Akademik\n\ndan Kerja Sama,", bodyBoldFont, Element.ALIGN_LEFT);
+        addPlainCell(signTable, "", bodyFont, Element.ALIGN_LEFT);
+        addPlainCell(signTable, "\n\n\n\n________________________\nNIP. __________________", bodyBoldFont, Element.ALIGN_LEFT);
+        document.add(signTable);
         document.close();
     }
 
-    private void addPdfHeader(PdfPTable table, String text, com.itextpdf.text.Font font) {
+    private void addLetterHeader(Document document,
+                                 com.itextpdf.text.Font kopTitleFont,
+                                 com.itextpdf.text.Font kopMidFont,
+                                 com.itextpdf.text.Font kopSmallFont,
+                                 com.itextpdf.text.Font logoFont) throws Exception {
+        PdfPTable header = new PdfPTable(new float[]{1.1f, 5.4f});
+        header.setWidthPercentage(100);
+
+        PdfPCell logoCell = new PdfPCell(new Phrase("SIAKAD", logoFont));
+        logoCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+        logoCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+        logoCell.setFixedHeight(72f);
+        logoCell.setBorderWidth(1.2f);
+        logoCell.setPadding(8f);
+        header.addCell(logoCell);
+
+        PdfPCell textCell = new PdfPCell();
+        textCell.setBorder(0);
+        textCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+        textCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+        textCell.setPaddingLeft(8f);
+        Paragraph kop = new Paragraph();
+        kop.setAlignment(Element.ALIGN_CENTER);
+        kop.setLeading(0f, 1.1f);
+        kop.add(new Chunk("KEMENTERIAN PENDIDIKAN DAN KEBUDAYAAN\n", kopTitleFont));
+        kop.add(new Chunk("SISTEM INFORMASI AKADEMIK\n", kopMidFont));
+        kop.add(new Chunk("UNIVERSITAS\n", kopMidFont));
+        kop.add(new Chunk("Jalan Akademik No. 1, Indonesia\n", kopSmallFont));
+        kop.add(new Chunk("Telepon (000) 000000  Email akademik@siakad.ac.id", kopSmallFont));
+        textCell.addElement(kop);
+        header.addCell(textCell);
+        document.add(header);
+
+        PdfPTable line = new PdfPTable(1);
+        line.setWidthPercentage(100);
+        PdfPCell cell = new PdfPCell(new Phrase(""));
+        cell.setFixedHeight(4f);
+        cell.setBorderWidthTop(1.6f);
+        cell.setBorderWidthBottom(0.6f);
+        cell.setBorderWidthLeft(0);
+        cell.setBorderWidthRight(0);
+        line.addCell(cell);
+        document.add(line);
+    }
+
+    private void addPlainCell(PdfPTable table, String text, com.itextpdf.text.Font font, int alignment) {
         PdfPCell cell = new PdfPCell(new Phrase(text, font));
-        cell.setHorizontalAlignment(Element.ALIGN_CENTER);
-        cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
-        cell.setBackgroundColor(new BaseColor(30, 41, 70));
-        cell.setPadding(8f);
+        cell.setBorder(0);
+        cell.setHorizontalAlignment(alignment);
+        cell.setVerticalAlignment(Element.ALIGN_TOP);
+        cell.setPadding(1.5f);
         table.addCell(cell);
     }
 
-    private void addPdfCell(PdfPTable table, String text, com.itextpdf.text.Font font) {
+    private void addInfoRow(PdfPTable table, String label, String value,
+                            com.itextpdf.text.Font labelFont,
+                            com.itextpdf.text.Font valueFont) {
+        addPlainCell(table, label, labelFont, Element.ALIGN_LEFT);
+        addPlainCell(table, ":", labelFont, Element.ALIGN_CENTER);
+        addPlainCell(table, valueOrDefault(value, "-"), valueFont, Element.ALIGN_LEFT);
+    }
+
+    private void addLetterTableHeader(PdfPTable table, String text, com.itextpdf.text.Font font) {
         PdfPCell cell = new PdfPCell(new Phrase(text, font));
+        cell.setHorizontalAlignment(Element.ALIGN_CENTER);
         cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
-        cell.setPadding(6f);
+        cell.setBackgroundColor(new BaseColor(245, 245, 245));
+        cell.setPadding(5f);
+        table.addCell(cell);
+    }
+
+    private void addLetterTableCell(PdfPTable table, String text, com.itextpdf.text.Font font, int alignment) {
+        PdfPCell cell = new PdfPCell(new Phrase(text, font));
+        cell.setHorizontalAlignment(alignment);
+        cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+        cell.setPadding(5f);
         table.addCell(cell);
     }
 
@@ -1292,6 +1425,10 @@ public class KrsJadwalPanel extends JPanel {
         return object.has(key) && !object.get(key).isJsonNull()
                 ? object.get(key).getAsString()
                 : "-";
+    }
+
+    private String valueOrDefault(String value, String fallback) {
+        return value == null || value.isBlank() || "-".equals(value) ? fallback : value;
     }
 
     private boolean isBlank(JTextField field) {
