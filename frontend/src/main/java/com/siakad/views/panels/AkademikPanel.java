@@ -3,9 +3,9 @@ package com.siakad.views.panels;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.siakad.services.AkademikService;
 import com.siakad.services.MahasiswaService;
 import com.siakad.services.NilaiService;
+import com.siakad.utils.AppTheme;
 import com.siakad.utils.JwtHelper;
 
 import javax.swing.*;
@@ -16,8 +16,6 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import javax.swing.table.TableCellRenderer;
 import java.awt.*;
-import java.util.LinkedHashMap;
-import java.util.Map;
 
 public class AkademikPanel extends JPanel {
 
@@ -28,50 +26,41 @@ public class AkademikPanel extends JPanel {
 
     private JComboBox<MataKuliahItem> cmbMataKuliah;
     private JComboBox<String> cmbTahunAjaran;
-    private JComboBox<String> cmbJurusan;
-    private JComboBox<MahasiswaItem> cmbMahasiswa;
+    private JTextField txtSearch;
     private JTable table;
     private DefaultTableModel tableModel;
     private JLabel lblInfo;
     private JLabel lblCourseSummary;
     private JLabel lblCountSummary;
     private JLabel lblFormulaSummary;
-    private JLabel lblStatusSummary;
-    private JLabel lblBobotBadge;
     private JButton btnSave;
-    private final Map<String, DraftNilai> pendingNilai = new LinkedHashMap<>();
     private boolean recalculating = false;
-    private boolean loadingMahasiswaOptions = false;
-    private boolean skipDraftPersistOnce = false;
-    private double bobotTugas = 30.0;
-    private double bobotUts = 30.0;
-    private double bobotUas = 40.0;
 
-    private static final Color BG = new Color(13, 19, 38);
-    private static final Color CARD_BG = new Color(18, 26, 48);
-    private static final Color TABLE_BG = new Color(15, 22, 42);
-    private static final Color HEADER_BG = new Color(10, 15, 30);
-    private static final Color BORDER = new Color(25, 36, 65);
-    private static final Color ROW_ALT = new Color(20, 29, 52);
-    private static final Color TEXT = new Color(248, 250, 252);
-    private static final Color MUTED = new Color(148, 163, 184);
-    private static final Color DIM = new Color(71, 85, 105);
-    private static final Color BLUE = new Color(59, 130, 246);
-    private static final Color GREEN = new Color(34, 197, 94);
-    private static final Color AMBER = new Color(234, 179, 8);
+    private static Color BG() { return AppTheme.bg(); }
+    private static Color CARD_BG() { return AppTheme.card(); }
+    private static Color TABLE_BG() { return AppTheme.table(); }
+    private static Color HEADER_BG() { return AppTheme.header(); }
+    private static Color BORDER() { return AppTheme.border(); }
+    private static Color ROW_ALT() { return AppTheme.rowAlt(); }
+    private static Color TEXT() { return AppTheme.text(); }
+    private static Color MUTED() { return AppTheme.muted(); }
+    private static Color DIM() { return AppTheme.dim(); }
+    private static Color BLUE() { return AppTheme.blue(); }
+    private static Color GREEN() { return AppTheme.green(); }
+    private static Color AMBER() { return AppTheme.yellow(); }
 
     public AkademikPanel() {
-        setBackground(BG);
+        setBackground(BG());
         setLayout(new BorderLayout());
 
-        rootPanel.setBackground(BG);
+        rootPanel.setBackground(BG());
         rootPanel.add(skeleton, "skeleton");
         rootPanel.add(buildContent(), "content");
         rootPanel.add(statePanel, "state");
         add(rootPanel, BorderLayout.CENTER);
 
         if (JwtHelper.getInstance().isAdmin()) {
-            loadAcademicSettings();
+            loadMataKuliah();
         } else {
             showState("Akses terbatas", "Input nilai hanya tersedia untuk admin.");
         }
@@ -79,7 +68,7 @@ public class AkademikPanel extends JPanel {
 
     private JPanel buildContent() {
         JPanel content = new JPanel(new BorderLayout());
-        content.setBackground(BG);
+        content.setBackground(BG());
         content.add(buildHeader(), BorderLayout.NORTH);
         content.add(buildTableCard(), BorderLayout.CENTER);
         content.add(buildFooter(), BorderLayout.SOUTH);
@@ -100,213 +89,90 @@ public class AkademikPanel extends JPanel {
 
         JLabel title = new JLabel("Input Nilai Mahasiswa");
         title.setFont(new Font("Segoe UI", Font.BOLD, 26));
-        title.setForeground(TEXT);
+        title.setForeground(TEXT());
         JLabel subtitle = new JLabel("Akademik / Nilai & Absensi / Input Nilai");
         subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        subtitle.setForeground(MUTED);
+        subtitle.setForeground(MUTED());
 
         titleBlock.add(title);
         titleBlock.add(Box.createVerticalStrut(2));
         titleBlock.add(subtitle);
 
-        lblBobotBadge = new JLabel(bobotText());
-        lblBobotBadge.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        lblBobotBadge.setForeground(new Color(191, 219, 254));
-        lblBobotBadge.setBorder(BorderFactory.createCompoundBorder(
+        JLabel badge = new JLabel("  Tugas 30%  •  UTS 30%  •  UAS 40%  ");
+        badge.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        badge.setForeground(new Color(191, 219, 254));
+        badge.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(59, 130, 246, 90)),
                 new EmptyBorder(8, 10, 8, 10)
         ));
 
         top.add(titleBlock, BorderLayout.WEST);
-        top.add(lblBobotBadge, BorderLayout.EAST);
+        top.add(badge, BorderLayout.EAST);
 
-        JPanel filterCard = new JPanel(new BorderLayout(0, 14)) {
+        JPanel filterCard = new JPanel(new BorderLayout(18, 0)) {
             @Override protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(CARD_BG);
+                g2.setColor(CARD_BG());
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
-                g2.setColor(BORDER);
+                g2.setColor(BORDER());
                 g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 12, 12);
                 g2.dispose();
             }
         };
         filterCard.setOpaque(false);
-        filterCard.setBorder(new EmptyBorder(18, 20, 18, 20));
-
-        JPanel filterHeader = new JPanel(new BorderLayout());
-        filterHeader.setOpaque(false);
-        JPanel filterText = new JPanel();
-        filterText.setOpaque(false);
-        filterText.setLayout(new BoxLayout(filterText, BoxLayout.Y_AXIS));
-        JLabel filterTitle = new JLabel("Filter Input Nilai");
-        filterTitle.setFont(new Font("Segoe UI", Font.BOLD, 15));
-        filterTitle.setForeground(TEXT);
-        JLabel filterNote = new JLabel("Pilih periode, jurusan, mata kuliah, lalu batasi mahasiswa jika diperlukan.");
-        filterNote.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        filterNote.setForeground(MUTED);
-        filterText.add(filterTitle);
-        filterText.add(Box.createVerticalStrut(3));
-        filterText.add(filterNote);
-        filterHeader.add(filterText, BorderLayout.WEST);
+        filterCard.setBorder(new EmptyBorder(16, 18, 16, 18));
 
         JPanel fields = new JPanel(new GridBagLayout());
         fields.setOpaque(false);
         GridBagConstraints g = new GridBagConstraints();
-        g.insets = new Insets(0, 0, 12, 12);
+        g.insets = new Insets(0, 0, 0, 12);
         g.fill = GridBagConstraints.HORIZONTAL;
+        g.gridy = 0;
 
-        cmbTahunAjaran = new JComboBox<>();
-        styleCombo(cmbTahunAjaran, 180);
-
-        cmbJurusan = new JComboBox<>();
-        cmbJurusan.addItem("Semua Jurusan");
-        styleCombo(cmbJurusan, 245);
+        cmbTahunAjaran = new JComboBox<>(new String[]{"2024/2025", "2025/2026"});
+        styleCombo(cmbTahunAjaran, 145);
 
         cmbMataKuliah = new JComboBox<>();
-        styleCombo(cmbMataKuliah, 360);
+        styleCombo(cmbMataKuliah, 300);
 
-        cmbMahasiswa = new JComboBox<>();
-        styleCombo(cmbMahasiswa, 360);
-        cmbMahasiswa.setToolTipText("Pilih mahasiswa dari daftar KRS sesuai filter aktif");
-        cmbMahasiswa.getAccessibleContext().setAccessibleName("Dropdown mahasiswa");
-        cmbMahasiswa.getAccessibleContext().setAccessibleDescription("Pilih semua mahasiswa atau satu mahasiswa dari daftar KRS sesuai jurusan, tahun ajaran, dan mata kuliah.");
+        txtSearch = new JTextField();
+        styleTextField(txtSearch, 210);
 
-        JButton btnLoad = buildButton("Tampilkan", BLUE);
-        JButton btnRefresh = buildButton("Refresh", CARD_BG);
+        JButton btnLoad = buildButton("Tampilkan", BLUE());
+        JButton btnRefresh = buildButton("Refresh", CARD_BG());
         btnLoad.addActionListener(e -> loadInputList());
         btnRefresh.addActionListener(e -> {
-            resetMahasiswaOptions();
-            loadAcademicSettings();
-        });
-        cmbJurusan.addActionListener(e -> refreshMahasiswaOptions());
-        cmbMataKuliah.addActionListener(e -> refreshMahasiswaOptions());
-        cmbTahunAjaran.addActionListener(e -> refreshMahasiswaOptions());
-        cmbMahasiswa.addActionListener(e -> {
-            if (!loadingMahasiswaOptions) {
-                loadInputList();
-            }
+            txtSearch.setText("");
+            loadMataKuliah();
         });
 
-        g.gridy = 0;
-        g.gridx = 0; g.weightx = 0.20;
+        g.gridx = 0; g.weightx = 0;
         fields.add(labeledField("Tahun Ajaran", cmbTahunAjaran), g);
-        g.gridx = 1; g.weightx = 0.28;
-        fields.add(labeledField("Jurusan", cmbJurusan), g);
-        g.gridx = 2; g.weightx = 0.52; g.gridwidth = 2;
+        g.gridx = 1; g.weightx = 1;
         fields.add(labeledField("Mata Kuliah", cmbMataKuliah), g);
-        g.gridwidth = 1;
-        g.gridy = 1;
-        g.gridx = 0; g.weightx = 0.48; g.gridwidth = 2;
-        fields.add(labeledField("Mahasiswa", cmbMahasiswa), g);
-        g.gridwidth = 1;
+        g.gridx = 2; g.weightx = 0;
+        fields.add(labeledField("Cari Mahasiswa", txtSearch), g);
 
-        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 20));
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 14));
         actions.setOpaque(false);
         actions.add(btnLoad);
         actions.add(btnRefresh);
-        g.gridx = 2; g.weightx = 0.52; g.gridwidth = 2;
-        fields.add(actions, g);
 
-        filterCard.add(filterHeader, BorderLayout.NORTH);
         filterCard.add(fields, BorderLayout.CENTER);
+        filterCard.add(actions, BorderLayout.EAST);
 
         wrapper.add(top, BorderLayout.NORTH);
         wrapper.add(filterCard, BorderLayout.CENTER);
         return wrapper;
     }
 
-    private void loadAcademicSettings() {
-        rootCard.show(rootPanel, "skeleton");
-        skeleton.start();
-        new SwingWorker<JsonObject, Void>() {
-            @Override protected JsonObject doInBackground() throws Exception {
-                return AkademikService.getSettings();
-            }
-
-            @Override protected void done() {
-                try {
-                    JsonObject response = get();
-                    if (!response.get("success").getAsBoolean()) {
-                        showState("Gagal memuat pengaturan akademik", response.get("message").getAsString());
-                        return;
-                    }
-                    populateTahunAjaran(response.getAsJsonObject("data").getAsJsonArray("tahun_ajaran"));
-                    loadJurusanList();
-                    loadMataKuliah();
-                } catch (Exception ex) {
-                    showState("Gagal memuat pengaturan akademik", ex.getMessage());
-                } finally {
-                    skeleton.stop();
-                }
-            }
-        }.execute();
-    }
-
-    private void populateTahunAjaran(JsonArray data) {
-        cmbTahunAjaran.removeAllItems();
-        String active = null;
-        for (JsonElement item : data) {
-            JsonObject tahun = item.getAsJsonObject();
-            if ("draft".equalsIgnoreCase(getString(tahun, "status"))) {
-                continue;
-            }
-            String label = getString(tahun, "tahun_ajaran");
-            if (!label.isBlank()) {
-                cmbTahunAjaran.addItem(label);
-                if ("aktif".equals(getString(tahun, "status"))) {
-                    active = label;
-                }
-            }
-        }
-        if (active != null) {
-            cmbTahunAjaran.setSelectedItem(active);
-        }
-    }
-
-    private void loadJurusanList() {
-        new SwingWorker<JsonObject, Void>() {
-            @Override protected JsonObject doInBackground() throws Exception {
-                return MahasiswaService.getJurusanList();
-            }
-
-            @Override protected void done() {
-                try {
-                    Object previous = cmbJurusan.getSelectedItem();
-                    cmbJurusan.removeAllItems();
-                    cmbJurusan.addItem("Semua Jurusan");
-
-                    JsonObject response = get();
-                    if (response.get("success").getAsBoolean()) {
-                        JsonArray data = response.getAsJsonArray("data");
-                        for (JsonElement item : data) {
-                            String jurusan = item.getAsString();
-                            if (jurusan != null && !jurusan.isBlank()) {
-                                cmbJurusan.addItem(jurusan);
-                            }
-                        }
-                    }
-
-                    if (previous != null) {
-                        cmbJurusan.setSelectedItem(previous);
-                    }
-                } catch (Exception ex) {
-                    cmbJurusan.removeAllItems();
-                    cmbJurusan.addItem("Semua Jurusan");
-                    if (lblInfo != null) {
-                        lblInfo.setText("Daftar jurusan gagal dimuat, filter jurusan memakai semua data.");
-                    }
-                }
-            }
-        }.execute();
-    }
-
     private JComponent buildTableCard() {
         String[] columns = {"NIM", "Nama", "Jurusan", "Tugas", "UTS", "UAS", "Nilai Akhir", "Grade", "Status", "Aksi"};
         tableModel = new DefaultTableModel(columns, 0) {
             @Override public boolean isCellEditable(int row, int col) {
-                return col == 9;
+                return (col >= 3 && col <= 5) || col == 9;
             }
         };
 
@@ -314,7 +180,7 @@ public class AkademikPanel extends JPanel {
             @Override public Component prepareRenderer(javax.swing.table.TableCellRenderer renderer, int row, int col) {
                 Component c = super.prepareRenderer(renderer, row, col);
                 if (!isRowSelected(row)) {
-                    c.setBackground(row % 2 == 0 ? TABLE_BG : ROW_ALT);
+                    c.setBackground(row % 2 == 0 ? TABLE_BG() : ROW_ALT());
                 }
                 return c;
             }
@@ -324,8 +190,8 @@ public class AkademikPanel extends JPanel {
         table.getColumnModel().getColumn(8).setCellRenderer(new StatusRenderer());
         table.getColumnModel().getColumn(9).setCellRenderer(new ActionRenderer());
         table.getColumnModel().getColumn(9).setCellEditor(new ActionEditor());
-        table.getColumnModel().getColumn(9).setMinWidth(220);
-        table.getColumnModel().getColumn(9).setMaxWidth(220);
+        table.getColumnModel().getColumn(9).setMinWidth(126);
+        table.getColumnModel().getColumn(9).setMaxWidth(126);
         tableModel.addTableModelListener(e -> {
             if (e.getType() == TableModelEvent.UPDATE && !recalculating && e.getColumn() >= 3 && e.getColumn() <= 5) {
                 recalculateRow(e.getFirstRow());
@@ -334,17 +200,17 @@ public class AkademikPanel extends JPanel {
 
         JScrollPane scroll = new JScrollPane(table);
         scroll.setBorder(null);
-        scroll.getViewport().setBackground(TABLE_BG);
-        scroll.setBackground(TABLE_BG);
+        scroll.getViewport().setBackground(TABLE_BG());
+        scroll.setBackground(TABLE_BG());
 
         JPanel card = new JPanel(new BorderLayout()) {
             @Override protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(CARD_BG);
+                g2.setColor(CARD_BG());
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
-                g2.setColor(BORDER);
+                g2.setColor(BORDER());
                 g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 12, 12);
                 g2.dispose();
             }
@@ -361,10 +227,10 @@ public class AkademikPanel extends JPanel {
         headerText.setLayout(new BoxLayout(headerText, BoxLayout.Y_AXIS));
         JLabel tableTitle = new JLabel("Daftar Nilai");
         tableTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        tableTitle.setForeground(TEXT);
+        tableTitle.setForeground(TEXT());
         lblCourseSummary = new JLabel("Pilih mata kuliah untuk mulai mengisi nilai.");
         lblCourseSummary.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        lblCourseSummary.setForeground(MUTED);
+        lblCourseSummary.setForeground(MUTED());
         headerText.add(tableTitle);
         headerText.add(Box.createVerticalStrut(3));
         headerText.add(lblCourseSummary);
@@ -372,11 +238,12 @@ public class AkademikPanel extends JPanel {
         JPanel stats = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         stats.setOpaque(false);
         lblCountSummary = metricLabel("0 Mahasiswa");
-        lblStatusSummary = metricLabel("0 Tersimpan");
         lblFormulaSummary = metricLabel("Otomatis");
+        JButton btnTambahNilai = buildButton("+ Tambah Nilai", GREEN());
+        btnTambahNilai.addActionListener(e -> showTambahNilaiDialog());
         stats.add(lblCountSummary);
-        stats.add(lblStatusSummary);
         stats.add(lblFormulaSummary);
+        stats.add(btnTambahNilai);
 
         tableHeader.add(headerText, BorderLayout.WEST);
         tableHeader.add(stats, BorderLayout.EAST);
@@ -393,12 +260,12 @@ public class AkademikPanel extends JPanel {
 
         lblInfo = new JLabel("Pilih mata kuliah untuk memuat mahasiswa.");
         lblInfo.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        lblInfo.setForeground(MUTED);
+        lblInfo.setForeground(MUTED());
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         actions.setOpaque(false);
-        JButton btnReset = buildButton("Reset", CARD_BG);
-        btnSave = buildButton("Simpan Semua", GREEN);
+        JButton btnReset = buildButton("Reset", CARD_BG());
+        btnSave = buildButton("Simpan Semua", GREEN());
         btnSave.setEnabled(false);
         btnReset.addActionListener(e -> loadInputList());
         btnSave.addActionListener(e -> saveAll());
@@ -414,7 +281,6 @@ public class AkademikPanel extends JPanel {
         JPanel panel = new JPanel();
         panel.setOpaque(false);
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setAlignmentX(Component.LEFT_ALIGNMENT);
         JLabel label = smallLabel(labelText);
         panel.add(label);
         panel.add(Box.createVerticalStrut(6));
@@ -427,7 +293,7 @@ public class AkademikPanel extends JPanel {
         label.setFont(new Font("Segoe UI", Font.BOLD, 11));
         label.setForeground(new Color(203, 213, 225));
         label.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(BORDER),
+                BorderFactory.createLineBorder(BORDER()),
                 new EmptyBorder(7, 8, 7, 8)
         ));
         return label;
@@ -463,7 +329,6 @@ public class AkademikPanel extends JPanel {
 
                     rootCard.show(rootPanel, "content");
                     if (cmbMataKuliah.getItemCount() > 0) {
-                        refreshMahasiswaOptions();
                         loadInputList();
                     } else {
                         tableModel.setRowCount(0);
@@ -478,18 +343,9 @@ public class AkademikPanel extends JPanel {
     }
 
     private void loadInputList() {
-        if (skipDraftPersistOnce) {
-            skipDraftPersistOnce = false;
-        } else {
-            persistVisibleDrafts();
-        }
         MataKuliahItem selected = (MataKuliahItem) cmbMataKuliah.getSelectedItem();
         if (selected == null) {
             showState("Mata kuliah kosong", "Tambahkan data mata kuliah terlebih dahulu.");
-            return;
-        }
-        if (cmbTahunAjaran.getSelectedItem() == null) {
-            showState("Tahun ajaran kosong", "Aktifkan atau tambahkan tahun ajaran di Pengaturan Akademik.");
             return;
         }
 
@@ -497,12 +353,7 @@ public class AkademikPanel extends JPanel {
         skeleton.start();
         new SwingWorker<JsonObject, Void>() {
             @Override protected JsonObject doInBackground() throws Exception {
-                return NilaiService.getInputList(
-                        selected.kodeMk,
-                        (String) cmbTahunAjaran.getSelectedItem(),
-                        selectedMahasiswaSearch(),
-                        selectedJurusan()
-                );
+                return NilaiService.getInputList(selected.kodeMk, (String) cmbTahunAjaran.getSelectedItem(), txtSearch.getText().trim());
             }
 
             @Override protected void done() {
@@ -514,7 +365,6 @@ public class AkademikPanel extends JPanel {
                         return;
                     }
                     JsonObject mataKuliah = response.getAsJsonObject("mata_kuliah");
-                    applyBobot(response.has("bobot_nilai") ? response.getAsJsonObject("bobot_nilai") : null);
                     fillRows(response.getAsJsonArray("data"), mataKuliah);
                     rootCard.show(rootPanel, "content");
                 } catch (Exception ex) {
@@ -527,24 +377,16 @@ public class AkademikPanel extends JPanel {
     private void fillRows(JsonArray data, JsonObject mataKuliah) {
         recalculating = true;
         tableModel.setRowCount(0);
-        int savedCount = 0;
-        String kodeMk = getString(mataKuliah, "kode_mk");
-        String tahunAjaran = String.valueOf(cmbTahunAjaran.getSelectedItem());
         for (JsonElement element : data) {
             JsonObject row = element.getAsJsonObject();
-            String nim = getString(row, "nim");
-            DraftNilai draft = pendingNilai.get(draftKey(kodeMk, tahunAjaran, nim));
-            double tugas = draft != null ? draft.tugas : getDouble(row, "nilai_tugas");
-            double uts = draft != null ? draft.uts : getDouble(row, "nilai_uts");
-            double uas = draft != null ? draft.uas : getDouble(row, "nilai_uas");
+            double tugas = getDouble(row, "nilai_tugas");
+            double uts = getDouble(row, "nilai_uts");
+            double uas = getDouble(row, "nilai_uas");
             double akhir = calculateFinal(tugas, uts, uas);
             String grade = calculateGrade(akhir);
             boolean saved = hasValue(row, "id_nilai");
-            if (saved) {
-                savedCount++;
-            }
             tableModel.addRow(new Object[]{
-                    nim,
+                    getString(row, "nim"),
                     getString(row, "nama"),
                     getString(row, "jurusan"),
                     formatScore(tugas),
@@ -552,7 +394,7 @@ public class AkademikPanel extends JPanel {
                     formatScore(uas),
                     formatScore(akhir),
                     grade,
-                    draft != null ? "Diubah" : (saved ? "Tersimpan" : "Baru"),
+                    saved ? "Tersimpan" : "Baru",
                     "aksi"
             });
         }
@@ -561,52 +403,29 @@ public class AkademikPanel extends JPanel {
         String kode = getString(mataKuliah, "kode_mk");
         String nama = getString(mataKuliah, "nama_mk");
         String semester = getString(mataKuliah, "semester");
-        String jurusan = selectedJurusan();
-        String jurusanInfo = jurusan.isBlank() ? "Semua Jurusan" : jurusan;
-        lblCourseSummary.setText(kode + " - " + nama + " • Semester " + semester + " • " + cmbTahunAjaran.getSelectedItem() + " • " + jurusanInfo);
+        lblCourseSummary.setText(kode + " - " + nama + " • Semester " + semester + " • " + cmbTahunAjaran.getSelectedItem());
         lblCountSummary.setText("  " + data.size() + " Mahasiswa  ");
-        lblStatusSummary.setText("  " + savedCount + " Tersimpan | " + (data.size() - savedCount) + " Baru  ");
-        updateStatusSummary();
-        lblFormulaSummary.setText("  " + formulaText() + "  ");
-        lblInfo.setText(data.size() == 0
-                ? "Belum ada mahasiswa yang mengambil mata kuliah ini di KRS."
-                : "Edit nilai langsung di kolom Tugas, UTS, dan UAS. Nilai akhir dihitung otomatis sebelum disimpan.");
+        lblFormulaSummary.setText("  Nilai akhir & grade otomatis  ");
+        lblInfo.setText("Edit nilai langsung di kolom Tugas, UTS, dan UAS. Nilai akhir dihitung otomatis sebelum disimpan.");
     }
 
     private void saveAll() {
         MataKuliahItem selected = (MataKuliahItem) cmbMataKuliah.getSelectedItem();
-        if (selected == null || (tableModel.getRowCount() == 0 && pendingNilai.isEmpty())) return;
-        if (table.isEditing()) {
-            table.getCellEditor().stopCellEditing();
-        }
-
-        for (int i = 0; i < tableModel.getRowCount(); i++) {
-            normalizeScoreCells(i);
-            recalculateRow(i, false);
-        }
-        persistVisibleDrafts();
+        if (selected == null || tableModel.getRowCount() == 0) return;
 
         JsonArray nilai = new JsonArray();
-        String tahunAjaran = (String) cmbTahunAjaran.getSelectedItem();
-        String prefix = selected.kodeMk + "|" + tahunAjaran + "|";
-        for (DraftNilai draft : pendingNilai.values()) {
-            if (!draft.key.startsWith(prefix)) continue;
+        for (int i = 0; i < tableModel.getRowCount(); i++) {
             JsonObject item = new JsonObject();
-            item.addProperty("nim", draft.nim);
-            item.addProperty("nilai_tugas", draft.tugas);
-            item.addProperty("nilai_uts", draft.uts);
-            item.addProperty("nilai_uas", draft.uas);
+            item.addProperty("nim", String.valueOf(tableModel.getValueAt(i, 0)));
+            item.addProperty("nilai_tugas", parseScore(tableModel.getValueAt(i, 3)));
+            item.addProperty("nilai_uts", parseScore(tableModel.getValueAt(i, 4)));
+            item.addProperty("nilai_uas", parseScore(tableModel.getValueAt(i, 5)));
             nilai.add(item);
-        }
-        if (nilai.size() == 0) {
-            lblInfo.setText("Tidak ada perubahan nilai untuk disimpan.");
-            btnSave.setEnabled(tableModel.getRowCount() > 0);
-            return;
         }
 
         JsonObject body = new JsonObject();
         body.addProperty("kode_mk", selected.kodeMk);
-        body.addProperty("tahun_ajaran", tahunAjaran);
+        body.addProperty("tahun_ajaran", (String) cmbTahunAjaran.getSelectedItem());
         body.add("nilai", nilai);
 
         btnSave.setEnabled(false);
@@ -619,19 +438,11 @@ public class AkademikPanel extends JPanel {
             @Override protected void done() {
                 try {
                     JsonObject response = get();
-                    boolean success = response.get("success").getAsBoolean();
                     JOptionPane.showMessageDialog(AkademikPanel.this,
-                            getString(response, "message"),
-                            success ? "Berhasil" : "Gagal",
-                            success ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.WARNING_MESSAGE);
-                    if (success) {
-                        pendingNilai.keySet().removeIf(key -> key.startsWith(prefix));
-                        skipDraftPersistOnce = true;
-                        loadInputList();
-                    } else {
-                        btnSave.setEnabled(true);
-                        lblInfo.setText("Simpan nilai gagal.");
-                    }
+                            response.get("message").getAsString(),
+                            response.get("success").getAsBoolean() ? "Berhasil" : "Gagal",
+                            response.get("success").getAsBoolean() ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.WARNING_MESSAGE);
+                    loadInputList();
                 } catch (Exception ex) {
                     btnSave.setEnabled(true);
                     lblInfo.setText("Gagal menyimpan nilai.");
@@ -641,114 +452,156 @@ public class AkademikPanel extends JPanel {
         }.execute();
     }
 
-    private String selectedJurusan() {
-        if (cmbJurusan == null || cmbJurusan.getSelectedItem() == null) {
-            return "";
-        }
-        String value = String.valueOf(cmbJurusan.getSelectedItem()).trim();
-        return "Semua Jurusan".equals(value) ? "" : value;
-    }
-
-    private String selectedMahasiswaSearch() {
-        if (cmbMahasiswa == null || cmbMahasiswa.getSelectedItem() == null) {
-            return "";
-        }
-        MahasiswaItem selected = (MahasiswaItem) cmbMahasiswa.getSelectedItem();
-        return selected.nim.isBlank() ? "" : selected.nim;
-    }
-
-    private void resetMahasiswaOptions() {
-        if (cmbMahasiswa == null) return;
-        loadingMahasiswaOptions = true;
-        cmbMahasiswa.removeAllItems();
-        cmbMahasiswa.addItem(new MahasiswaItem("", "Semua Mahasiswa"));
-        loadingMahasiswaOptions = false;
-    }
-
-    private void refreshMahasiswaOptions() {
-        if (loadingMahasiswaOptions || cmbMahasiswa == null || cmbMataKuliah == null || cmbTahunAjaran == null) {
-            return;
-        }
+    private void showTambahNilaiDialog() {
         MataKuliahItem selected = (MataKuliahItem) cmbMataKuliah.getSelectedItem();
-        if (selected == null || cmbTahunAjaran.getSelectedItem() == null) {
-            resetMahasiswaOptions();
+        if (selected == null) {
+            JOptionPane.showMessageDialog(this, "Pilih mata kuliah terlebih dahulu.");
             return;
         }
 
-        String previousNim = selectedMahasiswaSearch();
-        loadingMahasiswaOptions = true;
-        cmbMahasiswa.setEnabled(false);
+        lblInfo.setText("Memuat data mahasiswa dari master Data Mahasiswa...");
         new SwingWorker<JsonObject, Void>() {
             @Override protected JsonObject doInBackground() throws Exception {
-                return NilaiService.getInputList(
-                        selected.kodeMk,
-                        (String) cmbTahunAjaran.getSelectedItem(),
-                        "",
-                        selectedJurusan()
-                );
+                return MahasiswaService.getAll(1, 100, "");
             }
 
             @Override protected void done() {
                 try {
                     JsonObject response = get();
-                    if (response.get("success").getAsBoolean()) {
-                        populateMahasiswaOptions(response.getAsJsonArray("data"), previousNim);
-                    } else {
-                        resetMahasiswaOptions();
+                    if (!response.get("success").getAsBoolean()) {
+                        throw new Exception(response.get("message").getAsString());
                     }
+                    showTambahNilaiForm(response.getAsJsonArray("data"));
                 } catch (Exception ex) {
-                    resetMahasiswaOptions();
-                } finally {
-                    cmbMahasiswa.setEnabled(true);
-                    loadingMahasiswaOptions = false;
+                    lblInfo.setText("Gagal memuat data mahasiswa.");
+                    JOptionPane.showMessageDialog(AkademikPanel.this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                 }
             }
         }.execute();
     }
 
-    private void populateMahasiswaOptions(JsonArray data, String previousNim) {
-        cmbMahasiswa.removeAllItems();
-        cmbMahasiswa.addItem(new MahasiswaItem("", "Semua Mahasiswa"));
-        MahasiswaItem previous = null;
-        for (JsonElement element : data) {
-            JsonObject row = element.getAsJsonObject();
-            MahasiswaItem item = new MahasiswaItem(
-                    getString(row, "nim"),
-                    getString(row, "nama")
-            );
-            cmbMahasiswa.addItem(item);
-            if (!previousNim.isBlank() && previousNim.equals(item.nim)) {
-                previous = item;
+    private void showTambahNilaiForm(JsonArray mahasiswaData) {
+        JComboBox<StudentItem> cmbMahasiswa = new JComboBox<>();
+        for (JsonElement element : mahasiswaData) {
+            JsonObject mhs = element.getAsJsonObject();
+            if (mhs.has("status") && !mhs.get("status").isJsonNull() && !"aktif".equals(mhs.get("status").getAsString())) {
+                continue;
             }
+            cmbMahasiswa.addItem(new StudentItem(
+                    getString(mhs, "nim"),
+                    getString(mhs, "nama"),
+                    -1
+            ));
         }
-        if (previous != null) {
-            cmbMahasiswa.setSelectedItem(previous);
-        } else {
-            cmbMahasiswa.setSelectedIndex(0);
+
+        if (cmbMahasiswa.getItemCount() == 0) {
+            JOptionPane.showMessageDialog(this, "Belum ada mahasiswa aktif di Data Mahasiswa.");
+            return;
+        }
+
+        JTextField txtTugas = scoreField("0.00");
+        JTextField txtUts = scoreField("0.00");
+        JTextField txtUas = scoreField("0.00");
+        JLabel lblPreview = new JLabel();
+        lblPreview.setFont(new Font("Segoe UI", Font.BOLD, 13));
+
+        Runnable updatePreview = () -> {
+            double akhir = calculateFinal(parseScore(txtTugas.getText()), parseScore(txtUts.getText()), parseScore(txtUas.getText()));
+            lblPreview.setText("Nilai akhir: " + formatScore(akhir) + " • Grade " + calculateGrade(akhir));
+        };
+        javax.swing.event.DocumentListener listener = new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { updatePreview.run(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { updatePreview.run(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { updatePreview.run(); }
+        };
+        txtTugas.getDocument().addDocumentListener(listener);
+        txtUts.getDocument().addDocumentListener(listener);
+        txtUas.getDocument().addDocumentListener(listener);
+        updatePreview.run();
+
+        JPanel form = new JPanel(new GridBagLayout());
+        form.setBorder(new EmptyBorder(10, 8, 4, 8));
+        GridBagConstraints g = new GridBagConstraints();
+        g.insets = new Insets(6, 6, 6, 6);
+        g.fill = GridBagConstraints.HORIZONTAL;
+        addDialogRow(form, g, 0, "Mahasiswa", cmbMahasiswa);
+        addDialogRow(form, g, 1, "Tugas", txtTugas);
+        addDialogRow(form, g, 2, "UTS", txtUts);
+        addDialogRow(form, g, 3, "UAS", txtUas);
+        g.gridx = 0; g.gridy = 4; g.gridwidth = 2; g.weightx = 1;
+        form.add(lblPreview, g);
+
+        int result = JOptionPane.showConfirmDialog(
+                this,
+                form,
+                "Tambah Nilai Baru",
+                JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.PLAIN_MESSAGE
+        );
+
+        if (result == JOptionPane.OK_OPTION && cmbMahasiswa.getSelectedItem() != null) {
+            StudentItem student = (StudentItem) cmbMahasiswa.getSelectedItem();
+            saveSingleNilai(
+                    student.nim,
+                    parseScore(txtTugas.getText()),
+                    parseScore(txtUts.getText()),
+                    parseScore(txtUas.getText())
+            );
         }
     }
 
-    private void showNilaiDialog(int row, boolean inputMode) {
+    private void saveSingleNilai(String nim, double tugas, double uts, double uas) {
+        MataKuliahItem selected = (MataKuliahItem) cmbMataKuliah.getSelectedItem();
+        if (selected == null) return;
+
+        JsonObject item = new JsonObject();
+        item.addProperty("nim", nim);
+        item.addProperty("nilai_tugas", tugas);
+        item.addProperty("nilai_uts", uts);
+        item.addProperty("nilai_uas", uas);
+
+        JsonArray nilai = new JsonArray();
+        nilai.add(item);
+
+        JsonObject body = new JsonObject();
+        body.addProperty("kode_mk", selected.kodeMk);
+        body.addProperty("tahun_ajaran", (String) cmbTahunAjaran.getSelectedItem());
+        body.add("nilai", nilai);
+
+        lblInfo.setText("Menyimpan nilai " + nim + "...");
+        new SwingWorker<JsonObject, Void>() {
+            @Override protected JsonObject doInBackground() throws Exception {
+                return NilaiService.bulkSave(body);
+            }
+
+            @Override protected void done() {
+                try {
+                    JsonObject response = get();
+                    JOptionPane.showMessageDialog(AkademikPanel.this,
+                            response.get("message").getAsString(),
+                            response.get("success").getAsBoolean() ? "Berhasil" : "Gagal",
+                            response.get("success").getAsBoolean() ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.WARNING_MESSAGE);
+                    loadInputList();
+                } catch (Exception ex) {
+                    lblInfo.setText("Gagal menyimpan nilai.");
+                    JOptionPane.showMessageDialog(AkademikPanel.this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }.execute();
+    }
+
+    private void showNilaiDialog(int row) {
         if (row < 0 || row >= tableModel.getRowCount()) return;
 
         String nim = String.valueOf(tableModel.getValueAt(row, 0));
         String nama = String.valueOf(tableModel.getValueAt(row, 1));
-        String status = String.valueOf(tableModel.getValueAt(row, 8));
-        if (inputMode && !"Baru".equals(status)) {
-            JOptionPane.showMessageDialog(this, "Nilai mahasiswa ini sudah ada. Gunakan tombol Edit untuk mengubah nilai.", "Informasi", JOptionPane.INFORMATION_MESSAGE);
-            return;
-        }
-        if (!inputMode && "Baru".equals(status)) {
-            JOptionPane.showMessageDialog(this, "Nilai mahasiswa ini belum pernah diinput. Gunakan tombol Input Nilai terlebih dahulu.", "Informasi", JOptionPane.INFORMATION_MESSAGE);
-            return;
-        }
 
         JTextField txtTugas = scoreField(tableModel.getValueAt(row, 3));
         JTextField txtUts = scoreField(tableModel.getValueAt(row, 4));
         JTextField txtUas = scoreField(tableModel.getValueAt(row, 5));
         JLabel lblPreview = new JLabel();
         lblPreview.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        lblPreview.setForeground(TEXT);
+        lblPreview.setForeground(TEXT());
 
         Runnable updatePreview = () -> {
             double akhir = calculateFinal(parseScore(txtTugas.getText()), parseScore(txtUts.getText()), parseScore(txtUas.getText()));
@@ -786,7 +639,7 @@ public class AkademikPanel extends JPanel {
         int result = JOptionPane.showConfirmDialog(
                 this,
                 form,
-                inputMode ? "Input Nilai" : "Edit Nilai",
+                "Input/Edit Nilai",
                 JOptionPane.OK_CANCEL_OPTION,
                 JOptionPane.PLAIN_MESSAGE
         );
@@ -796,74 +649,7 @@ public class AkademikPanel extends JPanel {
             tableModel.setValueAt(formatScore(parseScore(txtUts.getText())), row, 4);
             tableModel.setValueAt(formatScore(parseScore(txtUas.getText())), row, 5);
             recalculateRow(row);
-            saveRowImmediately(row);
         }
-    }
-
-    private void saveRowImmediately(int row) {
-        MataKuliahItem selected = (MataKuliahItem) cmbMataKuliah.getSelectedItem();
-        if (selected == null || cmbTahunAjaran.getSelectedItem() == null || row < 0 || row >= tableModel.getRowCount()) {
-            return;
-        }
-
-        String nim = String.valueOf(tableModel.getValueAt(row, 0));
-        JsonArray nilai = new JsonArray();
-        JsonObject item = new JsonObject();
-        item.addProperty("nim", nim);
-        item.addProperty("nilai_tugas", parseScore(tableModel.getValueAt(row, 3)));
-        item.addProperty("nilai_uts", parseScore(tableModel.getValueAt(row, 4)));
-        item.addProperty("nilai_uas", parseScore(tableModel.getValueAt(row, 5)));
-        nilai.add(item);
-
-        JsonObject body = new JsonObject();
-        body.addProperty("kode_mk", selected.kodeMk);
-        body.addProperty("tahun_ajaran", (String) cmbTahunAjaran.getSelectedItem());
-        body.add("nilai", nilai);
-
-        btnSave.setEnabled(false);
-        lblInfo.setText("Menyimpan nilai " + nim + "...");
-        new SwingWorker<JsonObject, Void>() {
-            @Override protected JsonObject doInBackground() throws Exception {
-                return NilaiService.bulkSave(body);
-            }
-
-            @Override protected void done() {
-                try {
-                    JsonObject response = get();
-                    if (!response.get("success").getAsBoolean()) {
-                        btnSave.setEnabled(true);
-                        lblInfo.setText("Simpan nilai gagal.");
-                        JOptionPane.showMessageDialog(AkademikPanel.this, getString(response, "message"), "Gagal", JOptionPane.WARNING_MESSAGE);
-                        return;
-                    }
-
-                    JsonArray data = response.getAsJsonArray("data");
-                    if (data != null && data.size() > 0) {
-                        applySavedNilai(row, data.get(0).getAsJsonObject());
-                    }
-                    pendingNilai.remove(draftKey(selected.kodeMk, String.valueOf(cmbTahunAjaran.getSelectedItem()), nim));
-                    tableModel.setValueAt("Tersimpan", row, 8);
-                    updateStatusSummary();
-                    btnSave.setEnabled(tableModel.getRowCount() > 0);
-                    lblInfo.setText("Nilai " + nim + " berhasil tersimpan.");
-                } catch (Exception ex) {
-                    btnSave.setEnabled(true);
-                    lblInfo.setText("Gagal menyimpan nilai.");
-                    JOptionPane.showMessageDialog(AkademikPanel.this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-                }
-            }
-        }.execute();
-    }
-
-    private void applySavedNilai(int row, JsonObject nilai) {
-        if (row < 0 || row >= tableModel.getRowCount() || nilai == null) return;
-        recalculating = true;
-        tableModel.setValueAt(formatScore(getDouble(nilai, "nilai_tugas")), row, 3);
-        tableModel.setValueAt(formatScore(getDouble(nilai, "nilai_uts")), row, 4);
-        tableModel.setValueAt(formatScore(getDouble(nilai, "nilai_uas")), row, 5);
-        tableModel.setValueAt(formatScore(getDouble(nilai, "nilai_akhir")), row, 6);
-        tableModel.setValueAt(getString(nilai, "grade"), row, 7);
-        recalculating = false;
     }
 
     private JTextField scoreField(Object value) {
@@ -940,117 +726,23 @@ public class AkademikPanel extends JPanel {
         tableModel.setValueAt("E", row, 7);
         tableModel.setValueAt("Baru", row, 8);
         recalculating = false;
-        storeDraftFromRow(row);
     }
 
     private void recalculateRow(int row) {
-        recalculateRow(row, true);
-    }
-
-    private void recalculateRow(int row, boolean markChanged) {
         if (row < 0 || row >= tableModel.getRowCount()) return;
-        normalizeScoreCells(row);
         double tugas = parseScore(tableModel.getValueAt(row, 3));
         double uts = parseScore(tableModel.getValueAt(row, 4));
         double uas = parseScore(tableModel.getValueAt(row, 5));
         double akhir = calculateFinal(tugas, uts, uas);
         recalculating = true;
-        tableModel.setValueAt(formatScore(tugas), row, 3);
-        tableModel.setValueAt(formatScore(uts), row, 4);
-        tableModel.setValueAt(formatScore(uas), row, 5);
         tableModel.setValueAt(formatScore(akhir), row, 6);
         tableModel.setValueAt(calculateGrade(akhir), row, 7);
-        if (markChanged) {
-            tableModel.setValueAt("Diubah", row, 8);
-            storeDraftFromRow(row);
-            updateStatusSummary();
-        }
+        tableModel.setValueAt("Diubah", row, 8);
         recalculating = false;
-    }
-
-    private void persistVisibleDrafts() {
-        if (table == null || tableModel == null || tableModel.getRowCount() == 0) return;
-        if (table.isEditing()) {
-            table.getCellEditor().stopCellEditing();
-        }
-        for (int i = 0; i < tableModel.getRowCount(); i++) {
-            if ("Diubah".equals(String.valueOf(tableModel.getValueAt(i, 8)))) {
-                storeDraftFromRow(i);
-            }
-        }
-    }
-
-    private void storeDraftFromRow(int row) {
-        MataKuliahItem selected = cmbMataKuliah == null ? null : (MataKuliahItem) cmbMataKuliah.getSelectedItem();
-        Object tahun = cmbTahunAjaran == null ? null : cmbTahunAjaran.getSelectedItem();
-        if (selected == null || tahun == null || row < 0 || row >= tableModel.getRowCount()) return;
-
-        String nim = String.valueOf(tableModel.getValueAt(row, 0));
-        String key = draftKey(selected.kodeMk, String.valueOf(tahun), nim);
-        pendingNilai.put(key, new DraftNilai(
-                key,
-                nim,
-                parseScore(tableModel.getValueAt(row, 3)),
-                parseScore(tableModel.getValueAt(row, 4)),
-                parseScore(tableModel.getValueAt(row, 5))
-        ));
-    }
-
-    private String draftKey(String kodeMk, String tahunAjaran, String nim) {
-        return String.valueOf(kodeMk) + "|" + String.valueOf(tahunAjaran) + "|" + String.valueOf(nim);
-    }
-
-    private void normalizeScoreCells(int row) {
-        if (row < 0 || row >= tableModel.getRowCount()) return;
-        recalculating = true;
-        tableModel.setValueAt(formatScore(parseScore(tableModel.getValueAt(row, 3))), row, 3);
-        tableModel.setValueAt(formatScore(parseScore(tableModel.getValueAt(row, 4))), row, 4);
-        tableModel.setValueAt(formatScore(parseScore(tableModel.getValueAt(row, 5))), row, 5);
-        recalculating = false;
-    }
-
-    private void updateStatusSummary() {
-        if (lblStatusSummary == null || tableModel == null) return;
-        int saved = 0;
-        int changed = 0;
-        int fresh = 0;
-        for (int i = 0; i < tableModel.getRowCount(); i++) {
-            String status = String.valueOf(tableModel.getValueAt(i, 8));
-            if ("Tersimpan".equals(status)) saved++;
-            else if ("Diubah".equals(status)) changed++;
-            else fresh++;
-        }
-        lblStatusSummary.setText("  " + saved + " Tersimpan | " + changed + " Diubah | " + fresh + " Baru  ");
     }
 
     private double calculateFinal(double tugas, double uts, double uas) {
-        return Math.round(((tugas * (bobotTugas / 100.0)) + (uts * (bobotUts / 100.0)) + (uas * (bobotUas / 100.0))) * 100.0) / 100.0;
-    }
-
-    private void applyBobot(JsonObject bobot) {
-        if (bobot != null) {
-            bobotTugas = getDouble(bobot, "bobot_tugas", 30.0);
-            bobotUts = getDouble(bobot, "bobot_uts", 30.0);
-            bobotUas = getDouble(bobot, "bobot_uas", 40.0);
-        }
-        if (lblBobotBadge != null) {
-            lblBobotBadge.setText(bobotText());
-        }
-    }
-
-    private String bobotText() {
-        return "  " + formulaText() + "  ";
-    }
-
-    private String formulaText() {
-        return "Tugas " + formatPercent(bobotTugas) + "%  •  UTS " + formatPercent(bobotUts) + "%  •  UAS " + formatPercent(bobotUas) + "%";
-    }
-
-    private String formatPercent(double value) {
-        if (value == Math.rint(value)) {
-            return String.valueOf((int) value);
-        }
-        return String.format(java.util.Locale.US, "%.2f", value);
+        return Math.round(((tugas * 0.3) + (uts * 0.3) + (uas * 0.4)) * 100.0) / 100.0;
     }
 
     private String calculateGrade(double value) {
@@ -1078,16 +770,15 @@ public class AkademikPanel extends JPanel {
 
     private void showState(String title, String message) {
         skeleton.stop();
-        statePanel.showState("!", title, message, "Muat ulang", this::loadAcademicSettings);
+        statePanel.showState("!", title, message, "Muat ulang", this::loadMataKuliah);
         rootCard.show(rootPanel, "state");
     }
 
     private JButton buildButton(String text, Color bg) {
         JButton btn = new JButton(text);
         btn.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        btn.setForeground(TEXT);
+        btn.setForeground(TEXT());
         btn.setBackground(bg);
-        btn.setPreferredSize(new Dimension(118, 38));
         btn.setBorder(new EmptyBorder(9, 14, 9, 14));
         btn.setFocusPainted(false);
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
@@ -1096,48 +787,48 @@ public class AkademikPanel extends JPanel {
 
     private JLabel smallLabel(String text) {
         JLabel label = new JLabel(text);
-        label.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        label.setForeground(MUTED);
+        label.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        label.setForeground(MUTED());
         return label;
     }
 
     private void styleCombo(JComboBox<?> combo, int width) {
-        combo.setPreferredSize(new Dimension(width, 38));
-        combo.setBackground(CARD_BG);
-        combo.setForeground(TEXT);
+        combo.setPreferredSize(new Dimension(width, 36));
+        combo.setBackground(CARD_BG());
+        combo.setForeground(TEXT());
         combo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        combo.setBorder(BorderFactory.createLineBorder(BORDER));
+        combo.setBorder(BorderFactory.createLineBorder(BORDER()));
     }
 
     private void styleTextField(JTextField field, int width) {
         field.setPreferredSize(new Dimension(width, 36));
-        field.setBackground(CARD_BG);
-        field.setForeground(TEXT);
-        field.setCaretColor(TEXT);
+        field.setBackground(CARD_BG());
+        field.setForeground(TEXT());
+        field.setCaretColor(TEXT());
         field.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         field.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(BORDER),
+                BorderFactory.createLineBorder(BORDER()),
                 new EmptyBorder(0, 10, 0, 10)
         ));
         field.setToolTipText("Cari NIM atau nama");
     }
 
     private void styleTable(JTable t) {
-        t.setBackground(TABLE_BG);
-        t.setForeground(TEXT);
+        t.setBackground(TABLE_BG());
+        t.setForeground(TEXT());
         t.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         t.setRowHeight(42);
-        t.setGridColor(BORDER);
+        t.setGridColor(BORDER());
         t.setSelectionBackground(new Color(37, 99, 235, 80));
-        t.setSelectionForeground(TEXT);
+        t.setSelectionForeground(TEXT());
         t.setShowVerticalLines(false);
 
         JTableHeader header = t.getTableHeader();
-        header.setBackground(HEADER_BG);
-        header.setForeground(MUTED);
+        header.setBackground(HEADER_BG());
+        header.setForeground(MUTED());
         header.setFont(new Font("Segoe UI", Font.BOLD, 11));
         header.setPreferredSize(new Dimension(header.getPreferredSize().width, 38));
-        header.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, BORDER));
+        header.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, BORDER()));
     }
 
     private static boolean hasValue(JsonObject object, String key) {
@@ -1156,10 +847,6 @@ public class AkademikPanel extends JPanel {
         return hasValue(object, key) ? object.get(key).getAsDouble() : 0;
     }
 
-    private static double getDouble(JsonObject object, String key, double defaultValue) {
-        return hasValue(object, key) ? object.get(key).getAsDouble() : defaultValue;
-    }
-
     private static class MataKuliahItem {
         final String kodeMk;
         final String namaMk;
@@ -1176,34 +863,19 @@ public class AkademikPanel extends JPanel {
         }
     }
 
-    private static class MahasiswaItem {
+    private static class StudentItem {
         final String nim;
         final String nama;
+        final int row;
 
-        MahasiswaItem(String nim, String nama) {
-            this.nim = nim == null ? "" : nim;
-            this.nama = nama == null ? "" : nama;
+        StudentItem(String nim, String nama, int row) {
+            this.nim = nim;
+            this.nama = nama;
+            this.row = row;
         }
 
         @Override public String toString() {
-            if (nim.isBlank()) return nama;
             return nim + " - " + nama;
-        }
-    }
-
-    private static class DraftNilai {
-        final String key;
-        final String nim;
-        final double tugas;
-        final double uts;
-        final double uas;
-
-        DraftNilai(String key, String nim, double tugas, double uts, double uas) {
-            this.key = key;
-            this.nim = nim;
-            this.tugas = tugas;
-            this.uts = uts;
-            this.uas = uas;
         }
     }
 
@@ -1213,7 +885,7 @@ public class AkademikPanel extends JPanel {
             label.setHorizontalAlignment(SwingConstants.CENTER);
             label.setFont(new Font("Segoe UI", Font.BOLD, 12));
             String grade = String.valueOf(v);
-            label.setForeground("A".equals(grade) || "B".equals(grade) ? GREEN : ("C".equals(grade) ? AMBER : new Color(239, 68, 68)));
+            label.setForeground("A".equals(grade) || "B".equals(grade) ? GREEN() : ("C".equals(grade) ? AMBER() : new Color(239, 68, 68)));
             return label;
         }
     }
@@ -1222,7 +894,7 @@ public class AkademikPanel extends JPanel {
         @Override public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean foc, int r, int c) {
             JLabel label = (JLabel) super.getTableCellRendererComponent(t, v, sel, foc, r, c);
             label.setHorizontalAlignment(SwingConstants.CENTER);
-            label.setForeground("Diubah".equals(String.valueOf(v)) ? AMBER : MUTED);
+            label.setForeground("Diubah".equals(String.valueOf(v)) ? AMBER() : MUTED());
             return label;
         }
     }
@@ -1231,14 +903,12 @@ public class AkademikPanel extends JPanel {
         ActionRenderer() {
             setOpaque(false);
             setLayout(new FlowLayout(FlowLayout.CENTER, 4, 6));
+            add(actionChip("Edit", BLUE()));
+            add(actionChip("Hapus", new Color(185, 28, 28)));
         }
 
         @Override public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean foc, int r, int c) {
-            removeAll();
-            setBackground(sel ? t.getSelectionBackground() : (r % 2 == 0 ? TABLE_BG : ROW_ALT));
-            String status = String.valueOf(t.getModel().getValueAt(t.convertRowIndexToModel(r), 8));
-            add(actionChip("Baru".equals(status) ? "Input Nilai" : "Edit", "Baru".equals(status) ? GREEN : BLUE));
-            add(actionChip("Hapus", new Color(185, 28, 28)));
+            setBackground(sel ? t.getSelectionBackground() : (r % 2 == 0 ? TABLE_BG() : ROW_ALT()));
             return this;
         }
     }
@@ -1255,18 +925,17 @@ public class AkademikPanel extends JPanel {
             JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 6));
             panel.setOpaque(true);
             panel.setBackground(t.getSelectionBackground());
-            String status = String.valueOf(t.getModel().getValueAt(t.convertRowIndexToModel(r), 8));
-            JButton primary = actionChip("Baru".equals(status) ? "Input Nilai" : "Edit", "Baru".equals(status) ? GREEN : BLUE);
+            JButton edit = actionChip("Edit", BLUE());
             JButton delete = actionChip("Hapus", new Color(185, 28, 28));
-            primary.addActionListener(e -> {
+            edit.addActionListener(e -> {
                 fireEditingStopped();
-                showNilaiDialog(row, "Baru".equals(status));
+                showNilaiDialog(row);
             });
             delete.addActionListener(e -> {
                 fireEditingStopped();
                 deleteNilai(row);
             });
-            panel.add(primary);
+            panel.add(edit);
             panel.add(delete);
             return panel;
         }
@@ -1277,7 +946,7 @@ public class AkademikPanel extends JPanel {
     private JButton actionChip(String text, Color color) {
         JButton btn = new JButton(text);
         btn.setFont(new Font("Segoe UI", Font.BOLD, 10));
-        btn.setForeground(TEXT);
+        btn.setForeground(TEXT());
         btn.setBackground(color);
         btn.setBorder(new EmptyBorder(5, 8, 5, 8));
         btn.setFocusPainted(false);

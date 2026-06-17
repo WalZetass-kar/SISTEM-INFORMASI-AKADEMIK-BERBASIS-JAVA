@@ -1,5 +1,7 @@
 package com.siakad.views.panels;
 
+import com.siakad.utils.AppTheme;
+
 import javax.swing.*;
 import java.awt.*;
 
@@ -15,15 +17,14 @@ public class SkeletonPanel extends JPanel {
     private final Timer timer;
     private final Type type;
 
-    private static final Color BASE   = new Color(22, 32, 58);
-    private static final Color SHINE  = new Color(45, 62, 100);
-    private static final Color BG     = new Color(13, 19, 38);
-    private static final Color CARD   = new Color(18, 26, 48);
-    private static final Color BORDER = new Color(25, 36, 65);
+    private static Color BASE() { return AppTheme.isDark() ? new Color(22, 32, 58) : new Color(226, 232, 240); }
+    private static Color BG() { return AppTheme.bg(); }
+    private static Color CARD() { return AppTheme.card(); }
+    private static Color BORDER() { return AppTheme.border(); }
 
     public SkeletonPanel(Type type) {
         this.type = type;
-        setBackground(BG);
+        setBackground(BG());
         setLayout(null);
         timer = new Timer(18, e -> {
             shimmerPos += 0.022f;
@@ -52,7 +53,7 @@ public class SkeletonPanel extends JPanel {
         block(g2, x, y, w, h, 6);
     }
     private void block(Graphics2D g2, int x, int y, int w, int h, int arc) {
-        g2.setColor(BASE);
+        g2.setColor(BASE());
         g2.fillRoundRect(x, y, w, h, arc, arc);
         // Shimmer sweep
         int sw = getWidth();
@@ -74,14 +75,14 @@ public class SkeletonPanel extends JPanel {
     }
 
     private void card(Graphics2D g2, int x, int y, int w, int h) {
-        g2.setColor(CARD);
+        g2.setColor(CARD());
         g2.fillRoundRect(x, y, w, h, 12, 12);
-        g2.setColor(BORDER);
+        g2.setColor(BORDER());
         g2.drawRoundRect(x, y, w-1, h-1, 12, 12);
     }
 
     private void circle(Graphics2D g2, int x, int y, int d) {
-        g2.setColor(BASE);
+        g2.setColor(BASE());
         g2.fillOval(x, y, d, d);
         int sw = getWidth();
         int sx = (int)(shimmerPos * sw) - 120;
@@ -124,7 +125,7 @@ public class SkeletonPanel extends JPanel {
         // Donut placeholder
         int dc = p + chartW + 14 + chartW/2;
         circle(g2, dc-55, 216+40, 110);
-        g2.setColor(BG); g2.fillOval(dc-33, 216+62, 66, 66);
+        g2.setColor(BG()); g2.fillOval(dc-33, 216+62, 66, 66);
         // Legend
         for (int i = 0; i < 3; i++) {
             block(g2, dc+65, 216+60+i*30, 12, 12, 3);

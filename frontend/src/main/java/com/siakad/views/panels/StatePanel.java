@@ -1,5 +1,7 @@
 package com.siakad.views.panels;
 
+import com.siakad.utils.AppTheme;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
@@ -14,26 +16,26 @@ public class StatePanel extends JPanel {
     private final JButton actionButton;
     private Runnable action;
 
-    private static final Color BG = new Color(13, 19, 38);
-    private static final Color CARD_BG = new Color(18, 26, 48);
-    private static final Color BORDER = new Color(25, 36, 65);
-    private static final Color TEXT = new Color(248, 250, 252);
-    private static final Color MUTED = new Color(148, 163, 184);
-    private static final Color BLUE = new Color(59, 130, 246);
+    private static Color BG() { return AppTheme.bg(); }
+    private static Color CARD_BG() { return AppTheme.card(); }
+    private static Color BORDER() { return AppTheme.border(); }
+    private static Color TEXT() { return AppTheme.text(); }
+    private static Color MUTED() { return AppTheme.muted(); }
+    private static Color BLUE() { return AppTheme.blue(); }
 
     public StatePanel() {
         setOpaque(false);
         setLayout(new GridBagLayout());
-        setBackground(BG);
+        setBackground(BG());
 
         JPanel card = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(CARD_BG);
+                g2.setColor(CARD_BG());
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
-                g2.setColor(BORDER);
+                g2.setColor(BORDER());
                 g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 14, 14);
                 g2.dispose();
             }
@@ -45,17 +47,17 @@ public class StatePanel extends JPanel {
 
         iconLabel = new JLabel("!");
         iconLabel.setFont(new Font("Segoe UI", Font.BOLD, 36));
-        iconLabel.setForeground(BLUE);
+        iconLabel.setForeground(BLUE());
         iconLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         titleLabel = new JLabel("Data belum tersedia");
         titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 20));
-        titleLabel.setForeground(TEXT);
+        titleLabel.setForeground(TEXT());
         titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         messageLabel = new JLabel(" ");
         messageLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        messageLabel.setForeground(MUTED);
+        messageLabel.setForeground(MUTED());
         messageLabel.setHorizontalAlignment(SwingConstants.CENTER);
         messageLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
@@ -63,7 +65,7 @@ public class StatePanel extends JPanel {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                Color bg = getModel().isRollover() ? BLUE.brighter() : BLUE;
+                Color bg = getModel().isRollover() ? BLUE().brighter() : BLUE();
                 g2.setColor(bg);
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
                 g2.setColor(Color.WHITE);

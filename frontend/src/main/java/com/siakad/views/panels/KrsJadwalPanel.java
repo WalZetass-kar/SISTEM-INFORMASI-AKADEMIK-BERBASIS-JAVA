@@ -14,7 +14,7 @@ import com.itextpdf.text.pdf.PdfPCell;
 import com.itextpdf.text.pdf.PdfPTable;
 import com.itextpdf.text.pdf.PdfWriter;
 import com.siakad.services.AkademikService;
-import com.siakad.services.MahasiswaService;
+import com.siakad.utils.AppTheme;
 import com.siakad.utils.JwtHelper;
 
 import javax.swing.*;
@@ -54,28 +54,27 @@ public class KrsJadwalPanel extends JPanel {
     private JLabel lblJadwalInfo;
 
     private JsonArray matakuliahCache = new JsonArray();
-    private JsonArray jurusanCache = new JsonArray();
     private JsonArray jadwalCache = new JsonArray();
     private JsonArray currentKrsCache = new JsonArray();
     private JsonObject currentKrsSummary = null;
 
     private int activeLoads = 0;
 
-    private static final Color BG           = new Color(13, 19, 38);
-    private static final Color CARD_BG      = new Color(18, 26, 48);
-    private static final Color TABLE_BG     = new Color(15, 22, 42);
-    private static final Color HEADER_BG    = new Color(10, 15, 30);
-    private static final Color BORDER_COLOR = new Color(25, 36, 65);
-    private static final Color ROW_ALT      = new Color(20, 29, 52);
-    private static final Color TEXT_PRIMARY = new Color(248, 250, 252);
-    private static final Color TEXT_MUTED   = new Color(148, 163, 184);
-    private static final Color TEXT_DIM     = new Color(71, 85, 105);
-    private static final Color BLUE         = new Color(59, 130, 246);
-    private static final Color GREEN        = new Color(34, 197, 94);
-    private static final Color YELLOW       = new Color(234, 179, 8);
+    private static Color BG() { return AppTheme.bg(); }
+    private static Color CARD_BG() { return AppTheme.card(); }
+    private static Color TABLE_BG() { return AppTheme.table(); }
+    private static Color HEADER_BG() { return AppTheme.header(); }
+    private static Color BORDER_COLOR() { return AppTheme.border(); }
+    private static Color ROW_ALT() { return AppTheme.rowAlt(); }
+    private static Color TEXT_PRIMARY() { return AppTheme.text(); }
+    private static Color TEXT_MUTED() { return AppTheme.muted(); }
+    private static Color TEXT_DIM() { return AppTheme.dim(); }
+    private static Color BLUE() { return AppTheme.blue(); }
+    private static Color GREEN() { return AppTheme.green(); }
+    private static Color YELLOW() { return AppTheme.yellow(); }
 
     public KrsJadwalPanel() {
-        setBackground(BG);
+        setBackground(BG());
         setLayout(new BorderLayout());
         initUI();
         refreshAllData();
@@ -105,11 +104,11 @@ public class KrsJadwalPanel extends JPanel {
 
         JLabel lblTitle = new JLabel("KRS & Jadwal Kuliah");
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 26));
-        lblTitle.setForeground(TEXT_PRIMARY);
+        lblTitle.setForeground(TEXT_PRIMARY());
 
         JLabel lblSub = new JLabel("Kelola input KRS, mata kuliah, jadwal kuliah, dan cetak KRS");
         lblSub.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        lblSub.setForeground(TEXT_MUTED);
+        lblSub.setForeground(TEXT_MUTED());
 
         titleBlock.add(lblTitle);
         titleBlock.add(Box.createVerticalStrut(2));
@@ -118,7 +117,7 @@ public class KrsJadwalPanel extends JPanel {
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         actions.setOpaque(false);
 
-        JButton btnRefresh = buildBtn("Refresh", BLUE, 110);
+        JButton btnRefresh = buildBtn("Refresh", BLUE(), 110);
         btnRefresh.addActionListener(e -> refreshAllData());
         actions.add(btnRefresh);
 
@@ -136,9 +135,9 @@ public class KrsJadwalPanel extends JPanel {
         lblSksStat = new JLabel("0 SKS");
         lblJadwalStat = new JLabel("0");
 
-        wrap.add(buildStatCard("KRS Aktif", "Jumlah baris KRS yang sedang ditampilkan", lblKrsStat, BLUE));
-        wrap.add(buildStatCard("Total SKS", "Akumulasi SKS dari hasil filter KRS aktif", lblSksStat, GREEN));
-        wrap.add(buildStatCard("Jadwal Kuliah", "Jumlah jadwal kuliah yang tersedia", lblJadwalStat, YELLOW));
+        wrap.add(buildStatCard("KRS Aktif", "Jumlah baris KRS yang sedang ditampilkan", lblKrsStat, BLUE()));
+        wrap.add(buildStatCard("Total SKS", "Akumulasi SKS dari hasil filter KRS aktif", lblSksStat, GREEN()));
+        wrap.add(buildStatCard("Jadwal Kuliah", "Jumlah jadwal kuliah yang tersedia", lblJadwalStat, YELLOW()));
         return wrap;
     }
 
@@ -148,9 +147,9 @@ public class KrsJadwalPanel extends JPanel {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(CARD_BG);
+                g2.setColor(CARD_BG());
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
-                g2.setColor(BORDER_COLOR);
+                g2.setColor(BORDER_COLOR());
                 g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 14, 14);
                 GradientPaint gradient = new GradientPaint(0, 0, accent, getWidth(), 0,
                         new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 40));
@@ -166,16 +165,16 @@ public class KrsJadwalPanel extends JPanel {
 
         JLabel lblTitle = new JLabel(title);
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        lblTitle.setForeground(TEXT_PRIMARY);
+        lblTitle.setForeground(TEXT_PRIMARY());
         lblTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JLabel lblDesc = new JLabel("<html><body style='width:220px'>" + desc + "</body></html>");
         lblDesc.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        lblDesc.setForeground(TEXT_MUTED);
+        lblDesc.setForeground(TEXT_MUTED());
         lblDesc.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         valueLabel.setFont(new Font("Segoe UI", Font.BOLD, 24));
-        valueLabel.setForeground(TEXT_PRIMARY);
+        valueLabel.setForeground(TEXT_PRIMARY());
         valueLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         card.add(lblTitle);
@@ -190,8 +189,8 @@ public class KrsJadwalPanel extends JPanel {
         JTabbedPane tabs = new JTabbedPane();
         tabs.setOpaque(false);
         tabs.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        tabs.setBackground(CARD_BG);
-        tabs.setForeground(TEXT_MUTED);
+        tabs.setBackground(CARD_BG());
+        tabs.setForeground(TEXT_MUTED());
         tabs.setBorder(new EmptyBorder(0, 28, 18, 28));
 
         tabs.addTab("Input KRS", buildKrsTab());
@@ -239,9 +238,9 @@ public class KrsJadwalPanel extends JPanel {
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         actions.setOpaque(false);
 
-        JButton btnLoad = buildBtn("Muat KRS", BLUE, 120);
+        JButton btnLoad = buildBtn("Muat KRS", BLUE(), 120);
         btnLoad.addActionListener(e -> loadKrs());
-        JButton btnInput = buildBtn("Input KRS", GREEN, 120);
+        JButton btnInput = buildBtn("Input KRS", GREEN(), 120);
         btnInput.addActionListener(e -> showKrsDialog());
         JButton btnPrint = buildBtn("Cetak KRS", new Color(30, 41, 70), 120);
         btnPrint.addActionListener(e -> printKrs());
@@ -267,7 +266,7 @@ public class KrsJadwalPanel extends JPanel {
         tableCard.setBorder(new EmptyBorder(0, 0, 0, 0));
         tableCard.add(new JScrollPane(tableKrs) {{
             setBorder(null);
-            getViewport().setBackground(TABLE_BG);
+            getViewport().setBackground(TABLE_BG());
         }}, BorderLayout.CENTER);
 
         lblKrsInfo = makeInfoLabel("Belum ada data KRS dimuat.");
@@ -299,15 +298,15 @@ public class KrsJadwalPanel extends JPanel {
 
         JLabel info = new JLabel("Daftar mata kuliah yang dapat dipilih pada proses input KRS.");
         info.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        info.setForeground(TEXT_MUTED);
+        info.setForeground(TEXT_MUTED());
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         actions.setOpaque(false);
-        JButton btnRefresh = buildBtn("Refresh", BLUE, 110);
+        JButton btnRefresh = buildBtn("Refresh", BLUE(), 110);
         btnRefresh.addActionListener(e -> loadMatakuliah());
         actions.add(btnRefresh);
         if (JwtHelper.getInstance().isAdmin()) {
-            JButton btnTambah = buildBtn("Tambah Mata Kuliah", GREEN, 190);
+            JButton btnTambah = buildBtn("Tambah Mata Kuliah", GREEN(), 190);
             btnTambah.addActionListener(e -> showMatakuliahDialog());
             actions.add(btnTambah);
         }
@@ -315,7 +314,7 @@ public class KrsJadwalPanel extends JPanel {
         topCard.add(info, BorderLayout.WEST);
         topCard.add(actions, BorderLayout.EAST);
 
-        String[] columns = {"Kode MK", "Nama Mata Kuliah", "SKS", "Semester", "Jurusan"};
+        String[] columns = {"Kode MK", "Nama Mata Kuliah", "SKS", "Semester"};
         matakuliahTableModel = new DefaultTableModel(columns, 0) {
             @Override public boolean isCellEditable(int rowIndex, int columnIndex) { return false; }
         };
@@ -327,7 +326,7 @@ public class KrsJadwalPanel extends JPanel {
         tableCard.setLayout(new BorderLayout());
         tableCard.add(new JScrollPane(tableMatakuliah) {{
             setBorder(null);
-            getViewport().setBackground(TABLE_BG);
+            getViewport().setBackground(TABLE_BG());
         }}, BorderLayout.CENTER);
 
         lblMatakuliahInfo = makeInfoLabel("Belum ada data mata kuliah.");
@@ -359,15 +358,15 @@ public class KrsJadwalPanel extends JPanel {
 
         JLabel info = new JLabel("Jadwal kuliah berdasarkan mata kuliah yang sudah terdaftar.");
         info.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        info.setForeground(TEXT_MUTED);
+        info.setForeground(TEXT_MUTED());
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         actions.setOpaque(false);
-        JButton btnRefresh = buildBtn("Refresh", BLUE, 110);
+        JButton btnRefresh = buildBtn("Refresh", BLUE(), 110);
         btnRefresh.addActionListener(e -> loadJadwal());
         actions.add(btnRefresh);
         if (JwtHelper.getInstance().isAdmin()) {
-            JButton btnTambah = buildBtn("Tambah Jadwal", GREEN, 150);
+            JButton btnTambah = buildBtn("Tambah Jadwal", GREEN(), 150);
             btnTambah.addActionListener(e -> showJadwalDialog());
             actions.add(btnTambah);
         }
@@ -386,7 +385,7 @@ public class KrsJadwalPanel extends JPanel {
         tableCard.setLayout(new BorderLayout());
         tableCard.add(new JScrollPane(tableJadwal) {{
             setBorder(null);
-            getViewport().setBackground(TABLE_BG);
+            getViewport().setBackground(TABLE_BG());
         }}, BorderLayout.CENTER);
 
         lblJadwalInfo = makeInfoLabel("Belum ada data jadwal kuliah.");
@@ -409,32 +408,9 @@ public class KrsJadwalPanel extends JPanel {
     }
 
     private void refreshAllData() {
-        loadJurusan();
         loadMatakuliah();
         loadJadwal();
         loadKrs();
-    }
-
-    private void loadJurusan() {
-        startBusy();
-        new SwingWorker<JsonObject, Void>() {
-            @Override protected JsonObject doInBackground() throws Exception {
-                return MahasiswaService.getJurusanList();
-            }
-
-            @Override protected void done() {
-                try {
-                    JsonObject response = get();
-                    if (response.get("success").getAsBoolean()) {
-                        jurusanCache = response.getAsJsonArray("data");
-                    }
-                } catch (Exception ignored) {
-                    jurusanCache = new JsonArray();
-                } finally {
-                    stopBusy();
-                }
-            }
-        }.execute();
     }
 
     private void loadMatakuliah() {
@@ -533,8 +509,7 @@ public class KrsJadwalPanel extends JPanel {
                     safe(mk, "kode_mk"),
                     safe(mk, "nama_mk"),
                     safe(mk, "sks"),
-                    safe(mk, "semester"),
-                    safe(mk, "jurusan")
+                    safe(mk, "semester")
             });
         }
         lblMatakuliahInfo.setText(data.size() + " mata kuliah tersedia");
@@ -596,17 +571,15 @@ public class KrsJadwalPanel extends JPanel {
         JTextField fKode = makeField();
         JTextField fNama = makeField();
         JTextField fSks = makeField();
-        JSpinner spSemester = makeSpinner(1, 1, 14, 1);
-        JComboBox<String> cmbJurusan = buildJurusanCombo();
+        JTextField fSemester = makeField();
 
         int row = 0;
         addFormRow(form, g, row++, "Kode Mata Kuliah *", fKode);
         addFormRow(form, g, row++, "Nama Mata Kuliah *", fNama);
         addFormRow(form, g, row++, "SKS *", fSks);
-        addFormRow(form, g, row++, "Semester *", spSemester);
-        addFormRow(form, g, row++, "Jurusan *", cmbJurusan);
+        addFormRow(form, g, row++, "Semester *", fSemester);
 
-        JButton btnSave = buildBtn("Simpan Mata Kuliah", BLUE, 200);
+        JButton btnSave = buildBtn("Simpan Mata Kuliah", BLUE(), 200);
         g.gridx = 0;
         g.gridy = row;
         g.gridwidth = 2;
@@ -614,19 +587,18 @@ public class KrsJadwalPanel extends JPanel {
         form.add(btnSave, g);
 
         btnSave.addActionListener(e -> {
-            String selectedJurusan = String.valueOf(cmbJurusan.getSelectedItem());
-            if (isBlank(fKode) || isBlank(fNama) || isBlank(fSks)
-                    || selectedJurusan.isBlank() || selectedJurusan.startsWith("Belum ada")) {
+            if (isBlank(fKode) || isBlank(fNama) || isBlank(fSks) || isBlank(fSemester)) {
                 JOptionPane.showMessageDialog(dialog, "Semua field wajib harus diisi.", "Validasi", JOptionPane.WARNING_MESSAGE);
                 return;
             }
 
             int sks;
-            int semester = ((Number) spSemester.getValue()).intValue();
+            int semester;
             try {
                 sks = Integer.parseInt(fSks.getText().trim());
+                semester = Integer.parseInt(fSemester.getText().trim());
             } catch (NumberFormatException ex) {
-                JOptionPane.showMessageDialog(dialog, "SKS harus berupa angka.", "Validasi", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(dialog, "SKS dan semester harus berupa angka.", "Validasi", JOptionPane.WARNING_MESSAGE);
                 return;
             }
 
@@ -635,14 +607,13 @@ public class KrsJadwalPanel extends JPanel {
             body.addProperty("nama_mk", fNama.getText().trim());
             body.addProperty("sks", sks);
             body.addProperty("semester", semester);
-            body.addProperty("jurusan", selectedJurusan);
 
             submitDialog(dialog, () -> AkademikService.createMatakuliah(body), this::loadMatakuliah);
         });
 
         dialog.add(new JScrollPane(form) {{
             setBorder(null);
-            getViewport().setBackground(CARD_BG);
+            getViewport().setBackground(CARD_BG());
         }});
         dialog.setVisible(true);
     }
@@ -663,10 +634,8 @@ public class KrsJadwalPanel extends JPanel {
         JComboBox<MatakuliahOption> cmbMatakuliah = buildMatakuliahCombo();
         JComboBox<String> cmbHari = new JComboBox<>(new String[]{"senin", "selasa", "rabu", "kamis", "jumat", "sabtu"});
         styleCombo(cmbHari);
-        JTextField fJamMulai = makeField();
-        fJamMulai.setToolTipText("Contoh: 08:00");
-        JTextField fJamSelesai = makeField();
-        fJamSelesai.setToolTipText("Contoh: 10:00");
+        JTextField fJam = makeField();
+        fJam.setToolTipText("Contoh: 08:00-10:00");
         JTextField fRuangan = makeField();
         JTextField fDosen = makeField();
 
@@ -684,12 +653,11 @@ public class KrsJadwalPanel extends JPanel {
         int row = 0;
         addFormRow(form, g, row++, "Mata Kuliah *", cmbMatakuliah);
         addFormRow(form, g, row++, "Hari *", cmbHari);
-        addFormRow(form, g, row++, "Jam Mulai *", fJamMulai);
-        addFormRow(form, g, row++, "Jam Selesai *", fJamSelesai);
+        addFormRow(form, g, row++, "Jam *", fJam);
         addFormRow(form, g, row++, "Ruangan *", fRuangan);
         addFormRow(form, g, row++, "Dosen *", fDosen);
 
-        JButton btnSave = buildBtn("Simpan Jadwal", BLUE, 180);
+        JButton btnSave = buildBtn("Simpan Jadwal", BLUE(), 180);
         g.gridx = 0;
         g.gridy = row;
         g.gridwidth = 2;
@@ -698,27 +666,15 @@ public class KrsJadwalPanel extends JPanel {
 
         btnSave.addActionListener(e -> {
             MatakuliahOption option = (MatakuliahOption) cmbMatakuliah.getSelectedItem();
-            if (option == null || isBlank(fJamMulai) || isBlank(fJamSelesai) || isBlank(fRuangan) || isBlank(fDosen)) {
+            if (option == null || isBlank(fJam) || isBlank(fRuangan) || isBlank(fDosen)) {
                 JOptionPane.showMessageDialog(dialog, "Semua field wajib harus diisi.", "Validasi", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            String jamMulai = fJamMulai.getText().trim();
-            String jamSelesai = fJamSelesai.getText().trim();
-            if (!isValidJam(jamMulai) || !isValidJam(jamSelesai)) {
-                JOptionPane.showMessageDialog(dialog, "Format jam harus HH:mm, contoh 08:00.", "Validasi", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-            if (jamMulai.compareTo(jamSelesai) >= 0) {
-                JOptionPane.showMessageDialog(dialog, "Jam selesai harus lebih besar dari jam mulai.", "Validasi", JOptionPane.WARNING_MESSAGE);
                 return;
             }
 
             JsonObject body = new JsonObject();
             body.addProperty("kode_mk", option.kodeMk());
             body.addProperty("hari", String.valueOf(cmbHari.getSelectedItem()));
-            body.addProperty("jam_mulai", jamMulai);
-            body.addProperty("jam_selesai", jamSelesai);
+            body.addProperty("jam", fJam.getText().trim());
             body.addProperty("ruangan", fRuangan.getText().trim());
             body.addProperty("dosen", fDosen.getText().trim());
 
@@ -730,7 +686,7 @@ public class KrsJadwalPanel extends JPanel {
 
         dialog.add(new JScrollPane(form) {{
             setBorder(null);
-            getViewport().setBackground(CARD_BG);
+            getViewport().setBackground(CARD_BG());
         }});
         dialog.setVisible(true);
     }
@@ -757,11 +713,14 @@ public class KrsJadwalPanel extends JPanel {
         }
 
         JComboBox<MatakuliahOption> cmbMatakuliah = buildMatakuliahCombo();
-        JComboBox<String> cmbTahunAjaran = buildTahunAjaranCombo(txtTahunAjaranFilter.getText().trim());
+        JTextField fTahunAjaran = makeField();
+        fTahunAjaran.setText(txtTahunAjaranFilter.getText().trim().isEmpty()
+                ? defaultAcademicYear()
+                : txtTahunAjaranFilter.getText().trim());
 
         JLabel lblPreview = new JLabel("Pilih mata kuliah untuk melihat ringkasan.");
         lblPreview.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        lblPreview.setForeground(TEXT_MUTED);
+        lblPreview.setForeground(TEXT_MUTED());
 
         cmbMatakuliah.addActionListener(e -> {
             MatakuliahOption option = (MatakuliahOption) cmbMatakuliah.getSelectedItem();
@@ -777,12 +736,12 @@ public class KrsJadwalPanel extends JPanel {
         int row = 0;
         addFormRow(form, g, row++, "NIM *", fNim);
         addFormRow(form, g, row++, "Mata Kuliah *", cmbMatakuliah);
-        addFormRow(form, g, row++, "Tahun Ajaran *", cmbTahunAjaran);
+        addFormRow(form, g, row++, "Tahun Ajaran *", fTahunAjaran);
         g.gridx = 1;
         g.gridy = row++;
         form.add(lblPreview, g);
 
-        JButton btnSave = buildBtn("Simpan KRS", BLUE, 160);
+        JButton btnSave = buildBtn("Simpan KRS", BLUE(), 160);
         g.gridx = 0;
         g.gridy = row;
         g.gridwidth = 2;
@@ -791,8 +750,7 @@ public class KrsJadwalPanel extends JPanel {
 
         btnSave.addActionListener(e -> {
             MatakuliahOption option = (MatakuliahOption) cmbMatakuliah.getSelectedItem();
-            String tahunAjaran = String.valueOf(cmbTahunAjaran.getSelectedItem()).trim();
-            if (option == null || isBlank(fNim) || tahunAjaran.isBlank() || tahunAjaran.startsWith("Memuat") || tahunAjaran.startsWith("Belum ada")) {
+            if (option == null || isBlank(fNim) || isBlank(fTahunAjaran)) {
                 JOptionPane.showMessageDialog(dialog, "Semua field wajib harus diisi.", "Validasi", JOptionPane.WARNING_MESSAGE);
                 return;
             }
@@ -800,20 +758,20 @@ public class KrsJadwalPanel extends JPanel {
             JsonObject body = new JsonObject();
             body.addProperty("nim", fNim.getText().trim());
             body.addProperty("kode_mk", option.kodeMk());
-            body.addProperty("tahun_ajaran", tahunAjaran);
+            body.addProperty("tahun_ajaran", fTahunAjaran.getText().trim());
 
             submitDialog(dialog, () -> AkademikService.createKrs(body), () -> {
                 if (JwtHelper.getInstance().isAdmin()) {
                     txtNimFilter.setText(fNim.getText().trim());
                 }
-                txtTahunAjaranFilter.setText(tahunAjaran);
+                txtTahunAjaranFilter.setText(fTahunAjaran.getText().trim());
                 loadKrs();
             });
         });
 
         dialog.add(new JScrollPane(form) {{
             setBorder(null);
-            getViewport().setBackground(CARD_BG);
+            getViewport().setBackground(CARD_BG());
         }});
         dialog.setVisible(true);
     }
@@ -993,9 +951,9 @@ public class KrsJadwalPanel extends JPanel {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(CARD_BG);
+                g2.setColor(CARD_BG());
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
-                g2.setColor(BORDER_COLOR);
+                g2.setColor(BORDER_COLOR());
                 g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 14, 14);
                 g2.dispose();
             }
@@ -1009,14 +967,14 @@ public class KrsJadwalPanel extends JPanel {
             @Override public Component prepareRenderer(TableCellRenderer renderer, int row, int column) {
                 Component component = super.prepareRenderer(renderer, row, column);
                 if (!isRowSelected(row)) {
-                    component.setBackground(row % 2 == 0 ? TABLE_BG : ROW_ALT);
+                    component.setBackground(row % 2 == 0 ? TABLE_BG() : ROW_ALT());
                 }
-                component.setForeground(TEXT_PRIMARY);
+                component.setForeground(TEXT_PRIMARY());
                 return component;
             }
         };
-        table.setBackground(TABLE_BG);
-        table.setForeground(TEXT_PRIMARY);
+        table.setBackground(TABLE_BG());
+        table.setForeground(TEXT_PRIMARY());
         table.setSelectionBackground(new Color(59, 130, 246, 60));
         table.setSelectionForeground(Color.WHITE);
         table.setGridColor(new Color(20, 30, 55));
@@ -1027,16 +985,16 @@ public class KrsJadwalPanel extends JPanel {
         table.setFillsViewportHeight(true);
 
         JTableHeader header = table.getTableHeader();
-        header.setBackground(HEADER_BG);
-        header.setForeground(TEXT_MUTED);
+        header.setBackground(HEADER_BG());
+        header.setForeground(TEXT_MUTED());
         header.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        header.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, BORDER_COLOR));
+        header.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, BORDER_COLOR()));
         header.setReorderingAllowed(false);
         header.setPreferredSize(new Dimension(0, 38));
 
         DefaultTableCellRenderer left = new DefaultTableCellRenderer();
         left.setHorizontalAlignment(SwingConstants.LEFT);
-        left.setForeground(TEXT_PRIMARY);
+        left.setForeground(TEXT_PRIMARY());
         table.setDefaultRenderer(Object.class, left);
 
         return table;
@@ -1044,47 +1002,28 @@ public class KrsJadwalPanel extends JPanel {
 
     private JTextField makeField() {
         JTextField field = new JTextField();
-        field.setBackground(new Color(13, 19, 38));
-        field.setForeground(TEXT_PRIMARY);
-        field.setCaretColor(TEXT_PRIMARY);
+        field.setBackground(AppTheme.input());
+        field.setForeground(TEXT_PRIMARY());
+        field.setCaretColor(TEXT_PRIMARY());
         field.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(BORDER_COLOR, 1),
+                BorderFactory.createLineBorder(BORDER_COLOR(), 1),
                 new EmptyBorder(7, 10, 7, 10)));
         field.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         field.setPreferredSize(new Dimension(220, 34));
         return field;
     }
 
-    private JSpinner makeSpinner(int value, int min, int max, int step) {
-        JSpinner spinner = new JSpinner(new SpinnerNumberModel(value, min, max, step));
-        spinner.setPreferredSize(new Dimension(220, 34));
-        spinner.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        spinner.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(BORDER_COLOR, 1),
-                new EmptyBorder(3, 10, 3, 10)));
-        JComponent editor = spinner.getEditor();
-        if (editor instanceof JSpinner.DefaultEditor defaultEditor) {
-            JTextField field = defaultEditor.getTextField();
-            field.setBackground(new Color(13, 19, 38));
-            field.setForeground(TEXT_PRIMARY);
-            field.setCaretColor(TEXT_PRIMARY);
-            field.setBorder(BorderFactory.createEmptyBorder());
-            field.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        }
-        return spinner;
-    }
-
     private JLabel makeLabel(String text) {
         JLabel label = new JLabel(text);
         label.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        label.setForeground(TEXT_MUTED);
+        label.setForeground(TEXT_MUTED());
         return label;
     }
 
     private JLabel makeInfoLabel(String text) {
         JLabel label = new JLabel(text);
         label.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        label.setForeground(TEXT_DIM);
+        label.setForeground(TEXT_DIM());
         return label;
     }
 
@@ -1112,8 +1051,8 @@ public class KrsJadwalPanel extends JPanel {
     }
 
     private void styleCombo(JComboBox<?> combo) {
-        combo.setBackground(new Color(13, 19, 38));
-        combo.setForeground(TEXT_PRIMARY);
+        combo.setBackground(AppTheme.input());
+        combo.setForeground(TEXT_PRIMARY());
         combo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
     }
 
@@ -1126,7 +1065,7 @@ public class KrsJadwalPanel extends JPanel {
 
     private JPanel buildDialogForm() {
         JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBackground(CARD_BG);
+        panel.setBackground(CARD_BG());
         panel.setBorder(new EmptyBorder(24, 28, 24, 28));
         return panel;
     }
@@ -1159,112 +1098,10 @@ public class KrsJadwalPanel extends JPanel {
                     safe(mk, "nama_mk"),
                     parseInteger(safe(mk, "sks")),
                     parseInteger(safe(mk, "semester")),
-                    safe(mk, "jurusan"),
                     "-".equals(dosen) ? "" : dosen
             ));
         }
         styleCombo(combo);
-        return combo;
-    }
-
-    private JComboBox<String> buildJurusanCombo() {
-        JComboBox<String> combo = new JComboBox<>();
-        for (JsonElement item : jurusanCache) {
-            String jurusan = item.getAsString();
-            if (jurusan != null && !jurusan.isBlank()) {
-                combo.addItem(jurusan);
-            }
-        }
-        if (combo.getItemCount() == 0) {
-            combo.addItem("Belum ada jurusan");
-        }
-        styleCombo(combo);
-        return combo;
-    }
-
-    private JComboBox<String> buildTahunAjaranCombo(String preferred) {
-        JComboBox<String> combo = new JComboBox<>();
-        combo.addItem("Memuat tahun ajaran...");
-        styleCombo(combo);
-        new SwingWorker<JsonObject, Void>() {
-            @Override protected JsonObject doInBackground() throws Exception {
-                return AkademikService.getSettings();
-            }
-
-            @Override protected void done() {
-                try {
-                    JsonObject response = get();
-                    combo.removeAllItems();
-                    String active = null;
-                    if (response.get("success").getAsBoolean()) {
-                        JsonArray data = response.getAsJsonObject("data").getAsJsonArray("tahun_ajaran");
-                        for (JsonElement item : data) {
-                            JsonObject tahun = item.getAsJsonObject();
-                            if ("draft".equalsIgnoreCase(safe(tahun, "status"))) {
-                                continue;
-                            }
-                            String tahunAjaran = safe(tahun, "tahun_ajaran");
-                            if (tahunAjaran.isBlank() || "-".equals(tahunAjaran)) {
-                                continue;
-                            }
-                            combo.addItem(tahunAjaran);
-                            if ("aktif".equalsIgnoreCase(safe(tahun, "status"))) {
-                                active = tahunAjaran;
-                            }
-                        }
-                    }
-                    if (combo.getItemCount() == 0) {
-                        combo.addItem("Belum ada tahun ajaran");
-                    } else if (preferred != null && !preferred.isBlank()) {
-                        combo.setSelectedItem(preferred);
-                    } else if (active != null) {
-                        combo.setSelectedItem(active);
-                    }
-                } catch (Exception ex) {
-                    combo.removeAllItems();
-                    combo.addItem(preferred != null && !preferred.isBlank() ? preferred : defaultAcademicYear());
-                }
-            }
-        }.execute();
-        return combo;
-    }
-
-    private JComboBox<SemesterOption> buildSemesterCombo() {
-        JComboBox<SemesterOption> combo = new JComboBox<>();
-        combo.addItem(new SemesterOption(0, "Memuat semester..."));
-        styleCombo(combo);
-        new SwingWorker<JsonObject, Void>() {
-            @Override protected JsonObject doInBackground() throws Exception {
-                return AkademikService.getSettings();
-            }
-
-            @Override protected void done() {
-                try {
-                    JsonObject response = get();
-                    combo.removeAllItems();
-                    if (response.get("success").getAsBoolean()) {
-                        JsonArray data = response.getAsJsonObject("data").getAsJsonArray("semester");
-                        for (JsonElement item : data) {
-                            JsonObject semester = item.getAsJsonObject();
-                            if (semester.has("is_active") && !semester.get("is_active").isJsonNull()
-                                    && semester.get("is_active").getAsInt() == 0) {
-                                continue;
-                            }
-                            combo.addItem(new SemesterOption(
-                                    parseInteger(safe(semester, "nomor")),
-                                    safe(semester, "nama_semester")
-                            ));
-                        }
-                    }
-                    if (combo.getItemCount() == 0) {
-                        combo.addItem(new SemesterOption(0, "Belum ada semester aktif"));
-                    }
-                } catch (Exception ex) {
-                    combo.removeAllItems();
-                    combo.addItem(new SemesterOption(0, "Gagal memuat semester"));
-                }
-            }
-        }.execute();
         return combo;
     }
 
@@ -1296,10 +1133,6 @@ public class KrsJadwalPanel extends JPanel {
 
     private boolean isBlank(JTextField field) {
         return field.getText() == null || field.getText().trim().isEmpty();
-    }
-
-    private boolean isValidJam(String value) {
-        return value != null && value.matches("([01]\\d|2[0-3]):[0-5]\\d");
     }
 
     private int parseInteger(String value) {
@@ -1335,16 +1168,9 @@ public class KrsJadwalPanel extends JPanel {
         JsonObject execute() throws Exception;
     }
 
-    private record MatakuliahOption(String kodeMk, String namaMk, int sks, int semester, String jurusan, String dosen) {
+    private record MatakuliahOption(String kodeMk, String namaMk, int sks, int semester, String dosen) {
         @Override public String toString() {
-            String jurusanLabel = "-".equals(jurusan) || jurusan.isBlank() ? "" : " - " + jurusan;
-            return kodeMk + " - " + namaMk + jurusanLabel;
-        }
-    }
-
-    private record SemesterOption(int nomor, String nama) {
-        @Override public String toString() {
-            return nomor > 0 ? nomor + " - " + nama : nama;
+            return kodeMk + " - " + namaMk;
         }
     }
 }

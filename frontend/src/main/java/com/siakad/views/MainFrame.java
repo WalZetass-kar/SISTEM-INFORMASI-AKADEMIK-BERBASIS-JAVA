@@ -1,6 +1,7 @@
 package com.siakad.views;
 
 import com.siakad.services.AuthService;
+import com.siakad.utils.AppTheme;
 import com.siakad.utils.Config;
 import com.siakad.utils.JwtHelper;
 import com.siakad.views.panels.*;
@@ -9,20 +10,17 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.*;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 
-/**
- * MainFrame - Frame utama aplikasi setelah login
- * Sidebar navigasi modern + content panel
- */
 public class MainFrame extends JFrame {
 
     private JPanel contentPanel;
-    private AnimatedContentPanel animatedContentPanel;
     private CardLayout cardLayout;
     private JButton activeBtn;
-    private InputKehadiranPanel inputKehadiranPanel;
-    private LihatNilaiMahasiswaPanel lihatNilaiMahasiswaPanel;
-    private RekapAkademikSayaPanel rekapAkademikSayaPanel;
+    private JButton btnThemeToggle;
+    private JPanel topbarClock;
+    private Timer clockTimer;
 
     public static final String PANEL_DASHBOARD  = "dashboard";
     public static final String PANEL_MAHASISWA  = "mahasiswa";
@@ -35,97 +33,219 @@ public class MainFrame extends JFrame {
     public static final String PANEL_PENGATURAN_AKADEMIK = "akademik.pengaturan";
     public static final String PANEL_NILAI_SAYA = "akademik.nilaiSaya";
     public static final String PANEL_KEHADIRAN_SAYA = "akademik.kehadiranSaya";
-    public static final String PANEL_REKAP_AKADEMIK_SAYA = "akademik.rekapAkademikSaya";
     public static final String PANEL_INFO_AKADEMIK = "akademik.infoAkademik";
     public static final String PANEL_LAPORAN    = "laporan";
 
-    // Warna tema
-    private static final Color SIDEBAR_BG    = new Color(10, 15, 30);
-    private static final Color SIDEBAR_HOVER = new Color(255, 255, 255, 10);
-    private static final Color SIDEBAR_ACTIVE = new Color(59, 130, 246, 25);
-    private static final Color ACCENT_BLUE   = new Color(59, 130, 246);
-    private static final Color ACCENT_INDIGO = new Color(99, 102, 241);
-    private static final Color TEXT_PRIMARY  = new Color(248, 250, 252);
-    private static final Color TEXT_MUTED    = new Color(148, 163, 184);
-    private static final Color TEXT_DIM      = new Color(71, 85, 105);
-    private static final Color BORDER_COLOR  = new Color(20, 30, 55);
-    private static final Color CONTENT_BG    = new Color(13, 19, 38);
+    private static Color SIDEBAR_BG()     { return AppTheme.sidebar(); }
+    private static Color SIDEBAR_HOVER()  { return AppTheme.sidebarHover(); }
+    private static Color SIDEBAR_ACTIVE() { return AppTheme.sidebarActive(); }
+    private static Color ACCENT_BLUE()    { return AppTheme.blue(); }
+    private static Color TEXT_PRIMARY()    { return Color.WHITE; }
+    private static Color TEXT_MUTED()     { return AppTheme.sidebarMuted(); }
+    private static Color TEXT_DIM()       { return new Color(100, 116, 139); }
+    private static Color BORDER_COLOR()   { return AppTheme.border(); }
+    private static Color CONTENT_BG()     { return AppTheme.bg(); }
+    private static Color TOPBAR_BG()      { return AppTheme.topbar(); }
+    private static Color GREEN()          { return AppTheme.green(); }
+    private static Color YELLOW()         { return AppTheme.yellow(); }
+    private static Color CYAN()           { return AppTheme.cyan(); }
 
     public MainFrame() {
         setTitle(Config.APP_NAME + " — " + JwtHelper.getInstance().getUsername().toUpperCase());
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setResizable(true);
         setSize(Config.DEFAULT_WIDTH, Config.DEFAULT_HEIGHT);
         setLocationRelativeTo(null);
-        setMinimumSize(new Dimension(1024, 680));
+        setMinimumSize(new Dimension(1100, 700));
         initUI();
-        installResizeRefresh();
-        openMaximized();
+        startClock();
     }
 
     private void initUI() {
         setLayout(new BorderLayout());
         add(buildSidebar(), BorderLayout.WEST);
 
+        JPanel rightPanel = new JPanel(new BorderLayout());
+        rightPanel.setBackground(CONTENT_BG());
+        rightPanel.add(buildTopbar(), BorderLayout.NORTH);
+
         cardLayout = new CardLayout();
-        animatedContentPanel = new AnimatedContentPanel(cardLayout);
-        contentPanel = animatedContentPanel;
-        contentPanel.setBackground(CONTENT_BG);
+        contentPanel = new JPanel(cardLayout);
+        contentPanel.setBackground(CONTENT_BG());
         contentPanel.add(new DashboardPanel(), PANEL_DASHBOARD);
         contentPanel.add(new MahasiswaPanel(), PANEL_MAHASISWA);
         contentPanel.add(new PembayaranPanel(), PANEL_PEMBAYARAN);
         contentPanel.add(new KrsJadwalPanel(), PANEL_KRS_JADWAL);
         contentPanel.add(new AkademikPanel(), PANEL_INPUT_NILAI);
-        inputKehadiranPanel = new InputKehadiranPanel();
-        contentPanel.add(inputKehadiranPanel, PANEL_INPUT_KEHADIRAN);
-        lihatNilaiMahasiswaPanel = new LihatNilaiMahasiswaPanel();
-        contentPanel.add(lihatNilaiMahasiswaPanel, PANEL_LIHAT_NILAI);
-        contentPanel.add(new RekapAbsensiPanel(), PANEL_REKAP_ABSENSI);
+        contentPanel.add(new AkademikComingSoonPanel("Input Kehadiran", "Fitur pencatatan kehadiran per mata kuliah dan pertemuan akan segera hadir."), PANEL_INPUT_KEHADIRAN);
+        contentPanel.add(new AkademikComingSoonPanel("Lihat Nilai Mahasiswa", "Fitur untuk melihat nilai berdasarkan mahasiswa, semester, dan mata kuliah akan segera hadir."), PANEL_LIHAT_NILAI);
+        contentPanel.add(new AkademikComingSoonPanel("Rekap Absensi", "Fitur ringkasan absensi mahasiswa per mata kuliah dan periode akan segera hadir."), PANEL_REKAP_ABSENSI);
         contentPanel.add(new PengaturanAkademikPanel(), PANEL_PENGATURAN_AKADEMIK);
         contentPanel.add(new NilaiSayaPanel(), PANEL_NILAI_SAYA);
-        contentPanel.add(new KehadiranSayaPanel(), PANEL_KEHADIRAN_SAYA);
-        rekapAkademikSayaPanel = new RekapAkademikSayaPanel();
-        contentPanel.add(rekapAkademikSayaPanel, PANEL_REKAP_AKADEMIK_SAYA);
-        contentPanel.add(new InfoAkademikPanel(), PANEL_INFO_AKADEMIK);
+        contentPanel.add(new AkademikComingSoonPanel("Kehadiran Saya", "Fitur riwayat kehadiran per mata kuliah masih dalam proses development."), PANEL_KEHADIRAN_SAYA);
+        contentPanel.add(new AkademikComingSoonPanel("Info Akademik", "Fitur informasi tahun ajaran, kalender akademik, dan pengumuman masih dalam proses development."), PANEL_INFO_AKADEMIK);
         contentPanel.add(new LaporanPanel(), PANEL_LAPORAN);
-        add(contentPanel, BorderLayout.CENTER);
 
+        rightPanel.add(contentPanel, BorderLayout.CENTER);
+
+        add(rightPanel, BorderLayout.CENTER);
         showPanel(PANEL_DASHBOARD);
     }
 
-    private void openMaximized() {
-        SwingUtilities.invokeLater(() -> {
-            Rectangle usableScreen = GraphicsEnvironment
-                    .getLocalGraphicsEnvironment()
-                    .getMaximumWindowBounds();
-            setMaximizedBounds(usableScreen);
-            setExtendedState(getExtendedState() | JFrame.MAXIMIZED_BOTH);
-            revalidateContent();
+    private JPanel buildTopbar() {
+        JPanel topbar = new JPanel() {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setColor(TOPBAR_BG());
+                g2.fillRect(0, 0, getWidth(), getHeight());
+                g2.setColor(new Color(0, 0, 0, AppTheme.isDark() ? 30 : 10));
+                g2.fillRect(0, getHeight() - 1, getWidth(), 1);
+                g2.dispose();
+            }
+        };
+        topbar.setOpaque(false);
+        topbar.setLayout(new BorderLayout());
+        topbar.setPreferredSize(new Dimension(0, 52));
+        topbar.setBorder(new EmptyBorder(0, 24, 0, 20));
+
+        JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        left.setOpaque(false);
+        JLabel searchIcon = new JLabel("  ");
+        searchIcon.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        left.add(searchIcon);
+
+        JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        right.setOpaque(false);
+
+        topbarClock = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+        topbarClock.setOpaque(false);
+        JLabel clockIcon = new JLabel(" \u23F0 ");
+        clockIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 12));
+        clockIcon.setForeground(AppTheme.muted());
+        JLabel clockLabel = new JLabel(LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")));
+        clockLabel.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        clockLabel.setForeground(AppTheme.text());
+        clockLabel.setName("clockLabel");
+        topbarClock.add(clockIcon);
+        topbarClock.add(clockLabel);
+
+        JButton btnTheme = buildTopbarBtn(AppTheme.toggleText());
+        btnTheme.addActionListener(e -> {
+            AppTheme.toggle();
+            dispose();
+            SwingUtilities.invokeLater(() -> new MainFrame().setVisible(true));
         });
+
+        JPanel userChip = buildUserChip();
+
+        right.add(topbarClock);
+        right.add(btnTheme);
+        right.add(userChip);
+
+        topbar.add(left, BorderLayout.WEST);
+        topbar.add(right, BorderLayout.EAST);
+        return topbar;
     }
 
-    private void installResizeRefresh() {
-        addComponentListener(new ComponentAdapter() {
-            @Override public void componentResized(ComponentEvent e) {
-                revalidateContent();
+    private JPanel buildUserChip() {
+        JwtHelper jwt = JwtHelper.getInstance();
+        JPanel chip = new JPanel() {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(AppTheme.isDark() ? 30 : 241, AppTheme.isDark() ? 41 : 245, AppTheme.isDark() ? 59 : 249));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
+                g2.dispose();
+            }
+        };
+        chip.setOpaque(false);
+        chip.setLayout(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        chip.setBorder(new EmptyBorder(2, 2, 2, 12));
+
+        JLabel avatar = new JLabel() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                Color c = jwt.isAdmin() ? ACCENT_BLUE() : GREEN();
+                g2.setColor(c);
+                g2.fillOval(0, 0, 30, 30);
+                g2.setColor(Color.WHITE);
+                g2.setFont(new Font("Segoe UI", Font.BOLD, 12));
+                String init = jwt.getUsername().substring(0, 1).toUpperCase();
+                FontMetrics fm = g2.getFontMetrics();
+                g2.drawString(init, (30 - fm.stringWidth(init)) / 2, 21);
+                g2.dispose();
+            }
+            @Override public Dimension getPreferredSize() { return new Dimension(30, 30); }
+            @Override public Dimension getMinimumSize() { return new Dimension(30, 30); }
+        };
+
+        JPanel info = new JPanel();
+        info.setOpaque(false);
+        info.setLayout(new BoxLayout(info, BoxLayout.Y_AXIS));
+
+        JLabel name = new JLabel(jwt.getUsername());
+        name.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        name.setForeground(AppTheme.text());
+
+        JLabel role = new JLabel(jwt.getRole().toUpperCase());
+        role.setFont(new Font("Segoe UI", Font.PLAIN, 9));
+        role.setForeground(AppTheme.muted());
+
+        info.add(name);
+        info.add(role);
+
+        chip.add(avatar);
+        chip.add(info);
+        return chip;
+    }
+
+    private JButton buildTopbarBtn(String text) {
+        JButton btn = new JButton(text) {
+            boolean hover = false;
+            {
+                addMouseListener(new MouseAdapter() {
+                    @Override public void mouseEntered(MouseEvent e) { hover = true; repaint(); }
+                    @Override public void mouseExited(MouseEvent e) { hover = false; repaint(); }
+                });
+            }
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(hover ? new Color(AppTheme.isDark() ? 51 : 226, AppTheme.isDark() ? 65 : 232, AppTheme.isDark() ? 85 : 240) : new Color(0,0,0,0));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+                g2.setColor(AppTheme.muted());
+                FontMetrics fm = g2.getFontMetrics();
+                g2.drawString(getText(), (getWidth() - fm.stringWidth(getText())) / 2,
+                        (getHeight() + fm.getAscent() - fm.getDescent()) / 2);
+                g2.dispose();
+            }
+        };
+        btn.setPreferredSize(new Dimension(120, 32));
+        btn.setBorderPainted(false);
+        btn.setContentAreaFilled(false);
+        btn.setFocusPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        return btn;
+    }
+
+    private void startClock() {
+        clockTimer = new Timer(15000, e -> {
+            if (topbarClock != null) {
+                for (Component c : topbarClock.getComponents()) {
+                    if ("clockLabel".equals(c.getName())) {
+                        ((JLabel) c).setText(LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")));
+                        break;
+                    }
+                }
             }
         });
-        addWindowStateListener(e -> revalidateContent());
+        clockTimer.start();
     }
 
-    private void revalidateContent() {
-        if (contentPanel != null) {
-            contentPanel.revalidate();
-            contentPanel.repaint();
-        }
-        revalidate();
-        repaint();
-    }
-
-    private static float easeOutCubic(float value) {
-        float t = Math.max(0f, Math.min(1f, value));
-        return 1f - (float) Math.pow(1f - t, 3);
-    }
+    private enum NavIcon { DASHBOARD, MAHASISWA, PEMBAYARAN, KRS, AKADEMIK, LAPORAN, SETTINGS, NILAI, ABSENSI, INFO }
 
     private JPanel buildSidebar() {
         JPanel sidebar = new JPanel() {
@@ -133,99 +253,77 @@ public class MainFrame extends JFrame {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-                // Background gradient
-                GradientPaint gp = new GradientPaint(0, 0, new Color(10, 15, 30),
-                        0, getHeight(), new Color(8, 12, 25));
-                g2.setPaint(gp);
+                g2.setColor(SIDEBAR_BG());
                 g2.fillRect(0, 0, getWidth(), getHeight());
-
-                // Right border
-                GradientPaint border = new GradientPaint(0, 0, ACCENT_BLUE,
-                        0, getHeight(), ACCENT_INDIGO);
-                g2.setPaint(border);
-                g2.fillRect(getWidth() - 1, 0, 1, getHeight());
-
-                // Subtle dot pattern
-                g2.setColor(new Color(255, 255, 255, 5));
-                for (int x = 10; x < getWidth(); x += 20) {
-                    for (int y = 10; y < getHeight(); y += 20) {
-                        g2.fillOval(x, y, 1, 1);
-                    }
-                }
                 g2.dispose();
             }
         };
-        sidebar.setPreferredSize(new Dimension(240, 0));
+        sidebar.setPreferredSize(new Dimension(232, 0));
         sidebar.setLayout(new BorderLayout());
 
-        // ── Logo area ──
         JPanel logoPanel = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
-                g2.setColor(BORDER_COLOR);
-                g2.fillRect(0, getHeight() - 1, getWidth(), 1);
+                g2.setColor(new Color(51, 65, 85, 80));
+                g2.fillRect(16, getHeight() - 1, getWidth() - 32, 1);
                 g2.dispose();
             }
         };
         logoPanel.setOpaque(false);
         logoPanel.setLayout(new BoxLayout(logoPanel, BoxLayout.Y_AXIS));
-        logoPanel.setBorder(new EmptyBorder(28, 20, 20, 20));
+        logoPanel.setBorder(new EmptyBorder(22, 20, 18, 20));
 
-        // Logo icon with gradient circle
         JLabel lblLogo = new JLabel() {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(59, 130, 246, 25));
-                g2.fillOval(0, 0, 56, 56);
-                GradientPaint gp = new GradientPaint(6, 6, ACCENT_BLUE, 50, 50, ACCENT_INDIGO);
+                GradientPaint gp = new GradientPaint(0, 0, ACCENT_BLUE(), 48, 48, new Color(139, 92, 246));
                 g2.setPaint(gp);
-                g2.fillOval(6, 6, 44, 44);
+                g2.fillRoundRect(0, 0, 42, 42, 12, 12);
                 g2.setColor(Color.WHITE);
-                g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 22));
-                FontMetrics fm = g2.getFontMetrics();
-                g2.drawString("🎓", (56 - fm.stringWidth("🎓")) / 2, 36);
+                g2.setStroke(new BasicStroke(2.5f));
+                g2.drawRoundRect(10, 10, 22, 22, 6, 6);
+                g2.fillRect(14, 14, 14, 2);
+                g2.fillRect(14, 20, 10, 2);
                 g2.dispose();
             }
-            @Override public Dimension getPreferredSize() { return new Dimension(56, 56); }
-            @Override public Dimension getMaximumSize() { return new Dimension(56, 56); }
+            @Override public Dimension getPreferredSize() { return new Dimension(42, 42); }
+            @Override public Dimension getMaximumSize() { return new Dimension(42, 42); }
         };
         lblLogo.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JLabel lblAppName = new JLabel("SIAKAD");
-        lblAppName.setFont(new Font("Segoe UI", Font.BOLD, 20));
-        lblAppName.setForeground(TEXT_PRIMARY);
+        lblAppName.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        lblAppName.setForeground(TEXT_PRIMARY());
         lblAppName.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JLabel lblFullName = new JLabel("Sistem Informasi Akademik");
         lblFullName.setFont(new Font("Segoe UI", Font.PLAIN, 10));
-        lblFullName.setForeground(TEXT_MUTED);
+        lblFullName.setForeground(TEXT_DIM());
         lblFullName.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         logoPanel.add(lblLogo);
-        logoPanel.add(Box.createVerticalStrut(12));
+        logoPanel.add(Box.createVerticalStrut(10));
         logoPanel.add(lblAppName);
         logoPanel.add(Box.createVerticalStrut(2));
         logoPanel.add(lblFullName);
 
-        // ── Nav menu ──
         JPanel navPanel = new JPanel();
         navPanel.setOpaque(false);
         navPanel.setLayout(new BoxLayout(navPanel, BoxLayout.Y_AXIS));
-        navPanel.setBorder(new EmptyBorder(14, 12, 10, 12));
+        navPanel.setBorder(new EmptyBorder(12, 10, 10, 10));
 
         JLabel lblMenuSection = makeMenuSection("NAVIGASI");
         navPanel.add(lblMenuSection);
-        navPanel.add(Box.createVerticalStrut(8));
+        navPanel.add(Box.createVerticalStrut(6));
 
-        JButton btnDashboard  = buildNavButton("📊", "Dashboard",       PANEL_DASHBOARD);
-        JButton btnMahasiswa  = buildNavButton("👨‍🎓", "Data Mahasiswa",  PANEL_MAHASISWA);
-        JButton btnPembayaran = buildNavButton("💳", "Pembayaran UKT",  PANEL_PEMBAYARAN);
-        JButton btnKrsJadwal  = buildNavButton("📚", "KRS & Jadwal Kuliah", PANEL_KRS_JADWAL);
+        JButton btnDashboard  = buildNavButton(NavIcon.DASHBOARD, "Dashboard", PANEL_DASHBOARD);
+        JButton btnMahasiswa  = buildNavButton(NavIcon.MAHASISWA, "Data Mahasiswa", PANEL_MAHASISWA);
+        JButton btnPembayaran = buildNavButton(NavIcon.PEMBAYARAN, "Pembayaran UKT", PANEL_PEMBAYARAN);
+        JButton btnKrsJadwal  = buildNavButton(NavIcon.KRS, "KRS & Jadwal", PANEL_KRS_JADWAL);
         JPanel akademikSubmenu = buildAkademikSubmenu();
-        JButton btnAkademik   = buildNavButton("A+", "Akademik",        null);
+        JButton btnAkademik   = buildNavButton(NavIcon.AKADEMIK, "Akademik", null);
         setNavChevron(btnAkademik, false);
         btnAkademik.addActionListener(e -> {
             boolean expanded = !akademikSubmenu.isVisible();
@@ -234,50 +332,43 @@ public class MainFrame extends JFrame {
             navPanel.revalidate();
             navPanel.repaint();
         });
-        JButton btnLaporan    = buildNavButton("📋", "Laporan & Cetak", PANEL_LAPORAN);
+        JButton btnLaporan    = buildNavButton(NavIcon.LAPORAN, "Laporan & Cetak", PANEL_LAPORAN);
 
         navPanel.add(btnDashboard);
-        navPanel.add(Box.createVerticalStrut(4));
+        navPanel.add(Box.createVerticalStrut(3));
         navPanel.add(btnMahasiswa);
-        navPanel.add(Box.createVerticalStrut(4));
+        navPanel.add(Box.createVerticalStrut(3));
         navPanel.add(btnPembayaran);
-        navPanel.add(Box.createVerticalStrut(4));
+        navPanel.add(Box.createVerticalStrut(3));
         navPanel.add(btnKrsJadwal);
-        navPanel.add(Box.createVerticalStrut(4));
+        navPanel.add(Box.createVerticalStrut(3));
         navPanel.add(btnAkademik);
         navPanel.add(akademikSubmenu);
-        navPanel.add(Box.createVerticalStrut(4));
-
+        navPanel.add(Box.createVerticalStrut(3));
         if (JwtHelper.getInstance().isAdmin()) {
             navPanel.add(btnLaporan);
-            navPanel.add(Box.createVerticalStrut(4));
+            navPanel.add(Box.createVerticalStrut(3));
         }
+
+        navPanel.add(Box.createVerticalGlue());
+
+        btnThemeToggle = buildThemeButton();
+        navPanel.add(btnThemeToggle);
+        navPanel.add(Box.createVerticalStrut(8));
+
+        JButton btnLogoutNav = buildLogoutNavButton();
+        navPanel.add(btnLogoutNav);
         setActiveButton(btnDashboard);
 
-        JScrollPane navScroll = new JScrollPane(navPanel);
-        navScroll.setBorder(null);
-        navScroll.setOpaque(false);
-        navScroll.getViewport().setOpaque(false);
-        navScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-        navScroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
-        navScroll.getVerticalScrollBar().setUnitIncrement(14);
-        navScroll.getVerticalScrollBar().setPreferredSize(new Dimension(6, 0));
-        navScroll.getVerticalScrollBar().setOpaque(false);
-        navScroll.setWheelScrollingEnabled(true);
-
-        // ── Bottom: user card + logout ──
-        JPanel bottomPanel = buildUserCard();
-
         sidebar.add(logoPanel, BorderLayout.NORTH);
-        sidebar.add(navScroll, BorderLayout.CENTER);
-        sidebar.add(bottomPanel, BorderLayout.SOUTH);
+        sidebar.add(navPanel, BorderLayout.CENTER);
         return sidebar;
     }
 
     private JLabel makeMenuSection(String text) {
         JLabel l = new JLabel("  " + text);
         l.setFont(new Font("Segoe UI", Font.BOLD, 9));
-        l.setForeground(TEXT_DIM);
+        l.setForeground(TEXT_DIM());
         l.setAlignmentX(Component.LEFT_ALIGNMENT);
         return l;
     }
@@ -286,61 +377,64 @@ public class MainFrame extends JFrame {
         JPanel submenu = new JPanel();
         submenu.setOpaque(false);
         submenu.setLayout(new BoxLayout(submenu, BoxLayout.Y_AXIS));
-        submenu.setBorder(new EmptyBorder(4, 20, 6, 0));
+        submenu.setBorder(new EmptyBorder(2, 18, 6, 0));
         submenu.setAlignmentX(Component.LEFT_ALIGNMENT);
         if (JwtHelper.getInstance().isAdmin()) {
-            submenu.add(buildSubNavButton("A+", "Input Nilai", PANEL_INPUT_NILAI));
+            submenu.add(buildSubNavButton(NavIcon.NILAI, "Input Nilai", PANEL_INPUT_NILAI));
             submenu.add(Box.createVerticalStrut(2));
-            submenu.add(buildSubNavButton("✓", "Input Kehadiran", PANEL_INPUT_KEHADIRAN));
+            submenu.add(buildSubNavButton(NavIcon.ABSENSI, "Input Kehadiran", PANEL_INPUT_KEHADIRAN));
             submenu.add(Box.createVerticalStrut(2));
-            submenu.add(buildSubNavButton("★", "Lihat Nilai Mahasiswa", PANEL_LIHAT_NILAI));
+            submenu.add(buildSubNavButton(NavIcon.NILAI, "Lihat Nilai", PANEL_LIHAT_NILAI));
             submenu.add(Box.createVerticalStrut(2));
-            submenu.add(buildSubNavButton("Σ", "Rekap Absensi", PANEL_REKAP_ABSENSI));
+            submenu.add(buildSubNavButton(NavIcon.DASHBOARD, "Rekap Absensi", PANEL_REKAP_ABSENSI));
             submenu.add(Box.createVerticalStrut(2));
-            submenu.add(buildSubNavButton("⚙", "Pengaturan Akademik", PANEL_PENGATURAN_AKADEMIK));
+            submenu.add(buildSubNavButton(NavIcon.SETTINGS, "Pengaturan", PANEL_PENGATURAN_AKADEMIK));
         } else {
-            submenu.add(buildSubNavButton("A+", "Nilai Saya", PANEL_NILAI_SAYA));
+            submenu.add(buildSubNavButton(NavIcon.NILAI, "Nilai Saya", PANEL_NILAI_SAYA));
             submenu.add(Box.createVerticalStrut(2));
-            submenu.add(buildSubNavButton("✓", "Kehadiran Saya", PANEL_KEHADIRAN_SAYA));
+            submenu.add(buildSubNavButton(NavIcon.ABSENSI, "Kehadiran Saya", PANEL_KEHADIRAN_SAYA));
             submenu.add(Box.createVerticalStrut(2));
-            submenu.add(buildSubNavButton("Σ", "Rekap Akademik Saya", PANEL_REKAP_AKADEMIK_SAYA));
-            submenu.add(Box.createVerticalStrut(2));
-            submenu.add(buildSubNavButton("i", "Info Akademik", PANEL_INFO_AKADEMIK));
+            submenu.add(buildSubNavButton(NavIcon.INFO, "Info Akademik", PANEL_INFO_AKADEMIK));
         }
         submenu.setVisible(false);
         return submenu;
     }
 
-    private JButton buildSubNavButton(String icon, String label, String panelName) {
+    private JButton buildSubNavButton(NavIcon icon, String label, String panelName) {
         JButton btn = new JButton() {
             boolean active = false;
-
+            boolean hover = false;
+            {
+                addMouseListener(new MouseAdapter() {
+                    @Override public void mouseEntered(MouseEvent e) { hover = true; repaint(); }
+                    @Override public void mouseExited(MouseEvent e) { hover = false; repaint(); }
+                });
+            }
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
                 if (active) {
-                    g2.setColor(new Color(59, 130, 246, 18));
+                    g2.setColor(new Color(79, 70, 229, 28));
                     g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
-                } else if (getModel().isRollover()) {
-                    g2.setColor(SIDEBAR_HOVER);
+                    g2.setColor(ACCENT_BLUE());
+                    g2.fillRoundRect(0, 6, 3, getHeight() - 12, 3, 3);
+                } else if (hover) {
+                    g2.setColor(SIDEBAR_HOVER());
                     g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
                 }
-
-                g2.setColor(active ? new Color(147, 197, 253) : TEXT_DIM);
-                g2.setFont(new Font("Segoe UI", Font.BOLD, 11));
-                g2.drawString(icon, 10, getHeight() / 2 + 4);
+                
+                drawNavIcon(g2, 10, getHeight() / 2 - 8, 16, icon, active ? ACCENT_BLUE() : TEXT_DIM());
+                
                 g2.setFont(new Font("Segoe UI", active ? Font.BOLD : Font.PLAIN, 12));
-                g2.setColor(active ? new Color(219, 234, 254) : TEXT_MUTED);
-                g2.drawString(label, 30, getHeight() / 2 + 5);
+                g2.setColor(active ? Color.WHITE : TEXT_MUTED());
+                g2.drawString(label, 34, getHeight() / 2 + 5);
                 g2.dispose();
             }
-
             public void setActive(boolean a) { active = a; repaint(); }
             public boolean isActive() { return active; }
         };
-        btn.setPreferredSize(new Dimension(196, 30));
-        btn.setMaximumSize(new Dimension(196, 30));
+        btn.setPreferredSize(new Dimension(196, 34));
+        btn.setMaximumSize(new Dimension(196, 34));
         btn.setBorderPainted(false);
         btn.setContentAreaFilled(false);
         btn.setFocusPainted(false);
@@ -354,57 +448,60 @@ public class MainFrame extends JFrame {
     }
 
     private void setNavChevron(JButton btn, boolean expanded) {
-        btn.putClientProperty("chevron", expanded ? "⌃" : "⌄");
+        btn.putClientProperty("chevron", expanded ? "\u2303" : "\u2304");
         btn.repaint();
     }
 
-    private JButton buildNavButton(String icon, String label, String panelName) {
+    private JButton buildNavButton(NavIcon icon, String label, String panelName) {
         JButton btn = new JButton() {
             boolean active = false;
-
+            boolean hover = false;
+            {
+                addMouseListener(new MouseAdapter() {
+                    @Override public void mouseEntered(MouseEvent e) { hover = true; repaint(); }
+                    @Override public void mouseExited(MouseEvent e) { hover = false; repaint(); }
+                });
+            }
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
                 if (active) {
-                    // Active state: blue tinted background + left accent bar
-                    g2.setColor(SIDEBAR_ACTIVE);
+                    g2.setColor(SIDEBAR_ACTIVE());
                     g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
-                    GradientPaint gp = new GradientPaint(0, 0, ACCENT_BLUE, 0, getHeight(), ACCENT_INDIGO);
-                    g2.setPaint(gp);
-                    g2.fillRoundRect(0, 2, 3, getHeight() - 4, 3, 3);
-                } else if (getModel().isRollover()) {
-                    g2.setColor(SIDEBAR_HOVER);
+                    g2.setColor(new Color(255, 255, 255, 24));
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight() / 2, 10, 10);
+                } else if (hover) {
+                    g2.setColor(SIDEBAR_HOVER());
                     g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
                 }
-
-                // Icon
-                g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 16));
-                g2.setColor(active ? new Color(147, 197, 253) : TEXT_MUTED);
-                g2.drawString(icon, 14, getHeight() / 2 + 6);
-
-                // Label
+                
+                drawNavIcon(g2, 14, getHeight() / 2 - 10, 20, icon, active ? Color.WHITE : TEXT_MUTED());
+                
                 g2.setFont(new Font("Segoe UI", Font.PLAIN + (active ? Font.BOLD : 0), 13));
-                g2.setColor(active ? new Color(219, 234, 254) : TEXT_MUTED);
-                g2.drawString(label, 42, getHeight() / 2 + 5);
-
+                g2.setColor(active ? Color.WHITE : TEXT_MUTED());
+                g2.drawString(label, 46, getHeight() / 2 + 5);
+                
                 Object chevron = getClientProperty("chevron");
                 if (chevron != null) {
-                    g2.setFont(new Font("Segoe UI", Font.BOLD, 18));
-                    g2.setColor(active || getModel().isRollover() ? new Color(147, 197, 253) : TEXT_DIM);
-                    String arrow = String.valueOf(chevron);
-                    FontMetrics fm = g2.getFontMetrics();
-                    g2.drawString(arrow, getWidth() - fm.stringWidth(arrow) - 16, getHeight() / 2 + 6);
+                    g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g2.setColor(active || hover ? Color.WHITE : TEXT_DIM());
+                    boolean expanded = "\u2303".equals(chevron);
+                    int cx = getWidth() - 24, cy = getHeight() / 2;
+                    if (expanded) {
+                        g2.drawLine(cx - 4, cy + 2, cx, cy - 2);
+                        g2.drawLine(cx, cy - 2, cx + 4, cy + 2);
+                    } else {
+                        g2.drawLine(cx - 4, cy - 2, cx, cy + 2);
+                        g2.drawLine(cx, cy + 2, cx + 4, cy - 2);
+                    }
                 }
-
                 g2.dispose();
             }
-
             public void setActive(boolean a) { active = a; repaint(); }
             public boolean isActive() { return active; }
         };
-        btn.setPreferredSize(new Dimension(216, 42));
-        btn.setMaximumSize(new Dimension(216, 42));
+        btn.setPreferredSize(new Dimension(212, 40));
+        btn.setMaximumSize(new Dimension(212, 40));
         btn.setBorderPainted(false);
         btn.setContentAreaFilled(false);
         btn.setFocusPainted(false);
@@ -419,114 +516,144 @@ public class MainFrame extends JFrame {
         return btn;
     }
 
-    private JPanel buildUserCard() {
-        JwtHelper jwt = JwtHelper.getInstance();
-
-        JPanel panel = new JPanel() {
-            @Override protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setColor(BORDER_COLOR);
-                g2.fillRect(0, 0, getWidth(), 1);
-                g2.dispose();
+    private void drawNavIcon(Graphics2D g2, int x, int y, int size, NavIcon icon, Color color) {
+        g2.setColor(color);
+        g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        switch (icon) {
+            case DASHBOARD -> {
+                g2.drawRect(x, y + size/2, size/3 - 1, size/2);
+                g2.drawRect(x + size/3 + 1, y, size/3 - 1, size);
+                g2.drawRect(x + 2*size/3 + 2, y + size/3, size/3 - 1, 2*size/3);
             }
-        };
-        panel.setOpaque(false);
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setBorder(new EmptyBorder(12, 14, 16, 14));
+            case MAHASISWA -> {
+                g2.drawOval(x + size/4, y, size/2, size/2);
+                g2.drawArc(x, y + size/2, size, size/2, 0, 180);
+            }
+            case PEMBAYARAN -> {
+                g2.drawRoundRect(x, y + 2, size, size - 4, 3, 3);
+                g2.fillRect(x, y + 6, size, 3);
+            }
+            case KRS -> {
+                g2.drawRoundRect(x + 2, y, size - 4, size, 2, 2);
+                g2.drawLine(x + 5, y + 4, x + size - 5, y + 4);
+                g2.drawLine(x + 5, y + 8, x + size - 5, y + 8);
+                g2.drawLine(x + 5, y + 12, x + size - 5, y + 12);
+            }
+            case AKADEMIK -> {
+                int[] px = {x, x + size/2, x + size, x + size/2};
+                int[] py = {y + size/3, y, y + size/3, y + 2*size/3};
+                g2.drawPolygon(px, py, 4);
+                g2.drawLine(x, y + size/3, x, y + 2*size/3);
+                g2.drawArc(x, y + size/3, size, size/2, 0, -180);
+            }
+            case LAPORAN -> {
+                g2.drawRect(x + 2, y + 2, size - 4, size - 4);
+                g2.drawLine(x + 5, y + 6, x + size - 5, y + 6);
+                g2.drawLine(x + 5, y + 10, x + size - 5, y + 10);
+            }
+            case SETTINGS -> {
+                g2.drawOval(x + size/4, y + size/4, size/2, size/2);
+                for (int i = 0; i < 8; i++) {
+                    double a = Math.toRadians(i * 45);
+                    int x1 = (int)(x + size/2 + Math.cos(a) * (size/4));
+                    int y1 = (int)(y + size/2 + Math.sin(a) * (size/4));
+                    int x2 = (int)(x + size/2 + Math.cos(a) * (size/2));
+                    int y2 = (int)(y + size/2 + Math.sin(a) * (size/2));
+                    g2.drawLine(x1, y1, x2, y2);
+                }
+            }
+            case NILAI -> {
+                g2.drawRect(x, y, size, size);
+                g2.drawLine(x + size/2, y + 4, x + size/2, y + size - 4);
+                g2.drawLine(x + 4, y + size/2, x + size - 4, y + size/2);
+            }
+            case ABSENSI -> {
+                g2.drawOval(x, y, size, size);
+                g2.drawLine(x + size/2, y + size/2, x + size/2, y + 4);
+                g2.drawLine(x + size/2, y + size/2, x + size - 4, y + size/2);
+            }
+            case INFO -> {
+                g2.drawOval(x, y, size, size);
+                g2.drawLine(x + size/2, y + size/2 - 2, x + size/2, y + size - 4);
+                g2.fillOval(x + size/2 - 1, y + 4, 2, 2);
+            }
+        }
+    }
 
-        // User avatar + info
-        JPanel userRow = new JPanel(new BorderLayout(10, 0));
-        userRow.setOpaque(false);
-        userRow.setAlignmentX(Component.LEFT_ALIGNMENT);
-        userRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
-
-        // Avatar circle
-        JLabel avatar = new JLabel() {
+    private JButton buildThemeButton() {
+        JButton btn = new JButton() {
+            boolean hover = false;
+            {
+                addMouseListener(new MouseAdapter() {
+                    @Override public void mouseEntered(MouseEvent e) { hover = true; repaint(); }
+                    @Override public void mouseExited(MouseEvent e) { hover = false; repaint(); }
+                });
+            }
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                Color avatarColor = jwt.isAdmin() ? new Color(59, 130, 246) : new Color(34, 197, 94);
-                g2.setColor(avatarColor.darker());
-                g2.fillOval(0, 0, 38, 38);
-                g2.setColor(avatarColor);
-                g2.fillOval(2, 2, 34, 34);
+                g2.setColor(hover ? new Color(51, 65, 85) : new Color(30, 41, 59));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                g2.setColor(new Color(100, 116, 139));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 10, 10);
                 g2.setColor(Color.WHITE);
-                g2.setFont(new Font("Segoe UI", Font.BOLD, 14));
-                String initial = jwt.getUsername().substring(0, 1).toUpperCase();
-                FontMetrics fm = g2.getFontMetrics();
-                g2.drawString(initial, (38 - fm.stringWidth(initial)) / 2, 25);
-                g2.dispose();
-            }
-            @Override public Dimension getPreferredSize() { return new Dimension(38, 38); }
-            @Override public Dimension getMinimumSize() { return new Dimension(38, 38); }
-        };
-
-        JPanel userInfo = new JPanel();
-        userInfo.setOpaque(false);
-        userInfo.setLayout(new BoxLayout(userInfo, BoxLayout.Y_AXIS));
-
-        JLabel lblUsername = new JLabel(jwt.getUsername());
-        lblUsername.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        lblUsername.setForeground(TEXT_PRIMARY);
-
-        // Role badge
-        JLabel lblRole = new JLabel("  " + jwt.getRole().toUpperCase() + "  ") {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                Color roleColor = jwt.isAdmin() ? new Color(59, 130, 246) : new Color(34, 197, 94);
-                g2.setColor(new Color(roleColor.getRed(), roleColor.getGreen(), roleColor.getBlue(), 30));
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
-                super.paintComponent(g);
-                g2.dispose();
-            }
-        };
-        lblRole.setFont(new Font("Segoe UI", Font.BOLD, 9));
-        lblRole.setForeground(jwt.isAdmin() ? ACCENT_BLUE : new Color(34, 197, 94));
-        lblRole.setOpaque(false);
-
-        userInfo.add(lblUsername);
-        userInfo.add(Box.createVerticalStrut(2));
-        userInfo.add(lblRole);
-
-        userRow.add(avatar, BorderLayout.WEST);
-        userRow.add(userInfo, BorderLayout.CENTER);
-
-        // Logout button
-        JButton btnLogout = new JButton("Keluar") {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                Color bg = getModel().isRollover() ? new Color(185, 28, 28) : new Color(127, 29, 29, 180);
-                g2.setColor(bg);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
-                int iconSize = 14;
-                String txt = "Keluar";
                 g2.setFont(new Font("Segoe UI", Font.BOLD, 11));
+                String text = AppTheme.toggleText();
                 FontMetrics fm = g2.getFontMetrics();
-                int totalWidth = iconSize + 8 + fm.stringWidth(txt);
-                int startX = (getWidth() - totalWidth) / 2;
-                drawDoorIcon(g2, startX, getHeight() / 2 - 8, iconSize, new Color(254, 202, 202));
-                g2.setColor(new Color(252, 165, 165));
-                g2.drawString(txt, startX + iconSize + 8,
+                g2.drawString(text, (getWidth() - fm.stringWidth(text)) / 2,
                         (getHeight() + fm.getAscent() - fm.getDescent()) / 2);
                 g2.dispose();
             }
         };
-        btnLogout.setPreferredSize(new Dimension(212, 34));
-        btnLogout.setMaximumSize(new Dimension(Integer.MAX_VALUE, 34));
-        btnLogout.setBorderPainted(false);
-        btnLogout.setContentAreaFilled(false);
-        btnLogout.setFocusPainted(false);
-        btnLogout.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnLogout.setAlignmentX(Component.LEFT_ALIGNMENT);
-        btnLogout.addActionListener(e -> doLogout());
+        btn.setPreferredSize(new Dimension(212, 36));
+        btn.setMaximumSize(new Dimension(212, 36));
+        btn.setBorderPainted(false);
+        btn.setContentAreaFilled(false);
+        btn.setFocusPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setAlignmentX(Component.LEFT_ALIGNMENT);
+        btn.addActionListener(e -> {
+            AppTheme.toggle();
+            dispose();
+            SwingUtilities.invokeLater(() -> new MainFrame().setVisible(true));
+        });
+        return btn;
+    }
 
-        panel.add(userRow);
-        panel.add(Box.createVerticalStrut(10));
-        panel.add(btnLogout);
-        return panel;
+    private JButton buildLogoutNavButton() {
+        JButton btn = new JButton() {
+            boolean hover = false;
+            {
+                addMouseListener(new MouseAdapter() {
+                    @Override public void mouseEntered(MouseEvent e) { hover = true; repaint(); }
+                    @Override public void mouseExited(MouseEvent e) { hover = false; repaint(); }
+                });
+            }
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                Color bg = hover ? new Color(153, 27, 27) : new Color(127, 29, 29, 90);
+                g2.setColor(bg);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                g2.setColor(new Color(239, 68, 68, 60));
+                g2.fillRoundRect(0, 2, 3, getHeight() - 4, 3, 3);
+                drawDoorIcon(g2, 15, getHeight() / 2 - 8, 15, new Color(254, 202, 202));
+                g2.setFont(new Font("Segoe UI", Font.BOLD, 12));
+                g2.setColor(new Color(254, 226, 226));
+                g2.drawString("Logout", 40, getHeight() / 2 + 5);
+                g2.dispose();
+            }
+        };
+        btn.setPreferredSize(new Dimension(212, 40));
+        btn.setMaximumSize(new Dimension(212, 40));
+        btn.setBorderPainted(false);
+        btn.setContentAreaFilled(false);
+        btn.setFocusPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setAlignmentX(Component.LEFT_ALIGNMENT);
+        btn.setToolTipText("Keluar dari akun");
+        btn.addActionListener(e -> doLogout());
+        return btn;
     }
 
     private void setActiveButton(JButton btn) {
@@ -535,139 +662,24 @@ public class MainFrame extends JFrame {
                 java.lang.reflect.Method method = activeBtn.getClass().getDeclaredMethod("setActive", boolean.class);
                 method.setAccessible(true);
                 method.invoke(activeBtn, false);
-            }
-            catch (Exception ignored) {}
+            } catch (Exception ignored) {}
         }
         try {
             java.lang.reflect.Method method = btn.getClass().getDeclaredMethod("setActive", boolean.class);
             method.setAccessible(true);
             method.invoke(btn, true);
-        }
-        catch (Exception ignored) {}
+        } catch (Exception ignored) {}
         activeBtn = btn;
     }
 
     public void showPanel(String panelName) {
         cardLayout.show(contentPanel, panelName);
-        if (PANEL_INPUT_KEHADIRAN.equals(panelName) && inputKehadiranPanel != null) {
-            inputKehadiranPanel.onPanelShown();
-        }
-        if (PANEL_LIHAT_NILAI.equals(panelName) && lihatNilaiMahasiswaPanel != null) {
-            lihatNilaiMahasiswaPanel.onPanelShown();
-        }
-        if (PANEL_REKAP_AKADEMIK_SAYA.equals(panelName) && rekapAkademikSayaPanel != null) {
-            rekapAkademikSayaPanel.onPanelShown();
-        }
-        if (animatedContentPanel != null) {
-            animatedContentPanel.playReveal();
-        }
-    }
-
-    public void playEntranceAnimation() {
-        StartupGlassPane glass = new StartupGlassPane();
-        setGlassPane(glass);
-        glass.setVisible(true);
-        glass.play(() -> glass.setVisible(false));
-        if (animatedContentPanel != null) {
-            animatedContentPanel.playReveal();
-        }
-    }
-
-    private static class AnimatedContentPanel extends JPanel {
-        private float reveal = 1f;
-        private Timer timer;
-
-        AnimatedContentPanel(LayoutManager layout) {
-            super(layout);
-        }
-
-        void playReveal() {
-            if (timer != null) {
-                timer.stop();
-            }
-            reveal = 0f;
-            timer = new Timer(16, e -> {
-                reveal = Math.min(1f, reveal + 0.07f);
-                repaint();
-                if (reveal >= 1f) {
-                    timer.stop();
-                }
-            });
-            timer.start();
-        }
-
-        @Override protected void paintChildren(Graphics g) {
-            if (reveal >= 0.999f) {
-                super.paintChildren(g);
-                return;
-            }
-
-            float eased = easeOutCubic(reveal);
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0.12f, eased)));
-            g2.translate((int) ((1f - eased) * 30), 0);
-            super.paintChildren(g2);
-            g2.dispose();
-
-            Graphics2D overlay = (Graphics2D) g.create();
-            overlay.setColor(new Color(13, 19, 38, (int) (130 * (1f - eased))));
-            overlay.fillRect(0, 0, getWidth(), getHeight());
-            overlay.setColor(new Color(34, 211, 238, (int) (90 * (1f - eased))));
-            overlay.fillRoundRect(0, 0, 4, getHeight(), 4, 4);
-            overlay.dispose();
-        }
-    }
-
-    private static class StartupGlassPane extends JComponent {
-        private float progress = 0f;
-        private Timer timer;
-
-        void play(Runnable onDone) {
-            if (timer != null) {
-                timer.stop();
-            }
-            progress = 0f;
-            timer = new Timer(16, e -> {
-                progress = Math.min(1f, progress + 0.045f);
-                repaint();
-                if (progress >= 1f) {
-                    timer.stop();
-                    onDone.run();
-                }
-            });
-            timer.start();
-        }
-
-        @Override protected void paintComponent(Graphics g) {
-            float eased = easeOutCubic(progress);
-            float out = 1f - eased;
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, out));
-            g2.setColor(CONTENT_BG);
-            g2.fillRect(0, 0, getWidth(), getHeight());
-
-            int sweepX = 240 + (int) ((getWidth() - 240) * eased);
-            GradientPaint sweep = new GradientPaint(sweepX - 90, 0, new Color(34, 211, 238, 0),
-                    sweepX, 0, new Color(34, 211, 238, 105));
-            g2.setPaint(sweep);
-            g2.fillRect(Math.max(240, sweepX - 90), 0, 120, getHeight());
-
-            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.min(0.75f, out + 0.15f)));
-            g2.setColor(new Color(248, 250, 252));
-            g2.setFont(new Font("Segoe UI", Font.BOLD, 18));
-            String text = "Dashboard siap";
-            FontMetrics fm = g2.getFontMetrics();
-            g2.drawString(text, getWidth() - fm.stringWidth(text) - 34, getHeight() - 34);
-            g2.dispose();
-        }
     }
 
     private void doLogout() {
         if (showLogoutDialog()) {
             AuthService.logout();
+            if (clockTimer != null) clockTimer.stop();
             dispose();
             new LoginFrame().setVisible(true);
         }
@@ -677,7 +689,7 @@ public class MainFrame extends JFrame {
         final boolean[] confirmed = {false};
         JDialog dialog = new JDialog(this, "Konfirmasi Logout", true);
         dialog.setUndecorated(true);
-        dialog.setSize(430, 248);
+        dialog.setSize(420, 240);
         dialog.setLocationRelativeTo(this);
 
         JPanel root = new JPanel(new BorderLayout()) {
@@ -685,34 +697,31 @@ public class MainFrame extends JFrame {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(8, 12, 25));
+                g2.setColor(AppTheme.isDark() ? new Color(15, 23, 42) : new Color(255, 255, 255));
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 18, 18);
-                g2.setColor(new Color(239, 68, 68, 85));
+                g2.setColor(new Color(239, 68, 68, 60));
                 g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 18, 18);
-                g2.setColor(new Color(239, 68, 68, 55));
-                g2.fillRoundRect(0, 0, getWidth(), 4, 4, 4);
                 g2.dispose();
             }
         };
         root.setOpaque(false);
-        root.setBorder(new EmptyBorder(24, 26, 22, 26));
+        root.setBorder(new EmptyBorder(22, 24, 20, 24));
 
         JPanel content = new JPanel(new GridBagLayout());
         content.setOpaque(false);
         GridBagConstraints gc = new GridBagConstraints();
         gc.gridy = 0;
-        gc.insets = new Insets(0, 0, 0, 16);
         gc.anchor = GridBagConstraints.NORTH;
 
         JPanel iconWrap = new JPanel(new GridBagLayout()) {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(127, 29, 29, 105));
+                g2.setColor(new Color(239, 68, 68, 20));
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 16, 16);
-                g2.setColor(new Color(239, 68, 68, 55));
+                g2.setColor(new Color(239, 68, 68, 40));
                 g2.fillOval(9, 9, 48, 48);
-                drawDoorIcon(g2, 23, 19, 24, new Color(254, 226, 226));
+                drawDoorIcon(g2, 22, 18, 22, new Color(254, 226, 226));
                 g2.dispose();
             }
             @Override public Dimension getPreferredSize() { return new Dimension(66, 66); }
@@ -725,20 +734,20 @@ public class MainFrame extends JFrame {
         textBlock.setBorder(new EmptyBorder(2, 0, 0, 0));
 
         JLabel title = new JLabel("Keluar dari akun?");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 20));
-        title.setForeground(TEXT_PRIMARY);
+        title.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        title.setForeground(AppTheme.text());
         title.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JTextArea message = new JTextArea("Sesi admin akan ditutup dan Anda akan kembali ke halaman login.");
-        message.setPreferredSize(new Dimension(292, 52));
-        message.setMaximumSize(new Dimension(292, 52));
+        JTextArea message = new JTextArea("Sesi akan ditutup dan Anda akan kembali ke halaman login.");
+        message.setPreferredSize(new Dimension(270, 40));
+        message.setMaximumSize(new Dimension(270, 40));
         message.setOpaque(false);
         message.setEditable(false);
         message.setLineWrap(true);
         message.setWrapStyleWord(true);
-        message.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        message.setForeground(TEXT_MUTED);
-        message.setBorder(new EmptyBorder(7, 0, 0, 0));
+        message.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        message.setForeground(AppTheme.muted());
+        message.setBorder(new EmptyBorder(6, 0, 0, 0));
         message.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         textBlock.add(title);
@@ -748,19 +757,15 @@ public class MainFrame extends JFrame {
         gc.gridx = 1;
         gc.weightx = 1;
         gc.fill = GridBagConstraints.HORIZONTAL;
-        gc.insets = new Insets(0, 0, 0, 0);
         content.add(textBlock, gc);
 
         JPanel actions = new JPanel(new GridLayout(1, 2, 12, 0));
         actions.setOpaque(false);
-        actions.setBorder(new EmptyBorder(18, 82, 0, 0));
-        JButton cancel = dialogButton("Tetap di Dashboard", new Color(18, 26, 48), TEXT_PRIMARY);
-        JButton logout = dialogButton("Ya, Logout", new Color(185, 28, 28), new Color(254, 226, 226));
+        actions.setBorder(new EmptyBorder(16, 72, 0, 0));
+        JButton cancel = dialogButton("Batal", new Color(AppTheme.isDark() ? 30 : 241, AppTheme.isDark() ? 41 : 245, AppTheme.isDark() ? 59 : 249), AppTheme.text());
+        JButton logout = dialogButton("Ya, Logout", new Color(220, 38, 38), new Color(254, 226, 226));
         cancel.addActionListener(e -> dialog.dispose());
-        logout.addActionListener(e -> {
-            confirmed[0] = true;
-            dialog.dispose();
-        });
+        logout.addActionListener(e -> { confirmed[0] = true; dialog.dispose(); });
         actions.add(cancel);
         actions.add(logout);
 
@@ -784,14 +789,20 @@ public class MainFrame extends JFrame {
 
     private JButton dialogButton(String text, Color bg, Color fg) {
         JButton btn = new JButton(text) {
+            boolean hover = false;
+            {
+                addMouseListener(new MouseAdapter() {
+                    @Override public void mouseEntered(MouseEvent e) { hover = true; repaint(); }
+                    @Override public void mouseExited(MouseEvent e) { hover = false; repaint(); }
+                });
+            }
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                Color paint = getModel().isRollover() ? bg.brighter() : bg;
-                g2.setColor(paint);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 9, 9);
-                g2.setColor(new Color(255, 255, 255, 24));
-                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 9, 9);
+                g2.setColor(hover ? bg.brighter() : bg);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                g2.setColor(new Color(255, 255, 255, 20));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 10, 10);
                 g2.setColor(fg);
                 g2.setFont(new Font("Segoe UI", Font.BOLD, 12));
                 FontMetrics fm = g2.getFontMetrics();
@@ -800,7 +811,7 @@ public class MainFrame extends JFrame {
                 g2.dispose();
             }
         };
-        btn.setPreferredSize(new Dimension(150, 38));
+        btn.setPreferredSize(new Dimension(140, 38));
         btn.setBorderPainted(false);
         btn.setContentAreaFilled(false);
         btn.setFocusPainted(false);
