@@ -3,38 +3,37 @@ package com.siakad.views.panels;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.itextpdf.text.BaseColor;
-import com.itextpdf.text.Chunk;
-import com.itextpdf.text.Document;
-import com.itextpdf.text.Element;
-import com.itextpdf.text.PageSize;
-import com.itextpdf.text.Paragraph;
-import com.itextpdf.text.Phrase;
-import com.itextpdf.text.pdf.PdfPCell;
-import com.itextpdf.text.pdf.PdfPTable;
-import com.itextpdf.text.pdf.PdfWriter;
 import com.siakad.services.AkademikService;
+import com.siakad.services.MahasiswaService;
 import com.siakad.utils.AppTheme;
 import com.siakad.utils.JwtHelper;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import javax.swing.table.TableCellRenderer;
 import java.awt.*;
-import java.io.File;
-import java.io.FileOutputStream;
+import java.awt.print.PrinterJob;
+import java.time.LocalDate;
 import java.time.Year;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
  * KrsJadwalPanel - Modul KRS & Jadwal Kuliah
  */
 public class KrsJadwalPanel extends JPanel {
+    public enum PageMode {
+        INPUT_KRS,
+        MATA_KULIAH,
+        JADWAL_KULIAH,
+        CETAK_KRS
+    }
 
     private JTable tableKrs;
     private JTable tableMatakuliah;
@@ -45,6 +44,9 @@ public class KrsJadwalPanel extends JPanel {
 
     private JTextField txtNimFilter;
     private JTextField txtTahunAjaranFilter;
+    private JComboBox<MatakuliahOption> cmbKrsMatakuliah;
+    private JPanel printPreviewHost;
+    private JScrollPane printPreviewScroll;
 
     private JLabel lblKrsStat;
     private JLabel lblSksStat;
@@ -55,10 +57,12 @@ public class KrsJadwalPanel extends JPanel {
 
     private JsonArray matakuliahCache = new JsonArray();
     private JsonArray jadwalCache = new JsonArray();
+    private JsonArray mahasiswaCache = new JsonArray();
     private JsonArray currentKrsCache = new JsonArray();
     private JsonObject currentKrsSummary = null;
 
     private int activeLoads = 0;
+    private final PageMode mode;
 
     private static Color BG() { return AppTheme.bg(); }
     private static Color CARD_BG() { return AppTheme.card(); }
@@ -74,6 +78,11 @@ public class KrsJadwalPanel extends JPanel {
     private static Color YELLOW() { return AppTheme.yellow(); }
 
     public KrsJadwalPanel() {
+        this(PageMode.INPUT_KRS);
+    }
+
+    public KrsJadwalPanel(PageMode mode) {
+        this.mode = mode;
         setBackground(BG());
         setLayout(new BorderLayout());
         initUI();
@@ -86,9 +95,11 @@ public class KrsJadwalPanel extends JPanel {
         JPanel body = new JPanel();
         body.setOpaque(false);
         body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
-        body.add(buildSummarySection());
-        body.add(Box.createVerticalStrut(16));
-        body.add(buildTabbedSection());
+        if (mode == PageMode.INPUT_KRS) {
+            body.add(buildSummarySection());
+            body.add(Box.createVerticalStrut(16));
+        }
+        body.add(buildPageContent());
 
         add(body, BorderLayout.CENTER);
     }
@@ -102,11 +113,11 @@ public class KrsJadwalPanel extends JPanel {
         titleBlock.setOpaque(false);
         titleBlock.setLayout(new BoxLayout(titleBlock, BoxLayout.Y_AXIS));
 
-        JLabel lblTitle = new JLabel("KRS & Jadwal Kuliah");
+        JLabel lblTitle = new JLabel(pageTitle());
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 26));
         lblTitle.setForeground(TEXT_PRIMARY());
 
-        JLabel lblSub = new JLabel("Kelola input KRS, mata kuliah, jadwal kuliah, dan cetak KRS");
+        JLabel lblSub = new JLabel(pageSubtitle());
         lblSub.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         lblSub.setForeground(TEXT_MUTED());
 
@@ -185,19 +196,35 @@ public class KrsJadwalPanel extends JPanel {
         return card;
     }
 
-    private JComponent buildTabbedSection() {
-        JTabbedPane tabs = new JTabbedPane();
-        tabs.setOpaque(false);
-        tabs.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        tabs.setBackground(CARD_BG());
-        tabs.setForeground(TEXT_MUTED());
-        tabs.setBorder(new EmptyBorder(0, 28, 18, 28));
+    private JComponent buildPageContent() {
+        JPanel wrap = new JPanel(new BorderLayout());
+        wrap.setOpaque(false);
+        wrap.setBorder(new EmptyBorder(0, 28, 18, 28));
+        switch (mode) {
+            case MATA_KULIAH -> wrap.add(buildMatakuliahTab(), BorderLayout.CENTER);
+            case JADWAL_KULIAH -> wrap.add(buildJadwalTab(), BorderLayout.CENTER);
+            case CETAK_KRS -> wrap.add(buildCetakKrsPage(), BorderLayout.CENTER);
+            case INPUT_KRS -> wrap.add(buildKrsTab(), BorderLayout.CENTER);
+        }
+        return wrap;
+    }
 
-        tabs.addTab("Input KRS", buildKrsTab());
-        tabs.addTab("Mata Kuliah", buildMatakuliahTab());
-        tabs.addTab("Jadwal Kuliah", buildJadwalTab());
+    private String pageTitle() {
+        return switch (mode) {
+            case INPUT_KRS -> "Input KRS";
+            case MATA_KULIAH -> "Mata Kuliah";
+            case JADWAL_KULIAH -> "Jadwal Kuliah";
+            case CETAK_KRS -> "Cetak KRS";
+        };
+    }
 
-        return tabs;
+    private String pageSubtitle() {
+        return switch (mode) {
+            case INPUT_KRS -> "Input, muat, dan pantau KRS mahasiswa";
+            case MATA_KULIAH -> "Kelola daftar mata kuliah yang dapat dipilih pada KRS";
+            case JADWAL_KULIAH -> "Kelola jadwal kuliah berdasarkan mata kuliah";
+            case CETAK_KRS -> "Cari KRS mahasiswa dan cetak dokumen resmi";
+        };
     }
 
     private JComponent buildKrsTab() {
@@ -218,6 +245,8 @@ public class KrsJadwalPanel extends JPanel {
 
         txtNimFilter = makeField();
         txtTahunAjaranFilter = makeField();
+        cmbKrsMatakuliah = new JComboBox<>();
+        styleCombo(cmbKrsMatakuliah);
 
         if (JwtHelper.getInstance().isMahasiswa()) {
             txtNimFilter.setText(JwtHelper.getInstance().getNim());
@@ -234,6 +263,14 @@ public class KrsJadwalPanel extends JPanel {
         filters.add(makeLabel("Tahun Ajaran"), g);
         g.gridx = 3;
         filters.add(txtTahunAjaranFilter, g);
+        row++;
+        g.gridx = 0;
+        g.gridy = row;
+        filters.add(makeLabel("Pilih Mata Kuliah"), g);
+        g.gridx = 1;
+        g.gridwidth = 3;
+        filters.add(cmbKrsMatakuliah, g);
+        g.gridwidth = 1;
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         actions.setOpaque(false);
@@ -241,7 +278,7 @@ public class KrsJadwalPanel extends JPanel {
         JButton btnLoad = buildBtn("Muat KRS", BLUE(), 120);
         btnLoad.addActionListener(e -> loadKrs());
         JButton btnInput = buildBtn("Input KRS", GREEN(), 120);
-        btnInput.addActionListener(e -> showKrsDialog());
+        btnInput.addActionListener(e -> submitInlineKrs());
         JButton btnPrint = buildBtn("Cetak KRS", new Color(30, 41, 70), 120);
         btnPrint.addActionListener(e -> printKrs());
 
@@ -314,13 +351,18 @@ public class KrsJadwalPanel extends JPanel {
         topCard.add(info, BorderLayout.WEST);
         topCard.add(actions, BorderLayout.EAST);
 
-        String[] columns = {"Kode MK", "Nama Mata Kuliah", "SKS", "Semester"};
+        String[] columns = JwtHelper.getInstance().isAdmin()
+                ? new String[]{"Kode MK", "Nama Mata Kuliah", "SKS", "Semester", "Jurusan", "Edit", "Hapus"}
+                : new String[]{"Kode MK", "Nama Mata Kuliah", "SKS", "Semester", "Jurusan"};
         matakuliahTableModel = new DefaultTableModel(columns, 0) {
             @Override public boolean isCellEditable(int rowIndex, int columnIndex) { return false; }
         };
         tableMatakuliah = buildTable(matakuliahTableModel);
         tableMatakuliah.getColumnModel().getColumn(2).setMaxWidth(70);
         tableMatakuliah.getColumnModel().getColumn(3).setMaxWidth(80);
+        if (JwtHelper.getInstance().isAdmin()) {
+            setupActionColumns(tableMatakuliah, 5, 6, this::editSelectedMatakuliah, this::deleteSelectedMatakuliah);
+        }
 
         JPanel tableCard = buildCard();
         tableCard.setLayout(new BorderLayout());
@@ -374,12 +416,17 @@ public class KrsJadwalPanel extends JPanel {
         topCard.add(info, BorderLayout.WEST);
         topCard.add(actions, BorderLayout.EAST);
 
-        String[] columns = {"ID", "Kode MK", "Mata Kuliah", "Hari", "Jam", "Ruangan", "Dosen"};
+        String[] columns = JwtHelper.getInstance().isAdmin()
+                ? new String[]{"ID", "Kode MK", "Mata Kuliah", "Hari", "Jam", "Ruangan", "Dosen", "Edit", "Hapus"}
+                : new String[]{"ID", "Kode MK", "Mata Kuliah", "Hari", "Jam", "Ruangan", "Dosen"};
         jadwalTableModel = new DefaultTableModel(columns, 0) {
             @Override public boolean isCellEditable(int rowIndex, int columnIndex) { return false; }
         };
         tableJadwal = buildTable(jadwalTableModel);
         tableJadwal.getColumnModel().getColumn(0).setMaxWidth(50);
+        if (JwtHelper.getInstance().isAdmin()) {
+            setupActionColumns(tableJadwal, 7, 8, this::editSelectedJadwal, this::deleteSelectedJadwal);
+        }
 
         JPanel tableCard = buildCard();
         tableCard.setLayout(new BorderLayout());
@@ -407,10 +454,116 @@ public class KrsJadwalPanel extends JPanel {
         return panel;
     }
 
+    private JComponent buildCetakKrsPage() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setOpaque(false);
+
+        JPanel topCard = buildCard();
+        topCard.setBorder(new EmptyBorder(18, 18, 18, 18));
+        topCard.setLayout(new BorderLayout(12, 12));
+
+        JPanel filters = new JPanel(new GridBagLayout());
+        filters.setOpaque(false);
+        GridBagConstraints g = new GridBagConstraints();
+        g.insets = new Insets(4, 4, 4, 8);
+        g.anchor = GridBagConstraints.WEST;
+        g.fill = GridBagConstraints.HORIZONTAL;
+        g.weightx = 1;
+
+        txtNimFilter = makeField();
+        txtTahunAjaranFilter = makeField();
+        if (JwtHelper.getInstance().isMahasiswa()) {
+            txtNimFilter.setText(JwtHelper.getInstance().getNim());
+            txtNimFilter.setEnabled(false);
+        }
+
+        g.gridx = 0;
+        g.gridy = 0;
+        filters.add(makeLabel("NIM"), g);
+        g.gridx = 1;
+        filters.add(txtNimFilter, g);
+        g.gridx = 2;
+        filters.add(makeLabel("Tahun Ajaran"), g);
+        g.gridx = 3;
+        filters.add(txtTahunAjaranFilter, g);
+
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        actions.setOpaque(false);
+        JButton btnLoad = buildBtn("Muat KRS", BLUE(), 120);
+        btnLoad.addActionListener(e -> loadKrs());
+        JButton btnPrint = buildBtn("Cetak", GREEN(), 110);
+        btnPrint.addActionListener(e -> printKrs());
+        actions.add(btnLoad);
+        actions.add(btnPrint);
+
+        topCard.add(filters, BorderLayout.CENTER);
+        topCard.add(actions, BorderLayout.EAST);
+
+        printPreviewHost = buildCard();
+        printPreviewHost.setLayout(new BorderLayout());
+        printPreviewHost.setBorder(new EmptyBorder(16, 16, 16, 16));
+        JLabel empty = makeInfoLabel("Masukkan NIM dan tahun ajaran, lalu klik Muat KRS untuk menampilkan preview.");
+        empty.setHorizontalAlignment(SwingConstants.CENTER);
+        printPreviewHost.add(empty, BorderLayout.CENTER);
+
+        printPreviewScroll = new JScrollPane(printPreviewHost);
+        printPreviewScroll.setBorder(null);
+        printPreviewScroll.getViewport().setBackground(BG());
+
+        JPanel content = new JPanel();
+        content.setOpaque(false);
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+        content.add(topCard);
+        content.add(Box.createVerticalStrut(14));
+        content.add(printPreviewScroll);
+
+        panel.add(content, BorderLayout.CENTER);
+        return panel;
+    }
+
     private void refreshAllData() {
-        loadMatakuliah();
-        loadJadwal();
-        loadKrs();
+        switch (mode) {
+            case INPUT_KRS -> {
+                loadMahasiswa();
+                loadMatakuliah();
+                loadJadwal();
+                loadKrs();
+            }
+            case MATA_KULIAH -> loadMatakuliah();
+            case JADWAL_KULIAH -> {
+                loadMatakuliah();
+                loadJadwal();
+            }
+            case CETAK_KRS -> loadMahasiswa();
+        }
+    }
+
+    private void loadMahasiswa() {
+        if (!JwtHelper.getInstance().isAdmin()) {
+            return;
+        }
+
+        startBusy();
+        new SwingWorker<JsonObject, Void>() {
+            @Override protected JsonObject doInBackground() throws Exception {
+                return MahasiswaService.getAll(1, 1000, "");
+            }
+
+            @Override protected void done() {
+                try {
+                    JsonObject response = get();
+                    if (response.get("success").getAsBoolean() && response.has("data")) {
+                        mahasiswaCache = response.getAsJsonArray("data");
+                    } else {
+                        showErrorMessage(response);
+                    }
+                } catch (Exception e) {
+                    showErrorMessage("Gagal memuat mahasiswa: " + e.getMessage());
+                } finally {
+                    stopBusy();
+                }
+            }
+        }.execute();
     }
 
     private void loadMatakuliah() {
@@ -425,7 +578,10 @@ public class KrsJadwalPanel extends JPanel {
                     JsonObject response = get();
                     if (response.get("success").getAsBoolean()) {
                         matakuliahCache = response.getAsJsonArray("data");
-                        fillMatakuliahTable(matakuliahCache);
+                        if (matakuliahTableModel != null) {
+                            fillMatakuliahTable(matakuliahCache);
+                        }
+                        refreshInlineMatakuliahCombo();
                     } else {
                         showErrorMessage(response);
                     }
@@ -450,7 +606,12 @@ public class KrsJadwalPanel extends JPanel {
                     JsonObject response = get();
                     if (response.get("success").getAsBoolean()) {
                         jadwalCache = response.getAsJsonArray("data");
-                        fillJadwalTable(jadwalCache);
+                        if (jadwalTableModel != null) {
+                            fillJadwalTable(jadwalCache);
+                        }
+                        if (lblJadwalStat != null) {
+                            lblJadwalStat.setText(String.valueOf(jadwalCache.size()));
+                        }
                     } else {
                         showErrorMessage(response);
                     }
@@ -464,6 +625,9 @@ public class KrsJadwalPanel extends JPanel {
     }
 
     private void loadKrs() {
+        if (txtNimFilter == null || txtTahunAjaranFilter == null) {
+            return;
+        }
         startBusy();
 
         String nim = txtNimFilter.getText().trim();
@@ -488,7 +652,12 @@ public class KrsJadwalPanel extends JPanel {
                         currentKrsSummary = response.has("summary") && response.get("summary").isJsonObject()
                                 ? response.getAsJsonObject("summary")
                                 : null;
-                        fillKrsTable(currentKrsCache);
+                        if (krsTableModel != null) {
+                            fillKrsTable(currentKrsCache);
+                        }
+                        if (mode == PageMode.CETAK_KRS) {
+                            updatePrintPreview();
+                        }
                     } else {
                         showErrorMessage(response);
                     }
@@ -505,12 +674,17 @@ public class KrsJadwalPanel extends JPanel {
         matakuliahTableModel.setRowCount(0);
         for (JsonElement element : data) {
             JsonObject mk = element.getAsJsonObject();
-            matakuliahTableModel.addRow(new Object[]{
-                    safe(mk, "kode_mk"),
-                    safe(mk, "nama_mk"),
-                    safe(mk, "sks"),
-                    safe(mk, "semester")
-            });
+            List<Object> row = new ArrayList<>();
+            row.add(safe(mk, "kode_mk"));
+            row.add(safe(mk, "nama_mk"));
+            row.add(safe(mk, "sks"));
+            row.add(safe(mk, "semester"));
+            row.add(safe(mk, "jurusan"));
+            if (JwtHelper.getInstance().isAdmin()) {
+                row.add("Edit");
+                row.add("Hapus");
+            }
+            matakuliahTableModel.addRow(row.toArray(new Object[0]));
         }
         lblMatakuliahInfo.setText(data.size() + " mata kuliah tersedia");
     }
@@ -519,15 +693,19 @@ public class KrsJadwalPanel extends JPanel {
         jadwalTableModel.setRowCount(0);
         for (JsonElement element : data) {
             JsonObject jadwal = element.getAsJsonObject();
-            jadwalTableModel.addRow(new Object[]{
-                    safe(jadwal, "id_jadwal"),
-                    safe(jadwal, "kode_mk"),
-                    safe(jadwal, "nama_mk"),
-                    capitalize(safe(jadwal, "hari")),
-                    safe(jadwal, "jam"),
-                    safe(jadwal, "ruangan"),
-                    safe(jadwal, "dosen")
-            });
+            List<Object> row = new ArrayList<>();
+            row.add(safe(jadwal, "id_jadwal"));
+            row.add(safe(jadwal, "kode_mk"));
+            row.add(safe(jadwal, "nama_mk"));
+            row.add(capitalize(safe(jadwal, "hari")));
+            row.add(safe(jadwal, "jam"));
+            row.add(safe(jadwal, "ruangan"));
+            row.add(safe(jadwal, "dosen"));
+            if (JwtHelper.getInstance().isAdmin()) {
+                row.add("Edit");
+                row.add("Hapus");
+            }
+            jadwalTableModel.addRow(row.toArray(new Object[0]));
         }
         lblJadwalInfo.setText(data.size() + " jadwal kuliah tersedia");
         lblJadwalStat.setText(String.valueOf(data.size()));
@@ -563,7 +741,12 @@ public class KrsJadwalPanel extends JPanel {
     }
 
     private void showMatakuliahDialog() {
-        JDialog dialog = createDialog("Tambah Mata Kuliah", 480, 360);
+        showMatakuliahDialog(null);
+    }
+
+    private void showMatakuliahDialog(JsonObject existing) {
+        boolean editMode = existing != null;
+        JDialog dialog = createDialog(editMode ? "Edit Mata Kuliah" : "Tambah Mata Kuliah", 500, 430);
 
         JPanel form = buildDialogForm();
         GridBagConstraints g = createFormConstraints();
@@ -572,14 +755,25 @@ public class KrsJadwalPanel extends JPanel {
         JTextField fNama = makeField();
         JTextField fSks = makeField();
         JTextField fSemester = makeField();
+        JTextField fJurusan = makeField();
+
+        if (editMode) {
+            fKode.setText(safe(existing, "kode_mk"));
+            fKode.setEnabled(false);
+            fNama.setText(safe(existing, "nama_mk"));
+            fSks.setText(safe(existing, "sks"));
+            fSemester.setText(safe(existing, "semester"));
+            fJurusan.setText(emptyDash(safe(existing, "jurusan")));
+        }
 
         int row = 0;
-        addFormRow(form, g, row++, "Kode Mata Kuliah *", fKode);
-        addFormRow(form, g, row++, "Nama Mata Kuliah *", fNama);
+        addFormRow(form, g, row++, "Kode MK *", fKode);
+        addFormRow(form, g, row++, "Nama MK *", fNama);
         addFormRow(form, g, row++, "SKS *", fSks);
         addFormRow(form, g, row++, "Semester *", fSemester);
+        addFormRow(form, g, row++, "Jurusan *", fJurusan);
 
-        JButton btnSave = buildBtn("Simpan Mata Kuliah", BLUE(), 200);
+        JButton btnSave = buildBtn(editMode ? "Update Mata Kuliah" : "Simpan Mata Kuliah", BLUE(), 210);
         g.gridx = 0;
         g.gridy = row;
         g.gridwidth = 2;
@@ -587,7 +781,7 @@ public class KrsJadwalPanel extends JPanel {
         form.add(btnSave, g);
 
         btnSave.addActionListener(e -> {
-            if (isBlank(fKode) || isBlank(fNama) || isBlank(fSks) || isBlank(fSemester)) {
+            if (isBlank(fKode) || isBlank(fNama) || isBlank(fSks) || isBlank(fSemester) || isBlank(fJurusan)) {
                 JOptionPane.showMessageDialog(dialog, "Semua field wajib harus diisi.", "Validasi", JOptionPane.WARNING_MESSAGE);
                 return;
             }
@@ -607,8 +801,13 @@ public class KrsJadwalPanel extends JPanel {
             body.addProperty("nama_mk", fNama.getText().trim());
             body.addProperty("sks", sks);
             body.addProperty("semester", semester);
+            body.addProperty("jurusan", fJurusan.getText().trim());
 
-            submitDialog(dialog, () -> AkademikService.createMatakuliah(body), this::loadMatakuliah);
+            submitDialog(dialog,
+                    () -> editMode
+                            ? AkademikService.updateMatakuliah(safe(existing, "kode_mk"), body)
+                            : AkademikService.createMatakuliah(body),
+                    this::loadMatakuliah);
         });
 
         dialog.add(new JScrollPane(form) {{
@@ -619,6 +818,10 @@ public class KrsJadwalPanel extends JPanel {
     }
 
     private void showJadwalDialog() {
+        showJadwalDialog(null);
+    }
+
+    private void showJadwalDialog(JsonObject existing) {
         if (matakuliahCache.size() == 0) {
             JOptionPane.showMessageDialog(this,
                     "Data mata kuliah belum tersedia. Muat data atau tambahkan mata kuliah terlebih dahulu.",
@@ -626,7 +829,8 @@ public class KrsJadwalPanel extends JPanel {
             return;
         }
 
-        JDialog dialog = createDialog("Tambah Jadwal Kuliah", 520, 420);
+        boolean editMode = existing != null;
+        JDialog dialog = createDialog(editMode ? "Edit Jadwal Kuliah" : "Tambah Jadwal Kuliah", 520, 450);
 
         JPanel form = buildDialogForm();
         GridBagConstraints g = createFormConstraints();
@@ -639,13 +843,21 @@ public class KrsJadwalPanel extends JPanel {
         JTextField fRuangan = makeField();
         JTextField fDosen = makeField();
 
+        if (editMode) {
+            selectMatakuliah(cmbMatakuliah, safe(existing, "kode_mk"));
+            cmbHari.setSelectedItem(safe(existing, "hari").toLowerCase());
+            fJam.setText(safe(existing, "jam"));
+            fRuangan.setText(emptyDash(safe(existing, "ruangan")));
+            fDosen.setText(emptyDash(safe(existing, "dosen")));
+        }
+
         MatakuliahOption selected = (MatakuliahOption) cmbMatakuliah.getSelectedItem();
-        if (selected != null && !selected.dosen().isBlank()) {
+        if (!editMode && selected != null && !selected.dosen().isBlank()) {
             fDosen.setText(selected.dosen());
         }
         cmbMatakuliah.addActionListener(e -> {
             MatakuliahOption option = (MatakuliahOption) cmbMatakuliah.getSelectedItem();
-            if (option != null && !option.dosen().isBlank()) {
+            if (!editMode && option != null && !option.dosen().isBlank()) {
                 fDosen.setText(option.dosen());
             }
         });
@@ -657,7 +869,7 @@ public class KrsJadwalPanel extends JPanel {
         addFormRow(form, g, row++, "Ruangan *", fRuangan);
         addFormRow(form, g, row++, "Dosen *", fDosen);
 
-        JButton btnSave = buildBtn("Simpan Jadwal", BLUE(), 180);
+        JButton btnSave = buildBtn(editMode ? "Update Jadwal" : "Simpan Jadwal", BLUE(), 180);
         g.gridx = 0;
         g.gridy = row;
         g.gridwidth = 2;
@@ -678,10 +890,11 @@ public class KrsJadwalPanel extends JPanel {
             body.addProperty("ruangan", fRuangan.getText().trim());
             body.addProperty("dosen", fDosen.getText().trim());
 
-            submitDialog(dialog, () -> AkademikService.createJadwal(body), () -> {
-                loadJadwal();
-                loadKrs();
-            });
+            submitDialog(dialog,
+                    () -> editMode
+                            ? AkademikService.updateJadwal(safe(existing, "id_jadwal"), body)
+                            : AkademikService.createJadwal(body),
+                    this::loadJadwal);
         });
 
         dialog.add(new JScrollPane(form) {{
@@ -699,43 +912,89 @@ public class KrsJadwalPanel extends JPanel {
             return;
         }
 
-        JDialog dialog = createDialog("Input KRS", 520, 390);
+        if (JwtHelper.getInstance().isAdmin() && mahasiswaCache.size() == 0) {
+            JOptionPane.showMessageDialog(this,
+                    "Data mahasiswa belum tersedia. Klik Refresh terlebih dahulu.",
+                    "Informasi", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        JDialog dialog = createDialog("Input KRS", 620, 560);
 
         JPanel form = buildDialogForm();
         GridBagConstraints g = createFormConstraints();
 
+        JComboBox<MahasiswaOption> cmbMahasiswa = buildMahasiswaCombo();
         JTextField fNim = makeField();
+        JTextField fNama = makeField();
+        fNim.setEnabled(false);
+        fNama.setEnabled(false);
         if (JwtHelper.getInstance().isMahasiswa()) {
             fNim.setText(JwtHelper.getInstance().getNim());
-            fNim.setEnabled(false);
         } else if (!txtNimFilter.getText().trim().isEmpty()) {
-            fNim.setText(txtNimFilter.getText().trim());
+            selectMahasiswa(cmbMahasiswa, txtNimFilter.getText().trim());
         }
 
         JComboBox<MatakuliahOption> cmbMatakuliah = buildMatakuliahCombo();
+        JTextField fKodeMk = makeField();
+        JTextField fSks = makeField();
+        JTextField fSemester = makeField();
+        JTextField fJadwal = makeField();
+        JTextField fRuangan = makeField();
+        JTextField fDosen = makeField();
+        for (JTextField field : new JTextField[]{fKodeMk, fSks, fSemester, fJadwal, fRuangan, fDosen}) {
+            field.setEnabled(false);
+        }
         JTextField fTahunAjaran = makeField();
         fTahunAjaran.setText(txtTahunAjaranFilter.getText().trim().isEmpty()
                 ? defaultAcademicYear()
                 : txtTahunAjaranFilter.getText().trim());
 
-        JLabel lblPreview = new JLabel("Pilih mata kuliah untuk melihat ringkasan.");
+        JLabel lblPreview = new JLabel("Total SKS maksimal 24.");
         lblPreview.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         lblPreview.setForeground(TEXT_MUTED());
 
-        cmbMatakuliah.addActionListener(e -> {
+        Runnable updateMahasiswa = () -> {
+            MahasiswaOption option = (MahasiswaOption) cmbMahasiswa.getSelectedItem();
+            if (option != null) {
+                fNim.setText(option.nim());
+                fNama.setText(option.nama());
+            }
+        };
+        cmbMahasiswa.addActionListener(e -> updateMahasiswa.run());
+        updateMahasiswa.run();
+
+        Runnable updateMatakuliah = () -> {
             MatakuliahOption option = (MatakuliahOption) cmbMatakuliah.getSelectedItem();
             if (option != null) {
-                lblPreview.setText("SKS " + option.sks() + " | Semester " + option.semester());
+                JsonObject jadwal = findFirstJadwal(option.kodeMk());
+                fKodeMk.setText(option.kodeMk());
+                fSks.setText(String.valueOf(option.sks()));
+                fSemester.setText(String.valueOf(option.semester()));
+                fJadwal.setText(jadwal == null ? "-" : safe(jadwal, "hari") + " " + safe(jadwal, "jam"));
+                fRuangan.setText(jadwal == null ? "-" : safe(jadwal, "ruangan"));
+                fDosen.setText(jadwal == null ? emptyDash(option.dosen()) : safe(jadwal, "dosen"));
+                lblPreview.setText("Detail otomatis terisi dari mata kuliah dan jadwal aktif.");
             }
+        };
+        cmbMatakuliah.addActionListener(e -> {
+            updateMatakuliah.run();
         });
-        if (cmbMatakuliah.getSelectedItem() != null) {
-            MatakuliahOption option = (MatakuliahOption) cmbMatakuliah.getSelectedItem();
-            lblPreview.setText("SKS " + option.sks() + " | Semester " + option.semester());
-        }
+        updateMatakuliah.run();
 
         int row = 0;
-        addFormRow(form, g, row++, "NIM *", fNim);
+        if (JwtHelper.getInstance().isAdmin()) {
+            addFormRow(form, g, row++, "NIM Mahasiswa *", cmbMahasiswa);
+        }
+        addFormRow(form, g, row++, "NIM", fNim);
+        addFormRow(form, g, row++, "Nama", fNama);
         addFormRow(form, g, row++, "Mata Kuliah *", cmbMatakuliah);
+        addFormRow(form, g, row++, "Kode MK", fKodeMk);
+        addFormRow(form, g, row++, "SKS", fSks);
+        addFormRow(form, g, row++, "Semester", fSemester);
+        addFormRow(form, g, row++, "Jadwal", fJadwal);
+        addFormRow(form, g, row++, "Ruangan", fRuangan);
+        addFormRow(form, g, row++, "Dosen", fDosen);
         addFormRow(form, g, row++, "Tahun Ajaran *", fTahunAjaran);
         g.gridx = 1;
         g.gridy = row++;
@@ -816,102 +1075,160 @@ public class KrsJadwalPanel extends JPanel {
             return;
         }
 
-        String nama = currentKrsSummary != null ? safe(currentKrsSummary, "nama_mahasiswa") : "-";
-        int totalSks = currentKrsSummary != null
-                ? parseInteger(safe(currentKrsSummary, "total_sks"))
-                : calculateTotalSks(currentKrsCache);
-
-        JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle("Simpan PDF KRS");
-        chooser.setFileFilter(new FileNameExtensionFilter("PDF Document", "pdf"));
-        chooser.setSelectedFile(new File("KRS_" + nim + "_" + tahunAjaran.replace('/', '-') + ".pdf"));
-
-        if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
-            return;
-        }
-
-        File file = chooser.getSelectedFile();
-        if (!file.getName().toLowerCase().endsWith(".pdf")) {
-            file = new File(file.getAbsolutePath() + ".pdf");
-        }
-
+        startBusy();
         try {
-            exportKrsPdf(file, nim, nama, tahunAjaran, totalSks);
-            JOptionPane.showMessageDialog(this,
-                    "KRS berhasil dicetak ke:\n" + file.getAbsolutePath(),
-                    "Sukses", JOptionPane.INFORMATION_MESSAGE);
+            JPanel printPanel = buildKrsPrintPanel(nim, tahunAjaran);
+            PrinterJob job = PrinterJob.getPrinterJob();
+            job.setJobName("KRS_" + nim + "_" + tahunAjaran.replace('/', '-'));
+            job.setPrintable((graphics, pageFormat, pageIndex) -> {
+                if (pageIndex > 0) return java.awt.print.Printable.NO_SUCH_PAGE;
+                Graphics2D g2 = (Graphics2D) graphics.create();
+                g2.translate(pageFormat.getImageableX(), pageFormat.getImageableY());
+                double scaleX = pageFormat.getImageableWidth() / printPanel.getWidth();
+                double scaleY = pageFormat.getImageableHeight() / printPanel.getHeight();
+                double scale = Math.min(scaleX, scaleY);
+                g2.scale(scale, scale);
+                printPanel.printAll(g2);
+                g2.dispose();
+                return java.awt.print.Printable.PAGE_EXISTS;
+            });
+            if (job.printDialog()) {
+                job.print();
+                JOptionPane.showMessageDialog(this, "KRS berhasil dikirim ke printer.", "Sukses", JOptionPane.INFORMATION_MESSAGE);
+            }
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this,
                     "Gagal mencetak KRS: " + e.getMessage(),
                     "Error", JOptionPane.ERROR_MESSAGE);
+        } finally {
+            stopBusy();
         }
     }
 
-    private void exportKrsPdf(File file, String nim, String nama, String tahunAjaran, int totalSks) throws Exception {
-        Document document = new Document(PageSize.A4.rotate(), 36, 36, 36, 36);
-        PdfWriter.getInstance(document, new FileOutputStream(file));
-        document.open();
+    private JPanel buildKrsPrintPanel(String nim, String tahunAjaran) {
+        JsonObject first = currentKrsCache.get(0).getAsJsonObject();
+        String nama = safe(first, "nama_mahasiswa");
+        String jurusan = "-";
+        String kelas = "-";
+        String semester = safe(first, "semester");
+        MahasiswaOption mahasiswa = findMahasiswa(nim);
+        if (mahasiswa != null) {
+            jurusan = emptyDash(mahasiswa.jurusan());
+            kelas = emptyDash(mahasiswa.kelas());
+            semester = emptyDash(mahasiswa.semester());
+        }
 
-        com.itextpdf.text.Font titleFont = com.itextpdf.text.FontFactory.getFont(
-                com.itextpdf.text.FontFactory.HELVETICA_BOLD, 16, BaseColor.BLACK);
-        com.itextpdf.text.Font subtitleFont = com.itextpdf.text.FontFactory.getFont(
-                com.itextpdf.text.FontFactory.HELVETICA, 11, BaseColor.DARK_GRAY);
-        com.itextpdf.text.Font headerFont = com.itextpdf.text.FontFactory.getFont(
-                com.itextpdf.text.FontFactory.HELVETICA_BOLD, 10, BaseColor.WHITE);
-        com.itextpdf.text.Font bodyFont = com.itextpdf.text.FontFactory.getFont(
-                com.itextpdf.text.FontFactory.HELVETICA, 9, BaseColor.BLACK);
+        JPanel page = new JPanel(new BorderLayout(0, 18));
+        page.setBackground(Color.WHITE);
+        page.setBorder(new EmptyBorder(34, 42, 34, 42));
+        page.setSize(794, 1123);
+        page.setPreferredSize(new Dimension(794, 1123));
 
-        Paragraph title = new Paragraph("Kartu Rencana Studi (KRS)", titleFont);
-        title.setAlignment(Element.ALIGN_CENTER);
-        document.add(title);
+        JPanel top = new JPanel();
+        top.setOpaque(false);
+        top.setLayout(new BoxLayout(top, BoxLayout.Y_AXIS));
+        top.add(centerPrintLabel("POLITEKNIK LP3I PEKANBARU", 18, Font.BOLD));
+        top.add(centerPrintLabel("SISTEM INFORMASI AKADEMIK", 14, Font.BOLD));
+        top.add(centerPrintLabel("KARTU RENCANA STUDI", 16, Font.BOLD));
+        top.add(Box.createVerticalStrut(12));
+        top.add(new JSeparator());
+        top.add(Box.createVerticalStrut(14));
 
-        Paragraph meta = new Paragraph(
-                "NIM: " + nim + "    Nama: " + nama + "    Tahun Ajaran: " + tahunAjaran + "    Total SKS: " + totalSks,
-                subtitleFont);
-        meta.setSpacingBefore(8f);
-        meta.setSpacingAfter(14f);
-        document.add(meta);
+        JPanel identity = new JPanel(new GridLayout(3, 4, 18, 7));
+        identity.setOpaque(false);
+        addPrintMeta(identity, "NIM", nim);
+        addPrintMeta(identity, "Nama", nama);
+        addPrintMeta(identity, "Jurusan", jurusan);
+        addPrintMeta(identity, "Kelas", kelas);
+        addPrintMeta(identity, "Semester", semester);
+        addPrintMeta(identity, "Tahun Ajaran", tahunAjaran);
+        top.add(identity);
 
-        PdfPTable table = new PdfPTable(new float[]{1.5f, 3.4f, 0.8f, 2.8f, 1.6f, 2.1f});
-        table.setWidthPercentage(100);
-
-        addPdfHeader(table, "Kode MK", headerFont);
-        addPdfHeader(table, "Mata Kuliah", headerFont);
-        addPdfHeader(table, "SKS", headerFont);
-        addPdfHeader(table, "Jadwal", headerFont);
-        addPdfHeader(table, "Ruangan", headerFont);
-        addPdfHeader(table, "Dosen", headerFont);
-
+        String[] columns = {"No", "Kode MK", "Mata Kuliah", "SKS", "Hari", "Jam", "Ruangan", "Dosen"};
+        DefaultTableModel model = new DefaultTableModel(columns, 0);
+        int no = 1;
+        int totalSks = 0;
         for (JsonElement element : currentKrsCache) {
             JsonObject item = element.getAsJsonObject();
-            addPdfCell(table, safe(item, "kode_mk"), bodyFont);
-            addPdfCell(table, safe(item, "nama_mk"), bodyFont);
-            addPdfCell(table, safe(item, "sks"), bodyFont);
-            addPdfCell(table, safe(item, "jadwal"), bodyFont);
-            addPdfCell(table, safe(item, "ruangan"), bodyFont);
-            addPdfCell(table, safe(item, "dosen"), bodyFont);
+            totalSks += parseInteger(safe(item, "sks"));
+            String[] schedule = splitSchedule(safe(item, "jadwal"));
+            model.addRow(new Object[]{
+                    no++,
+                    safe(item, "kode_mk"),
+                    safe(item, "nama_mk"),
+                    safe(item, "sks"),
+                    schedule[0],
+                    schedule[1],
+                    safe(item, "ruangan"),
+                    safe(item, "dosen")
+            });
         }
 
-        document.add(table);
-        document.add(Chunk.NEWLINE);
-        document.add(new Paragraph("Dokumen dicetak dari modul KRS & Jadwal Kuliah.", subtitleFont));
-        document.close();
+        JTable printTable = new JTable(model);
+        printTable.setRowHeight(28);
+        printTable.setFont(new Font("Serif", Font.PLAIN, 11));
+        printTable.getTableHeader().setFont(new Font("Serif", Font.BOLD, 11));
+        printTable.setGridColor(Color.BLACK);
+        printTable.setForeground(Color.BLACK);
+        printTable.setBackground(Color.WHITE);
+
+        JPanel bottom = new JPanel(new BorderLayout());
+        bottom.setOpaque(false);
+        JPanel printInfo = new JPanel(new GridLayout(2, 1, 0, 4));
+        printInfo.setOpaque(false);
+        printInfo.add(printText("Total SKS: " + totalSks, 12, Font.BOLD));
+        printInfo.add(printText("Tanggal Cetak: " + LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")), 11, Font.PLAIN));
+        bottom.add(printInfo, BorderLayout.NORTH);
+
+        JPanel signatures = new JPanel(new GridLayout(1, 2, 80, 0));
+        signatures.setOpaque(false);
+        signatures.setBorder(new EmptyBorder(36, 0, 0, 0));
+        signatures.add(signatureBlock("Mahasiswa", nama, ""));
+        signatures.add(signatureBlock("Pekanbaru, " + LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                "Ibu Rina Marlina, S.Kom., M.Kom.", "Kepala Akademik"));
+        bottom.add(signatures, BorderLayout.CENTER);
+
+        page.add(top, BorderLayout.NORTH);
+        page.add(new JScrollPane(printTable) {{
+            setBorder(BorderFactory.createLineBorder(Color.BLACK));
+            getViewport().setBackground(Color.WHITE);
+        }}, BorderLayout.CENTER);
+        page.add(bottom, BorderLayout.SOUTH);
+        page.doLayout();
+        return page;
     }
 
-    private void addPdfHeader(PdfPTable table, String text, com.itextpdf.text.Font font) {
-        PdfPCell cell = new PdfPCell(new Phrase(text, font));
-        cell.setHorizontalAlignment(Element.ALIGN_CENTER);
-        cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
-        cell.setBackgroundColor(new BaseColor(30, 41, 70));
-        cell.setPadding(8f);
-        table.addCell(cell);
-    }
-
-    private void addPdfCell(PdfPTable table, String text, com.itextpdf.text.Font font) {
-        PdfPCell cell = new PdfPCell(new Phrase(text, font));
-        cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
-        cell.setPadding(6f);
-        table.addCell(cell);
+    private void updatePrintPreview() {
+        if (printPreviewHost == null) {
+            return;
+        }
+        printPreviewHost.removeAll();
+        if (currentKrsCache.size() == 0) {
+            JLabel empty = makeInfoLabel("Data KRS tidak ditemukan untuk filter tersebut.");
+            empty.setHorizontalAlignment(SwingConstants.CENTER);
+            printPreviewHost.add(empty, BorderLayout.CENTER);
+        } else {
+            String nim = JwtHelper.getInstance().isMahasiswa()
+                    ? JwtHelper.getInstance().getNim()
+                    : txtNimFilter.getText().trim();
+            String tahunAjaran = txtTahunAjaranFilter.getText().trim();
+            Set<String> uniqueNim = new LinkedHashSet<>();
+            Set<String> uniqueTa = new LinkedHashSet<>();
+            for (JsonElement element : currentKrsCache) {
+                JsonObject item = element.getAsJsonObject();
+                uniqueNim.add(safe(item, "nim"));
+                uniqueTa.add(safe(item, "tahun_ajaran"));
+            }
+            if ((nim == null || nim.isBlank()) && uniqueNim.size() == 1) nim = uniqueNim.iterator().next();
+            if (tahunAjaran.isBlank() && uniqueTa.size() == 1) tahunAjaran = uniqueTa.iterator().next();
+            JPanel page = buildKrsPrintPanel(nim, tahunAjaran);
+            JPanel center = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+            center.setOpaque(false);
+            center.add(page);
+            printPreviewHost.add(center, BorderLayout.CENTER);
+        }
+        printPreviewHost.revalidate();
+        printPreviewHost.repaint();
     }
 
     private void submitDialog(JDialog dialog, RequestAction requestAction, Runnable afterSuccess) {
@@ -1105,6 +1422,260 @@ public class KrsJadwalPanel extends JPanel {
         return combo;
     }
 
+    private void refreshInlineMatakuliahCombo() {
+        if (cmbKrsMatakuliah == null) {
+            return;
+        }
+        Object selected = cmbKrsMatakuliah.getSelectedItem();
+        String selectedKode = selected instanceof MatakuliahOption option ? option.kodeMk() : "";
+        cmbKrsMatakuliah.removeAllItems();
+        for (JsonElement element : matakuliahCache) {
+            JsonObject mk = element.getAsJsonObject();
+            String dosen = safe(mk, "dosen_pengampu");
+            MatakuliahOption option = new MatakuliahOption(
+                    safe(mk, "kode_mk"),
+                    safe(mk, "nama_mk"),
+                    parseInteger(safe(mk, "sks")),
+                    parseInteger(safe(mk, "semester")),
+                    "-".equals(dosen) ? "" : dosen
+            );
+            cmbKrsMatakuliah.addItem(option);
+            if (!selectedKode.isBlank() && option.kodeMk().equals(selectedKode)) {
+                cmbKrsMatakuliah.setSelectedItem(option);
+            }
+        }
+    }
+
+    private void submitInlineKrs() {
+        MatakuliahOption option = cmbKrsMatakuliah == null ? null : (MatakuliahOption) cmbKrsMatakuliah.getSelectedItem();
+        String nim = JwtHelper.getInstance().isMahasiswa()
+                ? JwtHelper.getInstance().getNim()
+                : txtNimFilter.getText().trim();
+        String tahunAjaran = txtTahunAjaranFilter.getText().trim();
+        if (option == null || nim.isBlank() || tahunAjaran.isBlank()) {
+            JOptionPane.showMessageDialog(this,
+                    "NIM, tahun ajaran, dan mata kuliah wajib diisi.",
+                    "Validasi", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        JsonObject body = new JsonObject();
+        body.addProperty("nim", nim);
+        body.addProperty("kode_mk", option.kodeMk());
+        body.addProperty("tahun_ajaran", tahunAjaran);
+
+        runRequest(() -> AkademikService.createKrs(body), this::loadKrs);
+    }
+
+    private JComboBox<MahasiswaOption> buildMahasiswaCombo() {
+        JComboBox<MahasiswaOption> combo = new JComboBox<>();
+        if (JwtHelper.getInstance().isMahasiswa()) {
+            combo.addItem(new MahasiswaOption(JwtHelper.getInstance().getNim(), "-", "-", "-", "-"));
+        } else {
+            for (JsonElement element : mahasiswaCache) {
+                JsonObject mhs = element.getAsJsonObject();
+                combo.addItem(new MahasiswaOption(
+                        safe(mhs, "nim"),
+                        safe(mhs, "nama"),
+                        safe(mhs, "jurusan"),
+                        safe(mhs, "program_studi"),
+                        safe(mhs, "semester")
+                ));
+            }
+        }
+        styleCombo(combo);
+        return combo;
+    }
+
+    private void setupActionColumns(JTable table, int editColumn, int deleteColumn, Runnable editAction, Runnable deleteAction) {
+        DefaultTableCellRenderer center = new DefaultTableCellRenderer();
+        center.setHorizontalAlignment(SwingConstants.CENTER);
+        table.getColumnModel().getColumn(editColumn).setMaxWidth(72);
+        table.getColumnModel().getColumn(deleteColumn).setMaxWidth(72);
+        table.getColumnModel().getColumn(editColumn).setCellRenderer(center);
+        table.getColumnModel().getColumn(deleteColumn).setCellRenderer(center);
+        table.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override public void mouseClicked(java.awt.event.MouseEvent e) {
+                int row = table.rowAtPoint(e.getPoint());
+                int col = table.columnAtPoint(e.getPoint());
+                if (row < 0) return;
+                table.setRowSelectionInterval(row, row);
+                if (col == editColumn) {
+                    editAction.run();
+                } else if (col == deleteColumn) {
+                    deleteAction.run();
+                }
+            }
+        });
+    }
+
+    private void editSelectedMatakuliah() {
+        int row = tableMatakuliah.getSelectedRow();
+        if (row < 0) return;
+        String kodeMk = String.valueOf(matakuliahTableModel.getValueAt(tableMatakuliah.convertRowIndexToModel(row), 0));
+        JsonObject mk = findMatakuliah(kodeMk);
+        if (mk != null) showMatakuliahDialog(mk);
+    }
+
+    private void deleteSelectedMatakuliah() {
+        int row = tableMatakuliah.getSelectedRow();
+        if (row < 0) return;
+        String kodeMk = String.valueOf(matakuliahTableModel.getValueAt(tableMatakuliah.convertRowIndexToModel(row), 0));
+        if (JOptionPane.showConfirmDialog(this, "Hapus mata kuliah " + kodeMk + "?", "Konfirmasi",
+                JOptionPane.YES_NO_OPTION) != JOptionPane.YES_OPTION) {
+            return;
+        }
+        runRequest(() -> AkademikService.deleteMatakuliah(kodeMk), () -> {
+            loadMatakuliah();
+        });
+    }
+
+    private void editSelectedJadwal() {
+        int row = tableJadwal.getSelectedRow();
+        if (row < 0) return;
+        String id = String.valueOf(jadwalTableModel.getValueAt(tableJadwal.convertRowIndexToModel(row), 0));
+        JsonObject jadwal = findJadwal(id);
+        if (jadwal != null) showJadwalDialog(jadwal);
+    }
+
+    private void deleteSelectedJadwal() {
+        int row = tableJadwal.getSelectedRow();
+        if (row < 0) return;
+        String id = String.valueOf(jadwalTableModel.getValueAt(tableJadwal.convertRowIndexToModel(row), 0));
+        if (JOptionPane.showConfirmDialog(this, "Hapus jadwal ini?", "Konfirmasi",
+                JOptionPane.YES_NO_OPTION) != JOptionPane.YES_OPTION) {
+            return;
+        }
+        runRequest(() -> AkademikService.deleteJadwal(id), () -> {
+            loadJadwal();
+        });
+    }
+
+    private void runRequest(RequestAction requestAction, Runnable afterSuccess) {
+        startBusy();
+        new SwingWorker<JsonObject, Void>() {
+            @Override protected JsonObject doInBackground() throws Exception {
+                return requestAction.execute();
+            }
+
+            @Override protected void done() {
+                try {
+                    JsonObject response = get();
+                    if (response.get("success").getAsBoolean()) {
+                        JOptionPane.showMessageDialog(KrsJadwalPanel.this,
+                                response.has("message") ? response.get("message").getAsString() : "Permintaan berhasil diproses.",
+                                "Sukses", JOptionPane.INFORMATION_MESSAGE);
+                        afterSuccess.run();
+                    } else {
+                        showErrorMessage(response);
+                    }
+                } catch (Exception ex) {
+                    showErrorMessage("Error: " + ex.getMessage());
+                } finally {
+                    stopBusy();
+                }
+            }
+        }.execute();
+    }
+
+    private JsonObject findMatakuliah(String kodeMk) {
+        for (JsonElement element : matakuliahCache) {
+            JsonObject mk = element.getAsJsonObject();
+            if (safe(mk, "kode_mk").equals(kodeMk)) return mk;
+        }
+        return null;
+    }
+
+    private JsonObject findJadwal(String id) {
+        for (JsonElement element : jadwalCache) {
+            JsonObject jadwal = element.getAsJsonObject();
+            if (safe(jadwal, "id_jadwal").equals(id)) return jadwal;
+        }
+        return null;
+    }
+
+    private JsonObject findFirstJadwal(String kodeMk) {
+        for (JsonElement element : jadwalCache) {
+            JsonObject jadwal = element.getAsJsonObject();
+            if (safe(jadwal, "kode_mk").equals(kodeMk)) return jadwal;
+        }
+        return null;
+    }
+
+    private MahasiswaOption findMahasiswa(String nim) {
+        for (JsonElement element : mahasiswaCache) {
+            JsonObject mhs = element.getAsJsonObject();
+            if (safe(mhs, "nim").equals(nim)) {
+                return new MahasiswaOption(
+                        safe(mhs, "nim"),
+                        safe(mhs, "nama"),
+                        safe(mhs, "jurusan"),
+                        safe(mhs, "program_studi"),
+                        safe(mhs, "semester")
+                );
+            }
+        }
+        return null;
+    }
+
+    private void selectMatakuliah(JComboBox<MatakuliahOption> combo, String kodeMk) {
+        for (int i = 0; i < combo.getItemCount(); i++) {
+            if (combo.getItemAt(i).kodeMk().equals(kodeMk)) {
+                combo.setSelectedIndex(i);
+                return;
+            }
+        }
+    }
+
+    private void selectMahasiswa(JComboBox<MahasiswaOption> combo, String nim) {
+        for (int i = 0; i < combo.getItemCount(); i++) {
+            if (combo.getItemAt(i).nim().equals(nim)) {
+                combo.setSelectedIndex(i);
+                return;
+            }
+        }
+    }
+
+    private String[] splitSchedule(String value) {
+        if (value == null || value.isBlank() || "-".equals(value)) return new String[]{"-", "-"};
+        String first = value.split("\\|")[0].trim();
+        int space = first.indexOf(' ');
+        if (space < 0) return new String[]{first, "-"};
+        return new String[]{first.substring(0, space), first.substring(space + 1)};
+    }
+
+    private JLabel centerPrintLabel(String text, int size, int style) {
+        JLabel label = printText(text, size, style);
+        label.setAlignmentX(Component.CENTER_ALIGNMENT);
+        label.setHorizontalAlignment(SwingConstants.CENTER);
+        return label;
+    }
+
+    private JLabel printText(String text, int size, int style) {
+        JLabel label = new JLabel(text);
+        label.setForeground(Color.BLACK);
+        label.setFont(new Font("Serif", style, size));
+        return label;
+    }
+
+    private void addPrintMeta(JPanel panel, String label, String value) {
+        panel.add(printText(label + ":", 11, Font.BOLD));
+        panel.add(printText(emptyDash(value), 11, Font.PLAIN));
+    }
+
+    private JPanel signatureBlock(String top, String name, String role) {
+        JPanel panel = new JPanel();
+        panel.setOpaque(false);
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.add(centerPrintLabel(top, 11, Font.PLAIN));
+        panel.add(Box.createVerticalStrut(64));
+        panel.add(centerPrintLabel("(" + emptyDash(name) + ")", 11, Font.BOLD));
+        if (role != null && !role.isBlank()) {
+            panel.add(centerPrintLabel(role, 11, Font.PLAIN));
+        }
+        return panel;
+    }
+
     private void startBusy() {
         activeLoads++;
         setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
@@ -1163,6 +1734,10 @@ public class KrsJadwalPanel extends JPanel {
         return Character.toUpperCase(value.charAt(0)) + value.substring(1);
     }
 
+    private String emptyDash(String value) {
+        return value == null || value.isBlank() || "-".equals(value) ? "-" : value;
+    }
+
     @FunctionalInterface
     private interface RequestAction {
         JsonObject execute() throws Exception;
@@ -1171,6 +1746,12 @@ public class KrsJadwalPanel extends JPanel {
     private record MatakuliahOption(String kodeMk, String namaMk, int sks, int semester, String dosen) {
         @Override public String toString() {
             return kodeMk + " - " + namaMk;
+        }
+    }
+
+    private record MahasiswaOption(String nim, String nama, String jurusan, String kelas, String semester) {
+        @Override public String toString() {
+            return nim + " - " + nama;
         }
     }
 }

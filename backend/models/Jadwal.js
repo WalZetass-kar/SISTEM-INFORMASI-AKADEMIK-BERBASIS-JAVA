@@ -75,6 +75,42 @@ class Jadwal {
 
     return rows[0] || null;
   }
+
+  static async update(id, { kode_mk, hari, jam_mulai, jam_selesai, ruangan, dosen }) {
+    const [result] = await pool.execute(
+      `UPDATE jadwal
+       SET kode_mk = ?, hari = ?, jam_mulai = ?, jam_selesai = ?, ruangan = ?, dosen = ?
+       WHERE id = ?`,
+      [kode_mk, hari, jam_mulai, jam_selesai, ruangan || null, dosen || null, id]
+    );
+    if (result.affectedRows === 0) return null;
+
+    const [rows] = await pool.execute(
+      `SELECT
+          j.id AS id_jadwal,
+          j.kode_mk,
+          mk.nama_mk,
+          mk.sks,
+          mk.semester,
+          j.hari,
+          TIME_FORMAT(j.jam_mulai, '%H:%i') AS jam_mulai,
+          TIME_FORMAT(j.jam_selesai, '%H:%i') AS jam_selesai,
+          CONCAT(TIME_FORMAT(j.jam_mulai, '%H:%i'), ' - ', TIME_FORMAT(j.jam_selesai, '%H:%i')) AS jam,
+          j.ruangan,
+          COALESCE(j.dosen, mk.dosen_pengampu) AS dosen
+        FROM jadwal j
+        INNER JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
+        WHERE j.id = ?`,
+      [id]
+    );
+
+    return rows[0] || null;
+  }
+
+  static async delete(id) {
+    const [result] = await pool.execute('DELETE FROM jadwal WHERE id = ?', [id]);
+    return result.affectedRows > 0;
+  }
 }
 
 module.exports = Jadwal;

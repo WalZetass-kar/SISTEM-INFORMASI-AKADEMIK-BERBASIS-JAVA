@@ -47,6 +47,25 @@ class Matakuliah {
 
     return this.findByKode(kode_mk);
   }
+
+  static async update(kode_mk, { nama_mk, sks, semester, jurusan, dosen_pengampu }) {
+    const [result] = await pool.execute(
+      `UPDATE mata_kuliah
+       SET nama_mk = ?, sks = ?, semester = ?, jurusan = ?, dosen_pengampu = ?
+       WHERE kode_mk = ?`,
+      [nama_mk, sks, semester, jurusan || null, dosen_pengampu || null, kode_mk]
+    );
+    if (result.affectedRows === 0) return null;
+    return this.findByKode(kode_mk);
+  }
+
+  static async delete(kode_mk) {
+    const [result] = await pool.execute(
+      'DELETE FROM mata_kuliah WHERE kode_mk = ?',
+      [kode_mk]
+    );
+    return result.affectedRows > 0;
+  }
 }
 
 module.exports = Matakuliah;

@@ -16,6 +16,15 @@ const normalizeJam = (value) => {
   return value.trim();
 };
 
+const splitJamRange = (value) => {
+  if (typeof value !== 'string') return { jam_mulai: '', jam_selesai: '' };
+  const parts = value.split(/\s*-\s*/);
+  return {
+    jam_mulai: normalizeJam(parts[0] || ''),
+    jam_selesai: normalizeJam(parts[1] || '')
+  };
+};
+
 const normalizeText = (value) => {
   if (typeof value !== 'string') return '';
   return value.trim();
@@ -242,6 +251,32 @@ const akademikController = {
     }
   },
 
+  updateMatakuliah: async (req, res) => {
+    try {
+      const { nama_mk, sks, semester, jurusan, dosen_pengampu } = req.body;
+      if (!nama_mk || sks === undefined || semester === undefined) {
+        return res.status(400).json({ success: false, message: 'Nama mata kuliah, SKS, dan semester wajib diisi.' });
+      }
+      const data = await Matakuliah.update(req.params.kode_mk, { nama_mk, sks, semester, jurusan, dosen_pengampu });
+      if (!data) return res.status(404).json({ success: false, message: 'Mata kuliah tidak ditemukan.' });
+      res.json({ success: true, message: 'Mata kuliah berhasil diperbarui.', data });
+    } catch (error) {
+      console.error('Update matakuliah error:', error);
+      res.status(500).json({ success: false, message: error.message || 'Terjadi kesalahan server.' });
+    }
+  },
+
+  deleteMatakuliah: async (req, res) => {
+    try {
+      const deleted = await Matakuliah.delete(req.params.kode_mk);
+      if (!deleted) return res.status(404).json({ success: false, message: 'Mata kuliah tidak ditemukan.' });
+      res.json({ success: true, message: 'Mata kuliah berhasil dihapus.' });
+    } catch (error) {
+      console.error('Delete matakuliah error:', error);
+      res.status(500).json({ success: false, message: 'Data tidak dapat dihapus karena masih digunakan modul lain.' });
+    }
+  },
+
   getJadwal: async (req, res) => {
     try {
       const { kode_mk, hari, semester } = req.query;
@@ -256,8 +291,9 @@ const akademikController = {
   createJadwal: async (req, res) => {
     try {
       const { kode_mk, hari, ruangan, dosen } = req.body;
-      const jam_mulai = normalizeJam(req.body.jam_mulai);
-      const jam_selesai = normalizeJam(req.body.jam_selesai);
+      const range = splitJamRange(req.body.jam);
+      const jam_mulai = normalizeJam(req.body.jam_mulai) || range.jam_mulai;
+      const jam_selesai = normalizeJam(req.body.jam_selesai) || range.jam_selesai;
 
       if (!kode_mk || !hari || !jam_mulai || !jam_selesai || !ruangan || !dosen) {
         return res.status(400).json({ success: false, message: 'Semua field jadwal wajib diisi.' });
@@ -279,6 +315,49 @@ const akademikController = {
       res.status(201).json({ success: true, message: 'Jadwal berhasil ditambahkan.', data });
     } catch (error) {
       console.error('Create jadwal error:', error);
+      res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+    }
+  },
+
+  updateJadwal: async (req, res) => {
+    try {
+      const { kode_mk, hari, ruangan, dosen } = req.body;
+      const range = splitJamRange(req.body.jam);
+      const jam_mulai = normalizeJam(req.body.jam_mulai) || range.jam_mulai;
+      const jam_selesai = normalizeJam(req.body.jam_selesai) || range.jam_selesai;
+
+      if (!kode_mk || !hari || !jam_mulai || !jam_selesai || !ruangan || !dosen) {
+        return res.status(400).json({ success: false, message: 'Semua field jadwal wajib diisi.' });
+      }
+
+      if (!VALID_HARI.includes(hari)) {
+        return res.status(400).json({ success: false, message: `Hari harus salah satu dari: ${VALID_HARI.join(', ')}.` });
+      }
+
+      if (!JAM_REGEX.test(jam_mulai) || !JAM_REGEX.test(jam_selesai)) {
+        return res.status(400).json({ success: false, message: 'Format jam harus HH:mm, contoh 08:00.' });
+      }
+
+      if (jam_mulai >= jam_selesai) {
+        return res.status(400).json({ success: false, message: 'Jam selesai harus lebih besar dari jam mulai.' });
+      }
+
+      const data = await Jadwal.update(req.params.id, { kode_mk, hari, jam_mulai, jam_selesai, ruangan, dosen });
+      if (!data) return res.status(404).json({ success: false, message: 'Jadwal tidak ditemukan.' });
+      res.json({ success: true, message: 'Jadwal berhasil diperbarui.', data });
+    } catch (error) {
+      console.error('Update jadwal error:', error);
+      res.status(500).json({ success: false, message: error.message || 'Terjadi kesalahan server.' });
+    }
+  },
+
+  deleteJadwal: async (req, res) => {
+    try {
+      const deleted = await Jadwal.delete(req.params.id);
+      if (!deleted) return res.status(404).json({ success: false, message: 'Jadwal tidak ditemukan.' });
+      res.json({ success: true, message: 'Jadwal berhasil dihapus.' });
+    } catch (error) {
+      console.error('Delete jadwal error:', error);
       res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
     }
   },
@@ -321,6 +400,17 @@ const akademikController = {
       const matakuliah = await Matakuliah.findByKode(kode_mk);
       if (!matakuliah) return res.status(404).json({ success: false, message: 'Mata kuliah tidak ditemukan.' });
 
+      const existing = await Krs.findByUnique(nim, kode_mk, tahun_ajaran);
+      if (existing) return res.status(409).json({ success: false, message: 'Data KRS untuk NIM, mata kuliah, dan tahun ajaran ini sudah ada.' });
+
+      const currentKrs = await Krs.findAll({ nim, tahun_ajaran });
+      const totalSks = currentKrs
+        .filter(item => item.status !== 'batal')
+        .reduce((sum, item) => sum + Number(item.sks || 0), 0);
+      if (totalSks + Number(matakuliah.sks || 0) > 24) {
+        return res.status(400).json({ success: false, message: 'Total SKS KRS tidak boleh melebihi 24 SKS.' });
+      }
+
       const data = await Krs.create({
         nim,
         kode_mk,
@@ -331,6 +421,9 @@ const akademikController = {
       res.status(201).json({ success: true, message: 'KRS berhasil ditambahkan.', data });
     } catch (error) {
       console.error('Create KRS error:', error);
+      if (error.code === 'ER_DUP_ENTRY') {
+        return res.status(409).json({ success: false, message: 'Data KRS untuk NIM, mata kuliah, dan tahun ajaran ini sudah ada.' });
+      }
       res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
     }
   },
