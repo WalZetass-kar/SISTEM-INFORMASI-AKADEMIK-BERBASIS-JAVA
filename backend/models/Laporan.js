@@ -8,7 +8,7 @@ const { pool } = require('../config/database');
 const { normalizePagination } = require('../utils/pagination');
 
 class Laporan {
-  static async findAll({ page = 1, limit = 10, jenis = '', status = '' } = {}) {
+  static async findAll({ page = 1, limit = 10, jenis = '', status = '', tahun_ajaran = '', search = '' } = {}) {
     const pagination = normalizePagination({ page, limit });
     let query = `SELECT l.*, u.username as generated_by_name FROM laporan l
       LEFT JOIN users u ON l.generated_by = u.id WHERE 1=1`;
@@ -22,6 +22,15 @@ class Laporan {
     if (status) {
       query += ' AND l.status = ?'; countQuery += ' AND status = ?';
       params.push(status); countParams.push(status);
+    }
+    if (tahun_ajaran) {
+      query += ' AND l.tahun_ajaran = ?'; countQuery += ' AND tahun_ajaran = ?';
+      params.push(tahun_ajaran); countParams.push(tahun_ajaran);
+    }
+    if (search) {
+      query += ' AND (l.judul LIKE ? OR l.deskripsi LIKE ?)'; countQuery += ' AND (judul LIKE ? OR deskripsi LIKE ?)';
+      const like = `%${search}%`;
+      params.push(like, like); countParams.push(like, like);
     }
 
     const [countRows] = await pool.execute(countQuery, countParams);

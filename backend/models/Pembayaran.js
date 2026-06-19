@@ -73,6 +73,22 @@ class Pembayaran {
     return rows[0] || null;
   }
 
+  static async findDuplicateUkt({ nim, semester, tahun_ajaran, excludeId = null }) {
+    let query = `SELECT id, nim, semester, tahun_ajaran, status, nomor_referensi
+      FROM pembayaran
+      WHERE nim = ? AND semester = ? AND tahun_ajaran = ?
+        AND jenis_pembayaran = 'ukt'
+        AND status IN ('pending', 'lunas')`;
+    const params = [nim, semester, tahun_ajaran];
+    if (excludeId) {
+      query += ' AND id <> ?';
+      params.push(excludeId);
+    }
+    query += ' ORDER BY created_at DESC LIMIT 1';
+    const [rows] = await pool.execute(query, params);
+    return rows[0] || null;
+  }
+
   static async create({ nim, jenis_pembayaran, jumlah, tanggal_bayar, metode_pembayaran,
                          bukti_pembayaran, nomor_referensi, semester, tahun_ajaran, keterangan }) {
     const [result] = await pool.execute(
@@ -89,6 +105,14 @@ class Pembayaran {
     const [result] = await pool.execute(
       'UPDATE pembayaran SET status = ?, verified_by = ?, verified_at = ? WHERE id = ?',
       [status, verified_by, verified_at, id]);
+    return result.affectedRows > 0;
+  }
+
+  static async updateBukti(id, bukti_pembayaran) {
+    const [result] = await pool.execute(
+      'UPDATE pembayaran SET bukti_pembayaran = ? WHERE id = ?',
+      [bukti_pembayaran, id]
+    );
     return result.affectedRows > 0;
   }
 
@@ -184,6 +208,60 @@ class Pembayaran {
   static async getTahunAjaranList() {
     const [rows] = await pool.execute('SELECT DISTINCT tahun_ajaran FROM pembayaran ORDER BY tahun_ajaran DESC');
     return rows.map(r => r.tahun_ajaran);
+  }
+
+  static async getTarifUkt({ nim, semester = null, tahun_ajaran = null }) {
+    const params = [nim];
+    let query = `
+      SELECT
+        t.*,
+        m.nim,
+        m.nama AS nama_mahasiswa,
+        m.jurusan AS mahasiswa_jurusan,
+        m.program_studi AS mahasiswa_program_studi,
+        m.angkatan AS mahasiswa_angkatan,
+        (
+          IF(t.jurusan = m.jurusan, 8, 0) +
+          IF(t.program_studi = m.program_studi, 4, 0) +
+          IF(t.angkatan = m.angkatan, 2, 0) +
+          IF(t.semester = ?, 1, 0) +
+          IF(t.tahun_ajaran = ?, 1, 0)
+        ) AS match_score
+      FROM mahasiswa m
+      LEFT JOIN tarif_ukt t
+        ON t.is_active = 1
+       AND (t.jurusan = m.jurusan OR t.jurusan IS NULL OR t.jurusan = '')
+       AND (t.program_studi = m.program_studi OR t.program_studi IS NULL OR t.program_studi = '')
+       AND (t.angkatan = m.angkatan OR t.angkatan IS NULL OR t.angkatan = 0)
+       AND (t.semester = ? OR t.semester IS NULL OR t.semester = 0)
+       AND (t.tahun_ajaran = ? OR t.tahun_ajaran IS NULL OR t.tahun_ajaran = '')
+      WHERE m.nim = ?
+      ORDER BY match_score DESC, t.updated_at DESC, t.id DESC
+      LIMIT 1`;
+    params.unshift(Number(semester || 0), tahun_ajaran || '', Number(semester || 0), tahun_ajaran || '');
+
+    const [rows] = await pool.execute(query, params);
+    const row = rows[0] || null;
+    if (!row) return null;
+    return {
+      nim: row.nim,
+      nama_mahasiswa: row.nama_mahasiswa,
+      jurusan: row.mahasiswa_jurusan,
+      program_studi: row.mahasiswa_program_studi,
+      angkatan: row.mahasiswa_angkatan,
+      semester: Number(semester || 0) || null,
+      tahun_ajaran: tahun_ajaran || null,
+      tarif: row.id ? {
+        id: row.id,
+        nominal: row.nominal,
+        keterangan: row.keterangan,
+        jurusan: row.jurusan,
+        program_studi: row.program_studi,
+        angkatan: row.angkatan,
+        semester: row.semester,
+        tahun_ajaran: row.tahun_ajaran
+      } : null
+    };
   }
 }
 

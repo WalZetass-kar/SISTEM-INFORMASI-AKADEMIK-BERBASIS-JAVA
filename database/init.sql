@@ -260,6 +260,27 @@ CREATE TABLE IF NOT EXISTS pembayaran (
 ) ENGINE=InnoDB;
 
 -- ============================================================
+-- TABEL: tarif_ukt (Master Tarif UKT)
+-- Digunakan oleh: Modul Pembayaran
+-- ============================================================
+CREATE TABLE IF NOT EXISTS tarif_ukt (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  jurusan VARCHAR(100) DEFAULT NULL,
+  program_studi VARCHAR(100) DEFAULT NULL,
+  angkatan YEAR DEFAULT NULL,
+  semester INT DEFAULT NULL,
+  tahun_ajaran VARCHAR(10) DEFAULT NULL,
+  nominal DECIMAL(15,2) NOT NULL,
+  keterangan VARCHAR(255) DEFAULT NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_tarif_ukt (jurusan, program_studi, angkatan, semester, tahun_ajaran),
+  INDEX idx_tarif_ukt_lookup (jurusan, program_studi, angkatan, semester, tahun_ajaran),
+  INDEX idx_tarif_ukt_active (is_active)
+) ENGINE=InnoDB;
+
+-- ============================================================
 -- TABEL: laporan (Laporan Akademik & Keuangan)
 -- Digunakan oleh: KELOMPOK PEMBAYARAN & LAPORAN (pemilik)
 -- ============================================================
@@ -382,6 +403,19 @@ INSERT INTO krs (nim, kode_mk, semester, tahun_ajaran, status) VALUES
   ('2024004', 'SI304', 4, '2024/2025', 'diambil'),
   ('2024005', 'SI304', 4, '2024/2025', 'diambil')
 ON DUPLICATE KEY UPDATE status = VALUES(status);
+
+-- Sample master tarif UKT
+INSERT INTO tarif_ukt (jurusan, program_studi, angkatan, semester, tahun_ajaran, nominal, keterangan, is_active) VALUES
+  ('Teknik Informatika', 'S1 Informatika', 2024, 0, '2024/2025', 3500000.00, 'Tarif UKT Teknik Informatika angkatan 2024', 1),
+  ('Teknik Informatika', 'S1 Informatika', 2023, 0, '2024/2025', 3500000.00, 'Tarif UKT Teknik Informatika angkatan 2023', 1),
+  ('Sistem Informasi', 'S1 Sistem Informasi', 2024, 0, '2024/2025', 4000000.00, 'Tarif UKT Sistem Informasi angkatan 2024', 1),
+  ('Sistem Informasi', 'S1 Sistem Informasi', 2023, 0, '2024/2025', 4000000.00, 'Tarif UKT Sistem Informasi angkatan 2023', 1),
+  ('Teknik Informatika', 'S1 Informatika', 0, 0, '', 3500000.00, 'Tarif UKT default Teknik Informatika', 1),
+  ('Sistem Informasi', 'S1 Sistem Informasi', 0, 0, '', 4000000.00, 'Tarif UKT default Sistem Informasi', 1)
+ON DUPLICATE KEY UPDATE
+  nominal = VALUES(nominal),
+  keterangan = VALUES(keterangan),
+  is_active = VALUES(is_active);
 
 -- Sample pembayaran
 INSERT INTO pembayaran (nim, jenis_pembayaran, jumlah, tanggal_bayar, metode_pembayaran, nomor_referensi, semester, tahun_ajaran, status) VALUES

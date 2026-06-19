@@ -3,6 +3,7 @@ package com.siakad.services;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.siakad.utils.Config;
+import java.io.File;
 
 /**
  * PembayaranService - CRUD Pembayaran + Dashboard Stats
@@ -14,11 +15,16 @@ public class PembayaranService {
      * Ambil semua pembayaran dengan filter
      */
     public static JsonObject getAll(int page, int limit, String search, String status, String tahunAjaran) throws Exception {
+        return getAll(page, limit, search, status, tahunAjaran, null);
+    }
+
+    public static JsonObject getAll(int page, int limit, String search, String status, String tahunAjaran, String jenis) throws Exception {
         StringBuilder url = new StringBuilder(Config.PEMBAYARAN_URL);
         url.append("?page=").append(page).append("&limit=").append(limit);
         if (search != null && !search.isEmpty()) url.append("&search=").append(ApiService.encodeQueryParam(search));
         if (status != null && !status.isEmpty()) url.append("&status=").append(ApiService.encodeQueryParam(status));
         if (tahunAjaran != null && !tahunAjaran.isEmpty()) url.append("&tahun_ajaran=").append(ApiService.encodeQueryParam(tahunAjaran));
+        if (jenis != null && !jenis.isEmpty()) url.append("&jenis=").append(ApiService.encodeQueryParam(jenis));
         return ApiService.get(url.toString());
     }
 
@@ -64,6 +70,24 @@ public class PembayaranService {
      */
     public static JsonObject delete(int id) throws Exception {
         return ApiService.delete(Config.PEMBAYARAN_URL + "/" + id);
+    }
+
+    public static JsonObject uploadBukti(int id, File file) throws Exception {
+        return ApiService.uploadFile(Config.PEMBAYARAN_URL + "/" + id + "/upload-bukti", file, "bukti");
+    }
+
+    public static void downloadBukti(int id, File targetFile) throws Exception {
+        ApiService.downloadToFile(Config.PEMBAYARAN_URL + "/" + id + "/bukti", targetFile);
+    }
+
+    public static JsonObject getTarifUkt(String nim, int semester, String tahunAjaran) throws Exception {
+        StringBuilder url = new StringBuilder(Config.PEMBAYARAN_URL + "/tarif-ukt");
+        url.append("?nim=").append(ApiService.encodeQueryParam(nim));
+        if (semester > 0) url.append("&semester=").append(semester);
+        if (tahunAjaran != null && !tahunAjaran.isEmpty()) {
+            url.append("&tahun_ajaran=").append(ApiService.encodeQueryParam(tahunAjaran));
+        }
+        return ApiService.get(url.toString());
     }
 
     /**

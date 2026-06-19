@@ -65,15 +65,81 @@ public class ApiService {
         return readResponse(conn);
     }
 
+    public static JsonObject uploadFile(String urlString, File file, String fieldName) throws Exception {
+        String boundary = "----SiakadBoundary" + System.currentTimeMillis();
+        HttpURLConnection conn = createRawConnection(urlString, "POST");
+        conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+        conn.setRequestProperty("Accept", "application/json");
+        conn.setDoOutput(true);
+
+        try (OutputStream os = conn.getOutputStream();
+             PrintWriter writer = new PrintWriter(new OutputStreamWriter(os, StandardCharsets.UTF_8), true);
+             FileInputStream input = new FileInputStream(file)) {
+            writer.append("--").append(boundary).append("\r\n");
+            writer.append("Content-Disposition: form-data; name=\"")
+                    .append(fieldName)
+                    .append("\"; filename=\"")
+                    .append(file.getName())
+                    .append("\"\r\n");
+            writer.append("Content-Type: application/octet-stream\r\n\r\n");
+            writer.flush();
+
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                os.write(buffer, 0, read);
+            }
+            os.flush();
+
+            writer.append("\r\n");
+            writer.append("--").append(boundary).append("--\r\n");
+            writer.flush();
+        }
+
+        return readResponse(conn);
+    }
+
+    public static void downloadToFile(String urlString, File targetFile) throws Exception {
+        HttpURLConnection conn = createRawConnection(urlString, "GET");
+        int responseCode = conn.getResponseCode();
+        if (responseCode < 200 || responseCode >= 300) {
+            JsonObject error = readResponse(conn);
+            String message = error.has("message") ? error.get("message").getAsString()
+                    : "Download gagal (code: " + responseCode + ")";
+            throw new IOException(message);
+        }
+
+        try (InputStream is = conn.getInputStream();
+             FileOutputStream fos = new FileOutputStream(targetFile)) {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = is.read(buffer)) != -1) {
+                fos.write(buffer, 0, read);
+            }
+        } finally {
+            conn.disconnect();
+        }
+    }
+
     /**
      * Buat koneksi HTTP dengan header yang diperlukan
      */
     private static HttpURLConnection createConnection(String urlString, String method) throws Exception {
+        HttpURLConnection conn = createRawConnection(urlString, method);
+        conn.setRequestProperty("Content-Type", "application/json");
+        conn.setRequestProperty("Accept", "application/json");
+
+        if ("POST".equals(method) || "PUT".equals(method)) {
+            conn.setDoOutput(true);
+        }
+
+        return conn;
+    }
+
+    private static HttpURLConnection createRawConnection(String urlString, String method) throws Exception {
         URL url = URI.create(urlString).toURL();
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod(method);
-        conn.setRequestProperty("Content-Type", "application/json");
-        conn.setRequestProperty("Accept", "application/json");
         conn.setConnectTimeout(TIMEOUT);
         conn.setReadTimeout(TIMEOUT);
 
@@ -81,10 +147,6 @@ public class ApiService {
         JwtHelper jwt = JwtHelper.getInstance();
         if (jwt.isLoggedIn()) {
             conn.setRequestProperty("Authorization", jwt.getAuthHeader());
-        }
-
-        if ("POST".equals(method) || "PUT".equals(method)) {
-            conn.setDoOutput(true);
         }
 
         return conn;

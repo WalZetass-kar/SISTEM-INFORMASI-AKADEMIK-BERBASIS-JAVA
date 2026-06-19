@@ -5,6 +5,7 @@ package com.siakad.utils;
  */
 public class Config {
     // Base URL API Backend
+    public static final String SERVER_BASE_URL = "http://localhost:3000";
     public static final String API_BASE_URL = "http://localhost:3000/api";
 
     // Endpoints

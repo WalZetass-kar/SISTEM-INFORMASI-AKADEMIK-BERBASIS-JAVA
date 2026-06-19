@@ -9,9 +9,16 @@ import com.siakad.utils.Config;
 public class LaporanService {
 
     public static JsonObject getAll(int page, int limit, String jenis) throws Exception {
+        return getAll(page, limit, jenis, null, null, null);
+    }
+
+    public static JsonObject getAll(int page, int limit, String jenis, String status, String tahunAjaran, String search) throws Exception {
         StringBuilder url = new StringBuilder(Config.LAPORAN_URL);
         url.append("?page=").append(page).append("&limit=").append(limit);
         if (jenis != null && !jenis.isEmpty()) url.append("&jenis=").append(ApiService.encodeQueryParam(jenis));
+        if (status != null && !status.isEmpty()) url.append("&status=").append(ApiService.encodeQueryParam(status));
+        if (tahunAjaran != null && !tahunAjaran.isEmpty()) url.append("&tahun_ajaran=").append(ApiService.encodeQueryParam(tahunAjaran));
+        if (search != null && !search.isEmpty()) url.append("&search=").append(ApiService.encodeQueryParam(search));
         return ApiService.get(url.toString());
     }
 

@@ -6,12 +6,21 @@
 
 const Laporan = require('../models/Laporan');
 
+const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+const TAHUN_AJARAN_REGEX = /^\d{4}\/\d{4}$/;
+
+const isValidDate = (value) => {
+  if (!DATE_REGEX.test(String(value || ''))) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+};
+
 const laporanController = {
   // GET /api/laporan - List semua laporan
   getAll: async (req, res) => {
     try {
-      const { page, limit, jenis, status } = req.query;
-      const result = await Laporan.findAll({ page, limit, jenis, status });
+      const { page, limit, jenis, status, tahun_ajaran, search } = req.query;
+      const result = await Laporan.findAll({ page, limit, jenis, status, tahun_ajaran, search });
       res.json({ success: true, ...result });
     } catch (error) {
       console.error('Get laporan error:', error);
@@ -39,6 +48,18 @@ const laporanController = {
   generatePembayaran: async (req, res) => {
     try {
       const { periode_mulai, periode_selesai, tahun_ajaran } = req.body;
+      if (periode_mulai && !isValidDate(periode_mulai)) {
+        return res.status(400).json({ success: false, message: 'Periode mulai harus format YYYY-MM-DD.' });
+      }
+      if (periode_selesai && !isValidDate(periode_selesai)) {
+        return res.status(400).json({ success: false, message: 'Periode selesai harus format YYYY-MM-DD.' });
+      }
+      if (periode_mulai && periode_selesai && periode_mulai > periode_selesai) {
+        return res.status(400).json({ success: false, message: 'Periode selesai harus lebih besar atau sama dengan periode mulai.' });
+      }
+      if (tahun_ajaran && !TAHUN_AJARAN_REGEX.test(tahun_ajaran)) {
+        return res.status(400).json({ success: false, message: 'Tahun ajaran harus format YYYY/YYYY.' });
+      }
       const result = await Laporan.generateLaporanPembayaran(
         periode_mulai, periode_selesai, tahun_ajaran, req.user.id
       );
@@ -70,6 +91,9 @@ const laporanController = {
       const { tahun_ajaran } = req.body;
       if (!tahun_ajaran) {
         return res.status(400).json({ success: false, message: 'Tahun ajaran wajib diisi.' });
+      }
+      if (!TAHUN_AJARAN_REGEX.test(tahun_ajaran)) {
+        return res.status(400).json({ success: false, message: 'Tahun ajaran harus format YYYY/YYYY.' });
       }
       const result = await Laporan.generateLaporanKeuangan(tahun_ajaran, req.user.id);
       res.status(201).json({
