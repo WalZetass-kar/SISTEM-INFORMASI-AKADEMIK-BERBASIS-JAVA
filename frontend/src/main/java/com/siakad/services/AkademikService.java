@@ -14,6 +14,10 @@ public class AkademikService {
         return ApiService.get(Config.AKADEMIK_URL + "/settings");
     }
 
+    public static JsonObject getTahunAjaran() throws Exception {
+        return ApiService.get(Config.AKADEMIK_URL + "/tahun-ajaran");
+    }
+
     public static JsonObject getSemester() throws Exception {
         return ApiService.get(Config.AKADEMIK_URL + "/semester");
     }
@@ -76,6 +80,12 @@ public class AkademikService {
 
     public static JsonObject updateJumlahPertemuanJurusan(JsonObject body) throws Exception {
         return ApiService.put(Config.AKADEMIK_URL + "/jumlah-pertemuan-jurusan", body);
+    }
+
+    public static JsonObject deleteJumlahPertemuanJurusan(String jurusan) throws Exception {
+        JsonObject body = new JsonObject();
+        body.addProperty("jurusan", jurusan);
+        return ApiService.deleteWithBody(Config.AKADEMIK_URL + "/jumlah-pertemuan-jurusan", body);
     }
 
     public static JsonObject getKehadiranInputList(String kodeMk, String tahunAjaran, String tanggal, String search, String jurusan) throws Exception {

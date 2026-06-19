@@ -3,6 +3,8 @@ package com.siakad.views.panels;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseWheelEvent;
 
 final class AcademicUi {
     static final Color BG = new Color(13, 19, 38);
@@ -19,11 +21,11 @@ final class AcademicUi {
     }
 
     static JPanel cardPanel() {
-        return cardPanel(BORDER, CARD, 12);
+        return cardPanel(BORDER, CARD, 14);
     }
 
     static JPanel cardPanel(Color accent) {
-        return cardPanel(accent, CARD, 12);
+        return cardPanel(accent, CARD, 14);
     }
 
     static JPanel cardPanel(Color accent, Color fill, int arc) {
@@ -36,8 +38,8 @@ final class AcademicUi {
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), arc, arc);
                 g2.setColor(BORDER);
                 g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, arc, arc);
-                g2.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 170));
-                g2.fillRoundRect(0, 0, 4, getHeight(), arc, arc);
+                g2.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 180));
+                g2.fillRoundRect(0, 0, 5, getHeight(), arc, arc);
                 g2.dispose();
             }
         };
@@ -54,14 +56,14 @@ final class AcademicUi {
         text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
 
         JLabel titleLabel = new JLabel(title);
-        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 30));
         titleLabel.setForeground(TEXT);
         JLabel subtitleLabel = new JLabel(subtitle);
-        subtitleLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        subtitleLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         subtitleLabel.setForeground(MUTED);
 
         text.add(titleLabel);
-        text.add(Box.createVerticalStrut(3));
+        text.add(Box.createVerticalStrut(4));
         text.add(subtitleLabel);
         header.add(text, BorderLayout.WEST);
 
@@ -74,22 +76,22 @@ final class AcademicUi {
 
     static JLabel pill(String text, Color color) {
         JLabel label = new JLabel("  " + text + "  ");
-        label.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        label.setFont(new Font("Segoe UI", Font.BOLD, 12));
         label.setForeground(new Color(226, 232, 240));
         label.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(color.getRed(), color.getGreen(), color.getBlue(), 110)),
-                new EmptyBorder(8, 10, 8, 10)
+                new EmptyBorder(8, 12, 8, 12)
         ));
         return label;
     }
 
     static JLabel metric(String text) {
         JLabel label = new JLabel("  " + text + "  ");
-        label.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        label.setFont(new Font("Segoe UI", Font.BOLD, 12));
         label.setForeground(new Color(203, 213, 225));
         label.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(BORDER),
-                new EmptyBorder(7, 8, 7, 8)
+                new EmptyBorder(8, 10, 8, 10)
         ));
         return label;
     }
@@ -99,14 +101,67 @@ final class AcademicUi {
         panel.setOpaque(false);
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         JLabel titleLabel = new JLabel(title);
-        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
         titleLabel.setForeground(TEXT);
         JLabel noteLabel = new JLabel(note);
-        noteLabel.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        noteLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         noteLabel.setForeground(MUTED);
         panel.add(titleLabel);
-        panel.add(Box.createVerticalStrut(3));
+        panel.add(Box.createVerticalStrut(4));
         panel.add(noteLabel);
         return panel;
+    }
+
+    static JScrollPane pageScroll(JComponent content) {
+        JScrollPane scroll = new JScrollPane(content);
+        scroll.setBorder(null);
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(false);
+        scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        scroll.getVerticalScrollBar().setUnitIncrement(24);
+        scroll.getHorizontalScrollBar().setUnitIncrement(24);
+        return scroll;
+    }
+
+    static void relayWheelToParentScroll(JScrollPane source, JScrollPane target) {
+        if (source == null || target == null) {
+            return;
+        }
+        source.setWheelScrollingEnabled(false);
+        source.addMouseWheelListener(e -> {
+            MouseWheelEvent forwarded = new MouseWheelEvent(
+                    target,
+                    MouseEvent.MOUSE_WHEEL,
+                    e.getWhen(),
+                    e.getModifiersEx(),
+                    e.getX(),
+                    e.getY(),
+                    e.getClickCount(),
+                    e.isPopupTrigger(),
+                    e.getScrollType(),
+                    e.getScrollAmount(),
+                    e.getWheelRotation()
+            );
+            target.dispatchEvent(forwarded);
+        });
+    }
+
+    static JComponent centeredWidth(JComponent component, int width) {
+        JPanel wrapper = new JPanel(new GridBagLayout());
+        wrapper.setOpaque(false);
+
+        Dimension pref = component.getPreferredSize();
+        int boundedWidth = Math.max(1, width);
+        component.setPreferredSize(new Dimension(boundedWidth, pref.height));
+        component.setMaximumSize(new Dimension(boundedWidth, Integer.MAX_VALUE));
+
+        GridBagConstraints c = new GridBagConstraints();
+        c.gridx = 0;
+        c.gridy = 0;
+        c.weightx = 1.0;
+        c.fill = GridBagConstraints.NONE;
+        c.anchor = GridBagConstraints.NORTH;
+        wrapper.add(component, c);
+        return wrapper;
     }
 }

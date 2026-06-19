@@ -64,7 +64,6 @@ public class MainFrame extends JFrame {
         setLocationRelativeTo(null);
         setMinimumSize(new Dimension(1100, 700));
         initUI();
-        startClock();
     }
 
     private void initUI() {
@@ -73,7 +72,6 @@ public class MainFrame extends JFrame {
 
         JPanel rightPanel = new JPanel(new BorderLayout());
         rightPanel.setBackground(CONTENT_BG());
-        rightPanel.add(buildTopbar(), BorderLayout.NORTH);
 
         cardLayout = new CardLayout();
         contentPanel = new JPanel(cardLayout);
@@ -372,7 +370,6 @@ public class MainFrame extends JFrame {
             navPanel.add(btnLaporan);
             navPanel.add(Box.createVerticalStrut(3));
         }
-        btnThemeToggle = buildThemeButton();
         JButton btnLogoutNav = buildLogoutNavButton();
 
         JScrollPane navScroll = new JScrollPane(navPanel);
@@ -388,8 +385,6 @@ public class MainFrame extends JFrame {
         bottomPanel.setOpaque(false);
         bottomPanel.setLayout(new BoxLayout(bottomPanel, BoxLayout.Y_AXIS));
         bottomPanel.setBorder(new EmptyBorder(8, 10, 12, 10));
-        bottomPanel.add(btnThemeToggle);
-        bottomPanel.add(Box.createVerticalStrut(8));
         bottomPanel.add(btnLogoutNav);
         setActiveButton(btnDashboard);
 

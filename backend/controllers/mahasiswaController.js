@@ -48,7 +48,7 @@ const mahasiswaController = {
 
       // Auto-create user account untuk mahasiswa
       const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password || 'mhs123', salt); // default password = mhs123
+      const hashedPassword = await bcrypt.hash('mhs123', salt); // default password mahasiswa selalu mhs123
       await User.create({ username: nim, password: hashedPassword, role: 'mahasiswa', nim });
 
       res.status(201).json({ success: true, message: 'Mahasiswa berhasil ditambahkan.', data: mhs });

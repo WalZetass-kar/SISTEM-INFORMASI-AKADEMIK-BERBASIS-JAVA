@@ -3,6 +3,7 @@ package com.siakad.views.panels;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.siakad.services.AcademicSearchResolver;
 import com.siakad.services.AkademikService;
 import com.siakad.services.MahasiswaService;
 import com.siakad.services.NilaiService;
@@ -27,6 +28,7 @@ public class LihatNilaiMahasiswaPanel extends JPanel {
     private JComboBox<String> cmbJurusan;
     private JTextField txtSearch;
     private JTable table;
+    private JScrollPane tableScroll;
     private DefaultTableModel tableModel;
     private JLabel lblInfo;
     private JLabel lblScopeSummary;
@@ -53,7 +55,10 @@ public class LihatNilaiMahasiswaPanel extends JPanel {
 
         rootPanel.setBackground(BG);
         rootPanel.add(skeleton, "skeleton");
-        rootPanel.add(buildContent(), "content");
+        JPanel content = buildContent();
+        JScrollPane pageScroll = AcademicUi.pageScroll(content);
+        AcademicUi.relayWheelToParentScroll(tableScroll, pageScroll);
+        rootPanel.add(pageScroll, "content");
         rootPanel.add(statePanel, "state");
         add(rootPanel, BorderLayout.CENTER);
 
@@ -71,11 +76,14 @@ public class LihatNilaiMahasiswaPanel extends JPanel {
     }
 
     private JPanel buildContent() {
-        JPanel content = new JPanel(new BorderLayout());
+        JPanel content = new JPanel();
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
         content.setBackground(BG);
-        content.add(buildHeader(), BorderLayout.NORTH);
-        content.add(buildTableCard(), BorderLayout.CENTER);
-        content.add(buildFooter(), BorderLayout.SOUTH);
+        content.add(AcademicUi.centeredWidth(buildHeader(), 980));
+        content.add(Box.createVerticalStrut(14));
+        content.add(AcademicUi.centeredWidth(buildTableCard(), 980));
+        content.add(Box.createVerticalStrut(14));
+        content.add(AcademicUi.centeredWidth(buildFooter(), 980));
         return content;
     }
 
@@ -89,10 +97,10 @@ public class LihatNilaiMahasiswaPanel extends JPanel {
         titleBlock.setLayout(new BoxLayout(titleBlock, BoxLayout.Y_AXIS));
 
         JLabel title = new JLabel("Lihat Nilai Mahasiswa");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 26));
+        title.setFont(new Font("Segoe UI", Font.BOLD, 28));
         title.setForeground(TEXT);
         JLabel subtitle = new JLabel("Akademik / Nilai & Absensi / Rekap Nilai");
-        subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         subtitle.setForeground(MUTED);
         titleBlock.add(title);
         titleBlock.add(Box.createVerticalStrut(2));
@@ -208,9 +216,14 @@ public class LihatNilaiMahasiswaPanel extends JPanel {
         table.getColumnModel().getColumn(12).setCellRenderer(new StatusRenderer());
 
         JScrollPane scroll = new JScrollPane(table);
+        tableScroll = scroll;
         scroll.setBorder(null);
         scroll.getViewport().setBackground(TABLE_BG);
         scroll.setBackground(TABLE_BG);
+        scroll.getVerticalScrollBar().setUnitIncrement(18);
+        scroll.getHorizontalScrollBar().setUnitIncrement(18);
+        scroll.setPreferredSize(new Dimension(0, 380));
+        scroll.setMinimumSize(new Dimension(0, 330));
 
         JPanel card = new JPanel(new BorderLayout()) {
             @Override protected void paintComponent(Graphics g) {
@@ -395,6 +408,10 @@ public class LihatNilaiMahasiswaPanel extends JPanel {
     }
 
     private void loadRekap() {
+        loadRekap(true);
+    }
+
+    private void loadRekap(boolean allowFallback) {
         if (cmbTahunAjaran.getSelectedItem() == null) {
             showState("Tahun ajaran kosong", "Aktifkan atau tambahkan tahun ajaran di Pengaturan Akademik.");
             return;
@@ -402,17 +419,44 @@ public class LihatNilaiMahasiswaPanel extends JPanel {
 
         MataKuliahItem selected = (MataKuliahItem) cmbMataKuliah.getSelectedItem();
         String kodeMk = selected == null ? "" : selected.kodeMk;
+        String tahunAjaran = String.valueOf(cmbTahunAjaran.getSelectedItem());
+        String search = txtSearch.getText().trim();
+        String jurusan = selectedJurusan();
 
         rootCard.show(rootPanel, "skeleton");
         skeleton.start();
         new SwingWorker<JsonObject, Void>() {
+            private String resolvedKodeMk = "";
+            private String resolvedJurusan = "";
+
             @Override protected JsonObject doInBackground() throws Exception {
-                return NilaiService.getRekap(
-                        (String) cmbTahunAjaran.getSelectedItem(),
+                JsonObject response = NilaiService.getRekap(
+                        tahunAjaran,
                         kodeMk,
-                        txtSearch.getText().trim(),
-                        selectedJurusan()
+                        search,
+                        jurusan
                 );
+
+                if (allowFallback && search != null && !search.isBlank()) {
+                    JsonArray data = response.has("data") && response.get("data").isJsonArray()
+                            ? response.getAsJsonArray("data")
+                            : null;
+                    if (data != null && data.size() == 0) {
+                        AcademicSearchResolver.Resolution resolution = AcademicSearchResolver.resolveSingleStudentCourse(search, tahunAjaran);
+                        if (resolution != null && !resolution.kodeMk().isBlank() && !resolution.kodeMk().equals(kodeMk)) {
+                            resolvedKodeMk = resolution.kodeMk();
+                            resolvedJurusan = resolution.jurusan();
+                            response = NilaiService.getRekap(
+                                    tahunAjaran,
+                                    resolution.kodeMk(),
+                                    search,
+                                    resolution.jurusan()
+                            );
+                        }
+                    }
+                }
+
+                return response;
             }
 
             @Override protected void done() {
@@ -423,6 +467,12 @@ public class LihatNilaiMahasiswaPanel extends JPanel {
                         showState("Gagal memuat rekap nilai", response.get("message").getAsString());
                         return;
                     }
+                    if (!resolvedKodeMk.isBlank()) {
+                        selectMataKuliahByKode(resolvedKodeMk);
+                    }
+                    if (!resolvedJurusan.isBlank()) {
+                        selectJurusanByName(resolvedJurusan);
+                    }
                     fillRows(response.getAsJsonArray("data"), response.getAsJsonObject("summary"));
                     rootCard.show(rootPanel, "content");
                 } catch (Exception ex) {
@@ -430,6 +480,34 @@ public class LihatNilaiMahasiswaPanel extends JPanel {
                 }
             }
         }.execute();
+    }
+
+    private void selectMataKuliahByKode(String kodeMk) {
+        if (cmbMataKuliah == null || kodeMk == null || kodeMk.isBlank()) {
+            return;
+        }
+        for (int i = 0; i < cmbMataKuliah.getItemCount(); i++) {
+            MataKuliahItem item = cmbMataKuliah.getItemAt(i);
+            if (item != null && kodeMk.equals(item.kodeMk)) {
+                cmbMataKuliah.setSelectedIndex(i);
+                return;
+            }
+        }
+    }
+
+    private void selectJurusanByName(String jurusan) {
+        if (cmbJurusan == null || jurusan == null || jurusan.isBlank()) {
+            return;
+        }
+        for (int i = 0; i < cmbJurusan.getItemCount(); i++) {
+            String item = cmbJurusan.getItemAt(i);
+            if (jurusan.equalsIgnoreCase(String.valueOf(item).trim())) {
+                cmbJurusan.setSelectedIndex(i);
+                return;
+            }
+        }
+        cmbJurusan.addItem(jurusan);
+        cmbJurusan.setSelectedItem(jurusan);
     }
 
     private void fillRows(JsonArray data, JsonObject summary) {
@@ -508,6 +586,7 @@ public class LihatNilaiMahasiswaPanel extends JPanel {
         button.setForeground(TEXT);
         button.setBackground(bg);
         button.setPreferredSize(new Dimension(118, 38));
+        button.setMinimumSize(new Dimension(108, 38));
         button.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(bg.equals(CARD_BG) ? BORDER : bg.darker()),
                 new EmptyBorder(8, 14, 8, 14)
@@ -519,6 +598,7 @@ public class LihatNilaiMahasiswaPanel extends JPanel {
 
     private void styleCombo(JComboBox<?> combo, int width) {
         combo.setPreferredSize(new Dimension(width, 38));
+        combo.setMinimumSize(new Dimension(Math.min(width, 160), 38));
         combo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         combo.setBackground(CARD_BG);
         combo.setForeground(TEXT);
@@ -526,6 +606,7 @@ public class LihatNilaiMahasiswaPanel extends JPanel {
 
     private void styleTextField(JTextField field, int width) {
         field.setPreferredSize(new Dimension(width, 38));
+        field.setMinimumSize(new Dimension(Math.min(width, 160), 38));
         field.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         field.setForeground(TEXT);
         field.setBackground(CARD_BG);
