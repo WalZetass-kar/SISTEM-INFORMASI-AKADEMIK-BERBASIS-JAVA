@@ -1,7 +1,9 @@
 package com.siakad.views.panels;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.siakad.services.AkademikService;
 import com.siakad.services.MahasiswaService;
 import com.siakad.utils.AppTheme;
 import com.siakad.utils.JwtHelper;
@@ -11,6 +13,7 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.table.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.time.Year;
 
 /**
  * MahasiswaPanel - CRUD Data Mahasiswa
@@ -464,11 +467,14 @@ public class MahasiswaPanel extends JPanel {
             }
         });
 
-        JTextField fAngkatan = makeField();
+        JComboBox<Integer> cmbAngkatan = buildAngkatanCombo();
         JTextField fSemester = makeField();
         JComboBox<String> cmbStatus = new JComboBox<>(new String[]{"aktif", "cuti", "lulus", "drop_out"});
         styleCombo(cmbStatus);
         JTextField fPassword = nim == null ? makeField() : null;
+        if (fPassword != null) {
+            fPassword.setText("mhs123");
+        }
 
         if (nim != null) {
             new SwingWorker<JsonObject, Void>() {
@@ -493,7 +499,15 @@ public class MahasiswaPanel extends JPanel {
                                 String dbProdi = d.get("program_studi").getAsString();
                                 cmbProdi.setSelectedItem(dbProdi);
                             }
-                            if (!d.get("angkatan").isJsonNull()) fAngkatan.setText(d.get("angkatan").getAsString());
+                            if (!d.get("angkatan").isJsonNull()) {
+                                try {
+                                    cmbAngkatan.setSelectedItem(d.get("angkatan").getAsInt());
+                                } catch (Exception ignored) {
+                                if (cmbAngkatan.getItemCount() > 0) {
+                                    cmbAngkatan.setSelectedIndex(0);
+                                }
+                            }
+                            }
                             fSemester.setText(d.get("semester").getAsString());
                             cmbStatus.setSelectedItem(d.get("status").getAsString());
                         }
@@ -510,11 +524,11 @@ public class MahasiswaPanel extends JPanel {
         addRow(panel, gbc, r++, "Alamat", fAlamat);
         addRow(panel, gbc, r++, "Jurusan", cmbJurusan);
         addRow(panel, gbc, r++, "Program Studi", cmbProdi);
-        addRow(panel, gbc, r++, "Angkatan", fAngkatan);
+        addRow(panel, gbc, r++, "Angkatan", cmbAngkatan);
         addRow(panel, gbc, r++, "Semester", fSemester);
         gbc.gridx = 0; gbc.gridy = r; panel.add(makeLabel("Status"), gbc);
         gbc.gridx = 1; panel.add(cmbStatus, gbc); r++;
-        if (nim == null) addRow(panel, gbc, r++, "Password (default=NIM)", fPassword);
+        if (nim == null) addRow(panel, gbc, r++, "Password (default=mhs123)", fPassword);
 
         JButton btnSave = buildBtn(nim == null ? "💾  Simpan" : "💾  Update", BLUE());
         gbc.gridx = 0; gbc.gridy = r; gbc.gridwidth = 2; gbc.insets = new Insets(18, 4, 4, 4);
@@ -525,7 +539,6 @@ public class MahasiswaPanel extends JPanel {
             String namaVal = fNama.getText().trim();
             String emailVal = fEmail.getText().trim();
             String telpVal = fTelp.getText().trim();
-            String angkatanText = fAngkatan.getText().trim();
             String semesterText = fSemester.getText().trim();
 
             if (nimVal.isEmpty() || namaVal.isEmpty()) {
@@ -545,22 +558,18 @@ public class MahasiswaPanel extends JPanel {
                 return;
             }
 
-            Integer angkatan = null;
+            Integer angkatan = (Integer) cmbAngkatan.getSelectedItem();
             Integer semester = null;
             try {
-                if (!angkatanText.isEmpty()) {
-                    // Validasi format tahun angkatan YYYY
-                    if (!angkatanText.matches("^(19|20)\\d{2}$")) {
-                        JOptionPane.showMessageDialog(dialog, "Format Angkatan harus berupa 4 digit tahun (contoh: 2024).", "Validasi", JOptionPane.WARNING_MESSAGE);
-                        return;
-                    }
-                    angkatan = Integer.parseInt(angkatanText);
+                if (angkatan == null) {
+                    JOptionPane.showMessageDialog(dialog, "Angkatan wajib dipilih.", "Validasi", JOptionPane.WARNING_MESSAGE);
+                    return;
                 }
                 if (!semesterText.isEmpty()) {
                     semester = Integer.parseInt(semesterText);
                 }
             } catch (NumberFormatException ex) {
-                JOptionPane.showMessageDialog(dialog, "Angkatan dan semester harus berupa angka.", "Validasi", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(dialog, "Semester harus berupa angka.", "Validasi", JOptionPane.WARNING_MESSAGE);
                 return;
             }
 
@@ -572,13 +581,13 @@ public class MahasiswaPanel extends JPanel {
             body.addProperty("alamat", fAlamat.getText().trim());
             body.addProperty("jurusan", (String) cmbJurusan.getSelectedItem());
             body.addProperty("program_studi", (String) cmbProdi.getSelectedItem());
-            if (angkatan != null) body.addProperty("angkatan", angkatan);
+            body.addProperty("angkatan", angkatan);
             if (semester != null) body.addProperty("semester", semester);
             body.addProperty("status", (String) cmbStatus.getSelectedItem());
 
             if (nim == null) {
                 String pwd = (fPassword != null) ? fPassword.getText().trim() : "";
-                body.addProperty("password", pwd.isEmpty() ? nimVal : pwd);
+                body.addProperty("password", pwd.isEmpty() ? "mhs123" : pwd);
             }
 
             new SwingWorker<JsonObject, Void>() {
@@ -711,6 +720,7 @@ public class MahasiswaPanel extends JPanel {
                 new EmptyBorder(7, 10, 7, 10)));
         f.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         f.setPreferredSize(new Dimension(240, 34));
+        f.setMinimumSize(new Dimension(180, 34));
         return f;
     }
 
@@ -728,10 +738,73 @@ public class MahasiswaPanel extends JPanel {
         p.add(field, g);
     }
 
-    private void styleCombo(JComboBox<String> c) {
+    private void styleCombo(JComboBox<?> c) {
         c.setBackground(AppTheme.input());
         c.setForeground(TEXT_PRIMARY());
         c.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        c.setPreferredSize(new Dimension(240, 34));
+        c.setMinimumSize(new Dimension(180, 34));
+    }
+
+    private JComboBox<Integer> buildAngkatanCombo() {
+        JComboBox<Integer> combo = new JComboBox<>();
+        styleCombo(combo);
+        combo.setPreferredSize(new Dimension(240, 34));
+        combo.setMinimumSize(new Dimension(180, 34));
+        combo.setToolTipText("Pilih angkatan yang tersedia di Pengaturan Akademik.");
+
+        java.util.LinkedHashSet<Integer> angkatanOptions = new java.util.LinkedHashSet<>();
+        int fallbackYear = Year.now().getValue();
+        int activeYear = fallbackYear;
+
+        try {
+            JsonObject response = AkademikService.getSettings();
+            if (response.has("success") && response.get("success").getAsBoolean() && response.has("data")) {
+                JsonArray tahunAjaran = response.getAsJsonObject("data").getAsJsonArray("tahun_ajaran");
+                if (tahunAjaran != null) {
+                    for (JsonElement element : tahunAjaran) {
+                        JsonObject tahun = element.getAsJsonObject();
+                        String status = safe(tahun, "status");
+                        if ("draft".equalsIgnoreCase(status)) {
+                            continue;
+                        }
+                        int parsed = parseAcademicYearStart(safe(tahun, "tahun_ajaran"));
+                        if (parsed <= 0) {
+                            continue;
+                        }
+                        angkatanOptions.add(parsed);
+                        if ("aktif".equalsIgnoreCase(status)) {
+                            activeYear = parsed;
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+
+        if (angkatanOptions.isEmpty()) {
+            angkatanOptions.add(fallbackYear);
+        }
+        for (Integer year : angkatanOptions) {
+            combo.addItem(year);
+        }
+        combo.setSelectedItem(angkatanOptions.contains(activeYear) ? activeYear : angkatanOptions.iterator().next());
+        return combo;
+    }
+
+    private int parseAcademicYearStart(String tahunAjaran) {
+        if (tahunAjaran == null || tahunAjaran.length() < 4) {
+            return -1;
+        }
+        String prefix = tahunAjaran.substring(0, 4);
+        if (!prefix.matches("\\d{4}")) {
+            return -1;
+        }
+        try {
+            return Integer.parseInt(prefix);
+        } catch (NumberFormatException ex) {
+            return -1;
+        }
     }
 
     private JButton buildBtn(String text, Color bg) {
@@ -739,6 +812,8 @@ public class MahasiswaPanel extends JPanel {
         btn.setFont(new Font("Segoe UI", Font.BOLD, 12));
         btn.setForeground(Color.WHITE);
         btn.setBackground(bg);
+        btn.setPreferredSize(new Dimension(116, 36));
+        btn.setMinimumSize(new Dimension(104, 36));
         btn.setOpaque(true);
         btn.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(bg.darker(), 1),

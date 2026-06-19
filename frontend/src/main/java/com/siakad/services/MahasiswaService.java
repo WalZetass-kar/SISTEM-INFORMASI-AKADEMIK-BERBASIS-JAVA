@@ -9,9 +9,15 @@ import com.siakad.utils.Config;
 public class MahasiswaService {
 
     public static JsonObject getAll(int page, int limit, String search) throws Exception {
+        return getAll(page, limit, search, null, null);
+    }
+
+    public static JsonObject getAll(int page, int limit, String search, String jurusan, String status) throws Exception {
         StringBuilder url = new StringBuilder(Config.MAHASISWA_URL);
         url.append("?page=").append(page).append("&limit=").append(limit);
         if (search != null && !search.isEmpty()) url.append("&search=").append(ApiService.encodeQueryParam(search));
+        if (jurusan != null && !jurusan.isEmpty()) url.append("&jurusan=").append(ApiService.encodeQueryParam(jurusan));
+        if (status != null && !status.isEmpty()) url.append("&status=").append(ApiService.encodeQueryParam(status));
         return ApiService.get(url.toString());
     }
 

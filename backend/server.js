@@ -56,6 +56,7 @@ const API_ENDPOINTS = [
 
   { method: 'GET', path: '/api/akademik/settings', auth: 'admin', description: 'Pengaturan akademik' },
   { method: 'GET', path: '/api/akademik/semester', auth: 'user', description: 'List semester aktif' },
+  { method: 'GET', path: '/api/akademik/tahun-ajaran', auth: 'user', description: 'List tahun ajaran akademik' },
   { method: 'POST', path: '/api/akademik/tahun-ajaran', auth: 'admin', description: 'Tambah tahun ajaran' },
   { method: 'PUT', path: '/api/akademik/tahun-ajaran/:id', auth: 'admin', description: 'Update tahun ajaran' },
   { method: 'DELETE', path: '/api/akademik/tahun-ajaran/:id', auth: 'admin', description: 'Hapus tahun ajaran' },

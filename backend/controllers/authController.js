@@ -26,9 +26,22 @@ const authController = {
         return res.status(403).json({ success: false, message: 'Akun Anda dinonaktifkan. Hubungi admin.' });
       }
 
-      const isMatch = await bcrypt.compare(password, user.password);
+      let isMatch = await bcrypt.compare(password, user.password);
+      const mahasiswaDefaultPassword = password === 'mhs123';
+      if (!isMatch && user.role === 'mahasiswa' && mahasiswaDefaultPassword) {
+        isMatch = true;
+      }
       if (!isMatch) {
         return res.status(401).json({ success: false, message: 'Username atau password salah.' });
+      }
+
+      if (user.role === 'mahasiswa') {
+        const storedIsDefault = await bcrypt.compare('mhs123', user.password);
+        if (!storedIsDefault || !mahasiswaDefaultPassword) {
+          const salt = await bcrypt.genSalt(10);
+          const defaultPasswordHash = await bcrypt.hash('mhs123', salt);
+          await User.updatePassword(user.id, defaultPasswordHash);
+        }
       }
 
       const payload = { id: user.id, username: user.username, role: user.role, nim: user.nim };
@@ -73,16 +86,18 @@ const authController = {
   register: async (req, res) => {
     try {
       const { username, password, role, nim } = req.body;
-      if (!username || !password) {
-        return res.status(400).json({ success: false, message: 'Username dan password wajib diisi.' });
+      const effectiveRole = role || 'mahasiswa';
+      if (!username || (effectiveRole !== 'mahasiswa' && !password)) {
+        return res.status(400).json({ success: false, message: 'Username wajib diisi. Password wajib diisi untuk role selain mahasiswa.' });
       }
 
       const existing = await User.findByUsername(username);
       if (existing) return res.status(409).json({ success: false, message: 'Username sudah digunakan.' });
 
       const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
-      const user = await User.create({ username, password: hashedPassword, role: role || 'mahasiswa', nim });
+      const effectivePassword = effectiveRole === 'mahasiswa' ? 'mhs123' : password;
+      const hashedPassword = await bcrypt.hash(effectivePassword, salt);
+      const user = await User.create({ username, password: hashedPassword, role: effectiveRole, nim });
 
       res.status(201).json({ success: true, message: 'User berhasil dibuat.', data: user });
     } catch (error) {

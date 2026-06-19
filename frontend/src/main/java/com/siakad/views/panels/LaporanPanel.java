@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.siakad.services.LaporanService;
 import com.siakad.utils.AppTheme;
+import com.siakad.utils.JwtHelper;
 import com.itextpdf.text.Document;
 import com.itextpdf.text.Element;
 import com.itextpdf.text.Paragraph;
@@ -68,7 +69,11 @@ public class LaporanPanel extends JPanel {
         setBackground(BG());
         setLayout(new BorderLayout());
         initUI();
-        loadData();
+        if (JwtHelper.getInstance().isAdmin()) {
+            loadData();
+        } else {
+            showAccessRestricted();
+        }
     }
 
     private void initUI() {
@@ -367,6 +372,12 @@ public class LaporanPanel extends JPanel {
 
     private void showStateError(String message) {
         statePanel.showState("!", "Laporan tidak bisa dimuat", message, "Muat ulang", this::loadData);
+        centerCard.show(centerPanel, "state");
+    }
+
+    private void showAccessRestricted() {
+        statePanel.showState("!", "Akses terbatas",
+                "Laporan hanya tersedia untuk admin.", null, null);
         centerCard.show(centerPanel, "state");
     }
 

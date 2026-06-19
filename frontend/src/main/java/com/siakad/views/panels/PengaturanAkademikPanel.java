@@ -5,12 +5,15 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.siakad.services.AkademikService;
 import com.siakad.utils.AppTheme;
+import com.siakad.utils.JwtHelper;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import java.awt.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class PengaturanAkademikPanel extends JPanel {
     private final CardLayout rootCard = new CardLayout();
@@ -20,12 +23,15 @@ public class PengaturanAkademikPanel extends JPanel {
 
     private DefaultTableModel tahunModel;
     private DefaultTableModel mkModel;
+    private DefaultTableModel pertemuanJurusanModel;
     private JTable tahunTable;
     private JTable mkTable;
+    private JTable pertemuanJurusanTable;
     private JTextField txtTugas;
     private JTextField txtUts;
     private JTextField txtUas;
     private JLabel lblSummary;
+    private final List<String> jurusanMasterOptions = new ArrayList<>();
 
     private static Color BG() { return AppTheme.bg(); }
     private static Color CARD() { return AppTheme.card(); }
@@ -45,7 +51,11 @@ public class PengaturanAkademikPanel extends JPanel {
         rootPanel.add(buildContent(), "content");
         rootPanel.add(statePanel, "state");
         add(rootPanel, BorderLayout.CENTER);
-        loadSettings();
+        if (JwtHelper.getInstance().isAdmin()) {
+            loadSettings();
+        } else {
+            showAccessRestricted();
+        }
     }
 
     private JPanel buildContent() {
@@ -59,10 +69,10 @@ public class PengaturanAkademikPanel extends JPanel {
         titleBlock.setOpaque(false);
         titleBlock.setLayout(new BoxLayout(titleBlock, BoxLayout.Y_AXIS));
         JLabel title = new JLabel("Pengaturan Akademik");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 26));
+        title.setFont(new Font("Segoe UI", Font.BOLD, 28));
         title.setForeground(TEXT());
-        JLabel subtitle = new JLabel("Kelola tahun ajaran, mata kuliah, dan bobot nilai");
-        subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        JLabel subtitle = new JLabel("Kelola tahun ajaran dan bobot nilai, serta lihat master mata kuliah dari modul KRS & Jadwal Kuliah");
+        subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         subtitle.setForeground(MUTED());
         titleBlock.add(title);
         titleBlock.add(Box.createVerticalStrut(2));
@@ -80,22 +90,28 @@ public class PengaturanAkademikPanel extends JPanel {
         JPanel cards = new JPanel(new GridLayout(1, 3, 12, 0));
         cards.setOpaque(false);
         cards.add(featureCard("TA", "Tahun Ajaran", "Periode aktif yang dipakai modul nilai dan absensi."));
-        cards.add(featureCard("MK", "Mata Kuliah", "Master kode, SKS, semester, jurusan, dan dosen."));
+        cards.add(featureCard("MK", "Mata Kuliah", "Master kode, SKS, semester, jurusan, dan dosen. Dikelola di KRS & Jadwal Kuliah."));
         cards.add(featureCard("%", "Bobot Nilai", "Komposisi tugas, UTS, dan UAS untuk nilai akhir."));
 
-        JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, buildTables(), buildBobotCard());
-        split.setOpaque(false);
-        split.setBorder(null);
-        split.setDividerSize(8);
-        split.setResizeWeight(0.72);
-
-        JPanel body = new JPanel(new BorderLayout(0, 12));
+        JPanel body = new JPanel();
         body.setOpaque(false);
-        body.add(cards, BorderLayout.NORTH);
-        body.add(split, BorderLayout.CENTER);
+        body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
+        body.add(cards);
+        body.add(Box.createVerticalStrut(12));
+        body.add(buildTables());
+        body.add(Box.createVerticalStrut(12));
+        body.add(buildPertemuanJurusanCard());
+        body.add(Box.createVerticalStrut(12));
+        body.add(buildBobotCard());
+
+        JScrollPane scroll = new JScrollPane(body);
+        scroll.setBorder(null);
+        scroll.setOpaque(false);
+        scroll.getViewport().setBackground(BG());
+        scroll.getVerticalScrollBar().setUnitIncrement(18);
 
         content.add(header, BorderLayout.NORTH);
-        content.add(body, BorderLayout.CENTER);
+        content.add(scroll, BorderLayout.CENTER);
         return content;
     }
 
@@ -107,13 +123,21 @@ public class PengaturanAkademikPanel extends JPanel {
             @Override public boolean isCellEditable(int r, int c) { return false; }
         };
         tahunTable = table(tahunModel);
-        panel.add(section("Tahun Ajaran", "Tambah", e -> showTahunDialog(-1), "Edit", e -> editTahun(), "Hapus", e -> deleteTahun(), tahunTable));
+        panel.add(sectionEditable(
+                "Tahun Ajaran",
+                "Tambah", e -> showTahunDialog(-1),
+                "Edit", e -> editTahun(),
+                "Hapus", e -> deleteTahun(),
+                tahunTable));
 
         mkModel = new DefaultTableModel(new String[]{"Kode", "Nama", "SKS", "Smt", "Jurusan", "Dosen"}, 0) {
             @Override public boolean isCellEditable(int r, int c) { return false; }
         };
         mkTable = table(mkModel);
-        panel.add(section("Mata Kuliah", "Tambah", e -> showMataKuliahDialog(null), "Edit", e -> editMataKuliah(), "Hapus", e -> deleteMataKuliah(), mkTable));
+        panel.add(sectionReadOnly(
+                "Mata Kuliah",
+                "Data ini mengikuti master mata kuliah di modul KRS & Jadwal Kuliah.",
+                mkTable));
         return panel;
     }
 
@@ -155,6 +179,74 @@ public class PengaturanAkademikPanel extends JPanel {
         return panel;
     }
 
+    private JPanel buildPertemuanJurusanCard() {
+        JPanel panel = cardPanel();
+        panel.setLayout(new BorderLayout());
+        panel.setBorder(new EmptyBorder(14, 18, 14, 18));
+
+        JPanel head = new JPanel(new BorderLayout());
+        head.setOpaque(false);
+        head.setBorder(new EmptyBorder(12, 14, 10, 14));
+
+        JPanel left = new JPanel();
+        left.setOpaque(false);
+        left.setLayout(new BoxLayout(left, BoxLayout.Y_AXIS));
+
+        JLabel title = new JLabel("Master Pertemuan per Jurusan");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        title.setForeground(TEXT());
+
+        JLabel desc = new JLabel("<html><body style='width:320px'>Total pertemuan ini dipakai oleh menu Input Kehadiran dan otomatis mengikuti jurusan yang dipilih.</body></html>");
+        desc.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        desc.setForeground(MUTED());
+
+        left.add(title);
+        left.add(Box.createVerticalStrut(3));
+        left.add(desc);
+
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+        actions.setOpaque(false);
+        actions.add(AcademicUi.pill("Sumber Input Kehadiran", BLUE()));
+        JButton add = button("Tambah", GREEN());
+        JButton edit = button("Edit", BLUE());
+        JButton delete = button("Hapus", RED());
+        JButton refresh = button("Muat Ulang", BLUE());
+        add.addActionListener(e -> showPertemuanJurusanDialog(null, null));
+        edit.addActionListener(e -> editPertemuanJurusan());
+        delete.addActionListener(e -> deletePertemuanJurusan());
+        refresh.addActionListener(e -> loadSettings());
+        actions.add(add);
+        actions.add(edit);
+        actions.add(delete);
+        actions.add(refresh);
+
+        head.add(left, BorderLayout.WEST);
+        head.add(actions, BorderLayout.EAST);
+
+        pertemuanJurusanModel = new DefaultTableModel(new String[]{"Jurusan", "Jumlah Pertemuan"}, 0) {
+            @Override public boolean isCellEditable(int r, int c) { return false; }
+        };
+        pertemuanJurusanTable = table(pertemuanJurusanModel);
+        pertemuanJurusanTable.setRowHeight(30);
+        pertemuanJurusanTable.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        pertemuanJurusanTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        pertemuanJurusanTable.getTableHeader().setPreferredSize(new Dimension(0, 30));
+        pertemuanJurusanTable.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 10));
+        pertemuanJurusanTable.getColumnModel().getColumn(0).setPreferredWidth(220);
+        pertemuanJurusanTable.getColumnModel().getColumn(1).setPreferredWidth(120);
+        pertemuanJurusanTable.getColumnModel().getColumn(1).setMaxWidth(140);
+
+        JScrollPane scroll = new JScrollPane(pertemuanJurusanTable);
+        scroll.setBorder(null);
+        scroll.getViewport().setBackground(TABLE());
+        scroll.setPreferredSize(new Dimension(0, 220));
+        scroll.setMinimumSize(new Dimension(0, 200));
+
+        panel.add(head, BorderLayout.NORTH);
+        panel.add(scroll, BorderLayout.CENTER);
+        return panel;
+    }
+
     private JPanel featureCard(String icon, String title, String desc) {
         JPanel panel = cardPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
@@ -180,9 +272,9 @@ public class PengaturanAkademikPanel extends JPanel {
         return panel;
     }
 
-    private JPanel section(String title, String addText, java.awt.event.ActionListener add,
-                           String editText, java.awt.event.ActionListener edit,
-                           String delText, java.awt.event.ActionListener del, JTable table) {
+    private JPanel sectionEditable(String title, String addText, java.awt.event.ActionListener add,
+                                   String editText, java.awt.event.ActionListener edit,
+                                   String delText, java.awt.event.ActionListener del, JTable table) {
         JPanel panel = AcademicUi.cardPanel(BLUE());
         panel.setLayout(new BorderLayout());
         JPanel head = new JPanel(new BorderLayout());
@@ -212,6 +304,47 @@ public class PengaturanAkademikPanel extends JPanel {
         return panel;
     }
 
+    private JPanel sectionReadOnly(String title, String note, JTable table) {
+        JPanel panel = AcademicUi.cardPanel(BLUE());
+        panel.setLayout(new BorderLayout());
+
+        JPanel head = new JPanel(new BorderLayout());
+        head.setOpaque(false);
+        head.setBorder(new EmptyBorder(12, 14, 10, 14));
+
+        JPanel left = new JPanel();
+        left.setOpaque(false);
+        left.setLayout(new BoxLayout(left, BoxLayout.Y_AXIS));
+
+        JLabel lbl = new JLabel(title);
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        lbl.setForeground(TEXT());
+
+        JLabel desc = new JLabel("<html><body style='width:250px'>" + note + "</body></html>");
+        desc.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        desc.setForeground(MUTED());
+
+        left.add(lbl);
+        left.add(Box.createVerticalStrut(3));
+        left.add(desc);
+
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+        actions.setOpaque(false);
+        actions.add(AcademicUi.pill("Read-only", BLUE()));
+        actions.add(AcademicUi.pill("Kelola di KRS & Jadwal", GREEN()));
+
+        head.add(left, BorderLayout.WEST);
+        head.add(actions, BorderLayout.EAST);
+
+        JScrollPane scroll = new JScrollPane(table);
+        scroll.setBorder(null);
+        scroll.getViewport().setBackground(TABLE());
+
+        panel.add(head, BorderLayout.NORTH);
+        panel.add(scroll, BorderLayout.CENTER);
+        return panel;
+    }
+
     private void loadSettings() {
         rootCard.show(rootPanel, "skeleton");
         skeleton.start();
@@ -232,6 +365,12 @@ public class PengaturanAkademikPanel extends JPanel {
         }.execute();
     }
 
+    private void showAccessRestricted() {
+        statePanel.showState("!", "Akses terbatas",
+                "Pengaturan Akademik hanya tersedia untuk admin.", null, null);
+        rootCard.show(rootPanel, "state");
+    }
+
     private void fill(JsonObject data) {
         tahunModel.setRowCount(0);
         for (JsonElement el : data.getAsJsonArray("tahun_ajaran")) {
@@ -242,6 +381,28 @@ public class PengaturanAkademikPanel extends JPanel {
         for (JsonElement el : data.getAsJsonArray("mata_kuliah")) {
             JsonObject o = el.getAsJsonObject();
             mkModel.addRow(new Object[]{s(o, "kode_mk"), s(o, "nama_mk"), s(o, "sks"), s(o, "semester"), s(o, "jurusan"), s(o, "dosen_pengampu")});
+        }
+        jurusanMasterOptions.clear();
+        JsonArray jurusan = data.has("jurusan") && data.get("jurusan").isJsonArray()
+                ? data.getAsJsonArray("jurusan")
+                : new JsonArray();
+        for (JsonElement el : jurusan) {
+            JsonObject o = el.getAsJsonObject();
+            if (!isActive(o)) {
+                continue;
+            }
+            String namaJurusan = s(o, "nama_jurusan");
+            if (!namaJurusan.isBlank()) {
+                jurusanMasterOptions.add(namaJurusan);
+            }
+        }
+        pertemuanJurusanModel.setRowCount(0);
+        JsonArray jumlahPertemuanJurusan = data.has("jumlah_pertemuan_jurusan") && data.get("jumlah_pertemuan_jurusan").isJsonArray()
+                ? data.getAsJsonArray("jumlah_pertemuan_jurusan")
+                : new JsonArray();
+        for (JsonElement el : jumlahPertemuanJurusan) {
+            JsonObject o = el.getAsJsonObject();
+            pertemuanJurusanModel.addRow(new Object[]{s(o, "jurusan"), s(o, "jumlah_pertemuan")});
         }
         JsonObject bobot = data.getAsJsonObject("bobot_nilai");
         if (bobot != null && !bobot.isJsonNull()) {
@@ -273,39 +434,11 @@ public class PengaturanAkademikPanel extends JPanel {
         }
     }
 
-    private void showMataKuliahDialog(String kode) {
-        int row = mkTable.getSelectedRow();
-        JTextField kodeField = field(kode != null ? kode : "");
-        JTextField nama = field(row >= 0 && kode != null ? String.valueOf(mkModel.getValueAt(row, 1)) : "");
-        JTextField sks = field(row >= 0 && kode != null ? String.valueOf(mkModel.getValueAt(row, 2)) : "3");
-        JTextField semester = field(row >= 0 && kode != null ? String.valueOf(mkModel.getValueAt(row, 3)) : "1");
-        JTextField jurusan = field(row >= 0 && kode != null ? String.valueOf(mkModel.getValueAt(row, 4)) : "");
-        JTextField dosen = field(row >= 0 && kode != null ? String.valueOf(mkModel.getValueAt(row, 5)) : "");
-        kodeField.setEnabled(kode == null);
-        JPanel form = formPanel(new String[]{"Kode MK", "Nama MK", "SKS", "Semester", "Jurusan", "Dosen"}, new JComponent[]{kodeField, nama, sks, semester, jurusan, dosen});
-        if (JOptionPane.showConfirmDialog(this, form, "Mata Kuliah", JOptionPane.OK_CANCEL_OPTION) == JOptionPane.OK_OPTION) {
-            JsonObject body = new JsonObject();
-            body.addProperty("kode_mk", kodeField.getText());
-            body.addProperty("nama_mk", nama.getText());
-            body.addProperty("sks", Integer.parseInt(sks.getText()));
-            body.addProperty("semester", Integer.parseInt(semester.getText()));
-            body.addProperty("jurusan", jurusan.getText());
-            body.addProperty("dosen_pengampu", dosen.getText());
-            runSave(() -> kode != null ? AkademikService.updateMataKuliah(kode, body) : AkademikService.createMataKuliah(body));
-        }
-    }
-
     private void editTahun() { int r = tahunTable.getSelectedRow(); if (r >= 0) showTahunDialog(r); }
-    private void editMataKuliah() { int r = mkTable.getSelectedRow(); if (r >= 0) showMataKuliahDialog(String.valueOf(mkModel.getValueAt(r, 0))); }
 
     private void deleteTahun() {
         int r = tahunTable.getSelectedRow();
         if (r >= 0 && confirm("Hapus tahun ajaran ini?")) runSave(() -> AkademikService.deleteTahunAjaran(Integer.parseInt(String.valueOf(tahunModel.getValueAt(r, 0)))));
-    }
-
-    private void deleteMataKuliah() {
-        int r = mkTable.getSelectedRow();
-        if (r >= 0 && confirm("Hapus mata kuliah ini?")) runSave(() -> AkademikService.deleteMataKuliah(String.valueOf(mkModel.getValueAt(r, 0))));
     }
 
     private void saveBobot() {
@@ -314,6 +447,144 @@ public class PengaturanAkademikPanel extends JPanel {
         body.addProperty("bobot_uts", Double.parseDouble(txtUts.getText()));
         body.addProperty("bobot_uas", Double.parseDouble(txtUas.getText()));
         runSave(() -> AkademikService.updateBobotNilai(body));
+    }
+
+    private void showPertemuanJurusanDialog(String selectedJurusan, Integer selectedJumlah) {
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this),
+                selectedJurusan == null ? "Tambah Pertemuan Jurusan" : "Edit Pertemuan Jurusan",
+                true);
+        dialog.setSize(460, 240);
+        dialog.setLocationRelativeTo(this);
+
+        JPanel form = new JPanel(new GridBagLayout());
+        form.setBackground(CARD());
+        form.setBorder(new EmptyBorder(22, 24, 22, 24));
+        GridBagConstraints g = new GridBagConstraints();
+        g.insets = new Insets(6, 4, 6, 4);
+        g.fill = GridBagConstraints.HORIZONTAL;
+        g.weightx = 1;
+
+        JComboBox<String> cmbJurusan = new JComboBox<>();
+        cmbJurusan.setEditable(true);
+        cmbJurusan.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        cmbJurusan.setBackground(CARD());
+        cmbJurusan.setForeground(TEXT());
+        cmbJurusan.setPreferredSize(new Dimension(240, 36));
+        cmbJurusan.setMinimumSize(new Dimension(180, 36));
+        for (String option : jurusanMasterOptions) {
+            cmbJurusan.addItem(option);
+        }
+        if (selectedJurusan != null && !selectedJurusan.isBlank() && !containsComboItem(cmbJurusan, selectedJurusan)) {
+            cmbJurusan.addItem(selectedJurusan);
+        }
+        if (selectedJurusan != null && !selectedJurusan.isBlank()) {
+            cmbJurusan.setSelectedItem(selectedJurusan);
+        } else if (cmbJurusan.getItemCount() > 0) {
+            cmbJurusan.setSelectedIndex(0);
+        }
+
+        JSpinner jumlah = new JSpinner(new SpinnerNumberModel(selectedJumlah == null ? 12 : selectedJumlah, 1, 40, 1));
+        jumlah.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        jumlah.setPreferredSize(new Dimension(120, 36));
+
+        g.gridx = 0; g.gridy = 0;
+        form.add(label("Jurusan"), g);
+        g.gridx = 1;
+        form.add(cmbJurusan, g);
+
+        g.gridx = 0; g.gridy = 1;
+        form.add(label("Jumlah Pertemuan"), g);
+        g.gridx = 1;
+        form.add(jumlah, g);
+
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        actions.setOpaque(false);
+        JButton cancel = button("Batal", BLUE());
+        JButton save = button("Simpan", GREEN());
+        cancel.addActionListener(e -> dialog.dispose());
+        save.addActionListener(e -> {
+            String jurusan = String.valueOf(cmbJurusan.getEditor().getItem()).trim();
+            int total = ((Number) jumlah.getValue()).intValue();
+            if (jurusan.isBlank()) {
+                JOptionPane.showMessageDialog(dialog, "Nama jurusan wajib diisi.", "Validasi", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            if (!containsComboItem(cmbJurusan, jurusan)) {
+                JOptionPane.showMessageDialog(dialog, "Pilih jurusan yang tersedia di master jurusan.", "Validasi", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            JsonObject body = new JsonObject();
+            body.addProperty("jurusan", jurusan);
+            body.addProperty("jumlah_pertemuan", total);
+            savePertemuanJurusan(dialog, body);
+        });
+        actions.add(cancel);
+        actions.add(save);
+
+        g.gridx = 0; g.gridy = 2; g.gridwidth = 2;
+        g.insets = new Insets(18, 4, 4, 4);
+        form.add(actions, g);
+
+        dialog.add(form);
+        dialog.setVisible(true);
+    }
+
+    private void savePertemuanJurusan(JDialog dialog, JsonObject body) {
+        new SwingWorker<JsonObject, Void>() {
+            @Override protected JsonObject doInBackground() throws Exception {
+                return AkademikService.updateJumlahPertemuanJurusan(body);
+            }
+
+            @Override protected void done() {
+                try {
+                    JsonObject response = get();
+                    if (!response.get("success").getAsBoolean()) {
+                        throw new IllegalStateException(response.has("message") ? response.get("message").getAsString() : "Gagal menyimpan data pertemuan jurusan.");
+                    }
+                    dialog.dispose();
+                    JOptionPane.showMessageDialog(PengaturanAkademikPanel.this,
+                            response.get("message").getAsString(),
+                            "Sukses",
+                            JOptionPane.INFORMATION_MESSAGE);
+                    loadSettings();
+                } catch (Exception e) {
+                    JOptionPane.showMessageDialog(PengaturanAkademikPanel.this,
+                            e.getMessage(),
+                            "Gagal",
+                            JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }.execute();
+    }
+
+    private void editPertemuanJurusan() {
+        int row = pertemuanJurusanTable == null ? -1 : pertemuanJurusanTable.getSelectedRow();
+        if (row < 0) {
+            JOptionPane.showMessageDialog(this, "Pilih baris jurusan yang ingin diedit.", "Informasi", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        int modelRow = pertemuanJurusanTable.convertRowIndexToModel(row);
+        String jurusan = String.valueOf(pertemuanJurusanModel.getValueAt(modelRow, 0)).trim();
+        Integer jumlah = parseInteger(String.valueOf(pertemuanJurusanModel.getValueAt(modelRow, 1)));
+        showPertemuanJurusanDialog(jurusan, jumlah);
+    }
+
+    private void deletePertemuanJurusan() {
+        int row = pertemuanJurusanTable == null ? -1 : pertemuanJurusanTable.getSelectedRow();
+        if (row < 0) {
+            JOptionPane.showMessageDialog(this, "Pilih baris jurusan yang ingin dihapus.", "Informasi", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        int modelRow = pertemuanJurusanTable.convertRowIndexToModel(row);
+        String jurusan = String.valueOf(pertemuanJurusanModel.getValueAt(modelRow, 0)).trim();
+        if (jurusan.isBlank()) {
+            return;
+        }
+        if (!confirm("Hapus pengaturan pertemuan untuk jurusan " + jurusan + "?")) {
+            return;
+        }
+        runSave(() -> AkademikService.deleteJumlahPertemuanJurusan(jurusan));
     }
 
     private interface ApiCall { JsonObject run() throws Exception; }
@@ -388,6 +659,8 @@ public class PengaturanAkademikPanel extends JPanel {
         btn.setFont(new Font("Segoe UI", Font.BOLD, 11));
         btn.setForeground(TEXT());
         btn.setBackground(color);
+        btn.setPreferredSize(new Dimension(104, 36));
+        btn.setMinimumSize(new Dimension(96, 36));
         btn.setBorder(new EmptyBorder(8, 12, 8, 12));
         btn.setFocusPainted(false);
         return btn;
@@ -396,6 +669,7 @@ public class PengaturanAkademikPanel extends JPanel {
     private JTextField field(String value) {
         JTextField field = new JTextField(value);
         field.setPreferredSize(new Dimension(110, 32));
+        field.setMinimumSize(new Dimension(90, 32));
         return field;
     }
 
@@ -403,6 +677,32 @@ public class PengaturanAkademikPanel extends JPanel {
         JLabel label = new JLabel(text);
         label.setForeground(MUTED());
         return label;
+    }
+
+    private boolean containsComboItem(JComboBox<String> combo, String value) {
+        if (combo == null || value == null) {
+            return false;
+        }
+        for (int i = 0; i < combo.getItemCount(); i++) {
+            String item = combo.getItemAt(i);
+            if (value.equalsIgnoreCase(String.valueOf(item).trim())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private int parseInteger(String value) {
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (Exception ex) {
+            return 0;
+        }
+    }
+
+    private boolean isActive(JsonObject object) {
+        String value = s(object, "is_active");
+        return !value.isBlank() && !"0".equals(value) && !"false".equalsIgnoreCase(value);
     }
 
     private String s(JsonObject o, String key) {

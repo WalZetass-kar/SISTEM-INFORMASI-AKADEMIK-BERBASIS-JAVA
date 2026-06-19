@@ -49,11 +49,11 @@ public class KrsJadwalPanel extends JPanel {
     private DefaultTableModel jadwalTableModel;
 
     private JTextField txtNimFilter;
-    private JTextField txtTahunAjaranFilter;
+    private JComboBox<String> txtTahunAjaranFilter;
     private JTextField txtInputNimFilter;
-    private JTextField txtInputTahunAjaranFilter;
+    private JComboBox<String> txtInputTahunAjaranFilter;
     private JTextField txtCetakNimFilter;
-    private JTextField txtCetakTahunAjaranFilter;
+    private JComboBox<String> txtCetakTahunAjaranFilter;
     private JComboBox<MatakuliahOption> cmbKrsMatakuliah;
     private JPanel printPreviewHost;
     private JScrollPane printPreviewScroll;
@@ -71,6 +71,7 @@ public class KrsJadwalPanel extends JPanel {
     private JsonArray mahasiswaCache = new JsonArray();
     private JsonArray currentKrsCache = new JsonArray();
     private JsonObject currentKrsSummary = null;
+    private final LinkedHashSet<String> academicYearOptions = new LinkedHashSet<>();
 
     private int activeLoads = 0;
     private String activeTahunAjaran = "";
@@ -126,11 +127,11 @@ public class KrsJadwalPanel extends JPanel {
         titleBlock.setLayout(new BoxLayout(titleBlock, BoxLayout.Y_AXIS));
 
         JLabel lblTitle = new JLabel(pageTitle());
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 26));
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 28));
         lblTitle.setForeground(TEXT_PRIMARY());
 
         JLabel lblSub = new JLabel(pageSubtitle());
-        lblSub.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        lblSub.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         lblSub.setForeground(TEXT_MUTED());
 
         titleBlock.add(lblTitle);
@@ -267,8 +268,7 @@ public class KrsJadwalPanel extends JPanel {
         g.weightx = 1;
 
         txtInputNimFilter = makeField();
-        txtInputTahunAjaranFilter = makeField();
-        txtInputTahunAjaranFilter.setText(currentAcademicYear());
+        txtInputTahunAjaranFilter = buildAcademicYearCombo(180);
         cmbKrsMatakuliah = new JComboBox<>();
         styleCombo(cmbKrsMatakuliah);
 
@@ -337,8 +337,7 @@ public class KrsJadwalPanel extends JPanel {
         g.weightx = 1;
 
         txtNimFilter = makeField();
-        txtTahunAjaranFilter = makeField();
-        txtTahunAjaranFilter.setText(currentAcademicYear());
+        txtTahunAjaranFilter = buildAcademicYearCombo(180);
 
         if (JwtHelper.getInstance().isMahasiswa()) {
             txtNimFilter.setText(JwtHelper.getInstance().getNim());
@@ -570,8 +569,7 @@ public class KrsJadwalPanel extends JPanel {
         g.weightx = 1;
 
         txtCetakNimFilter = makeField();
-        txtCetakTahunAjaranFilter = makeField();
-        txtCetakTahunAjaranFilter.setText(currentAcademicYear());
+        txtCetakTahunAjaranFilter = buildAcademicYearCombo(180);
         if (JwtHelper.getInstance().isMahasiswa()) {
             txtCetakNimFilter.setText(JwtHelper.getInstance().getNim());
             txtCetakNimFilter.setEnabled(false);
@@ -632,7 +630,6 @@ public class KrsJadwalPanel extends JPanel {
                 loadMahasiswa();
                 loadMatakuliah();
                 loadJadwal();
-                loadKrs();
             }
             case MATA_KULIAH -> loadMatakuliah();
             case JADWAL_KULIAH -> {
@@ -646,7 +643,7 @@ public class KrsJadwalPanel extends JPanel {
     private void loadAcademicSettings() {
         new SwingWorker<JsonObject, Void>() {
             @Override protected JsonObject doInBackground() throws Exception {
-                return AkademikService.getSettings();
+                return AkademikService.getTahunAjaran();
             }
 
             @Override protected void done() {
@@ -656,12 +653,9 @@ public class KrsJadwalPanel extends JPanel {
                         return;
                     }
                     JsonObject data = response.getAsJsonObject("data");
-                    String tahunAjaran = findActiveTahunAjaran(data.getAsJsonArray("tahun_ajaran"));
-                    if (!tahunAjaran.isBlank()) {
-                        activeTahunAjaran = tahunAjaran;
-                        fillTahunAjaranIfBlank(txtInputTahunAjaranFilter);
-                        fillTahunAjaranIfBlank(txtTahunAjaranFilter);
-                        fillTahunAjaranIfBlank(txtCetakTahunAjaranFilter);
+                    populateAcademicYearCombos(data.getAsJsonArray("tahun_ajaran"));
+                    if (mode == PageMode.INPUT_KRS) {
+                        loadKrs();
                     }
                 } catch (Exception ignored) {
                 }
@@ -669,43 +663,72 @@ public class KrsJadwalPanel extends JPanel {
         }.execute();
     }
 
-    private String findActiveTahunAjaran(JsonArray tahunAjaranData) {
-        if (tahunAjaranData == null) return "";
-        String firstAvailable = "";
-        for (JsonElement element : tahunAjaranData) {
-            JsonObject item = element.getAsJsonObject();
-            String label = safe(item, "tahun_ajaran");
-            if (label.isBlank() || "-".equals(label) || "draft".equalsIgnoreCase(safe(item, "status"))) {
-                continue;
-            }
-            if (firstAvailable.isBlank()) {
-                firstAvailable = label;
-            }
-            if ("aktif".equalsIgnoreCase(safe(item, "status"))) {
-                return label;
+    private void populateAcademicYearCombos(JsonArray tahunAjaranData) {
+        java.util.LinkedHashSet<String> availableYears = new java.util.LinkedHashSet<>();
+        String selected = "";
+        String active = "";
+        activeTahunAjaran = "";
+        academicYearOptions.clear();
+
+        if (tahunAjaranData != null) {
+            for (JsonElement element : tahunAjaranData) {
+                JsonObject item = element.getAsJsonObject();
+                String label = safe(item, "tahun_ajaran");
+                String status = safe(item, "status");
+                if (label.isBlank() || "-".equals(label) || "draft".equalsIgnoreCase(status)) {
+                    continue;
+                }
+                availableYears.add(label);
+                if (selected.isBlank()) {
+                    selected = label;
+                }
+                if ("aktif".equalsIgnoreCase(status)) {
+                    active = label;
+                }
             }
         }
-        return firstAvailable;
+
+        if (availableYears.isEmpty()) {
+            availableYears.add(defaultAcademicYear());
+        }
+        academicYearOptions.addAll(availableYears);
+        if (!active.isBlank()) {
+            activeTahunAjaran = active;
+        } else {
+            activeTahunAjaran = availableYears.iterator().next();
+        }
+
+        populateAcademicYearCombo(txtInputTahunAjaranFilter, availableYears, activeTahunAjaran, selected);
+        populateAcademicYearCombo(txtTahunAjaranFilter, availableYears, activeTahunAjaran, selected);
+        populateAcademicYearCombo(txtCetakTahunAjaranFilter, availableYears, activeTahunAjaran, selected);
     }
 
-    private void fillTahunAjaranIfBlank(JTextField field) {
-        if (field == null) {
+    private void populateAcademicYearCombo(JComboBox<String> combo, java.util.LinkedHashSet<String> options, String active, String selected) {
+        if (combo == null) {
             return;
         }
-        String value = field.getText().trim();
-        if (value.isBlank() || value.equals(defaultAcademicYear())) {
-            field.setText(currentAcademicYear());
+        String previous = combo.getSelectedItem() == null ? "" : String.valueOf(combo.getSelectedItem()).trim();
+        combo.removeAllItems();
+        for (String option : options) {
+            combo.addItem(option);
+        }
+
+        String target = !previous.isBlank() && options.contains(previous)
+                ? previous
+                : (!selected.isBlank() && options.contains(selected) ? selected : active);
+        if (target != null && !target.isBlank() && options.contains(target)) {
+            combo.setSelectedItem(target);
+        } else if (combo.getItemCount() > 0) {
+            combo.setSelectedIndex(0);
         }
     }
 
-    private String selectedOrCurrentAcademicYear(JTextField field) {
-        if (field == null) {
+    private String selectedAcademicYear(JComboBox<String> combo) {
+        if (combo == null || combo.getSelectedItem() == null) {
             return currentAcademicYear();
         }
-        String value = field.getText().trim();
-        return value.isBlank() || value.equals(defaultAcademicYear())
-                ? currentAcademicYear()
-                : value;
+        String value = String.valueOf(combo.getSelectedItem()).trim();
+        return value.isBlank() ? currentAcademicYear() : value;
     }
 
     private void loadMahasiswa() {
@@ -802,7 +825,7 @@ public class KrsJadwalPanel extends JPanel {
         if (JwtHelper.getInstance().isMahasiswa()) {
             nim = JwtHelper.getInstance().getNim();
         }
-        String tahunAjaran = txtTahunAjaranFilter.getText().trim();
+        String tahunAjaran = selectedAcademicYear(txtTahunAjaranFilter);
 
         loadKrsData(nim, tahunAjaran, false);
     }
@@ -814,7 +837,7 @@ public class KrsJadwalPanel extends JPanel {
         String nim = JwtHelper.getInstance().isMahasiswa()
                 ? JwtHelper.getInstance().getNim()
                 : txtCetakNimFilter.getText().trim();
-        String tahunAjaran = txtCetakTahunAjaranFilter.getText().trim();
+        String tahunAjaran = selectedAcademicYear(txtCetakTahunAjaranFilter);
 
         loadKrsData(nim, tahunAjaran, true);
     }
@@ -1147,8 +1170,10 @@ public class KrsJadwalPanel extends JPanel {
         for (JTextField field : new JTextField[]{fKodeMk, fSks, fSemester, fJadwal, fRuangan, fDosen}) {
             field.setEnabled(false);
         }
-        JTextField fTahunAjaran = makeField();
-        fTahunAjaran.setText(selectedOrCurrentAcademicYear(txtTahunAjaranFilter));
+        JComboBox<String> fTahunAjaran = buildAcademicYearCombo(200);
+        if (txtTahunAjaranFilter != null && txtTahunAjaranFilter.getSelectedItem() != null) {
+            fTahunAjaran.setSelectedItem(txtTahunAjaranFilter.getSelectedItem());
+        }
 
         JLabel lblPreview = new JLabel("Total SKS maksimal 24.");
         lblPreview.setFont(new Font("Segoe UI", Font.PLAIN, 11));
@@ -1209,10 +1234,7 @@ public class KrsJadwalPanel extends JPanel {
 
         btnSave.addActionListener(e -> {
             MatakuliahOption option = (MatakuliahOption) cmbMatakuliah.getSelectedItem();
-            if (isBlank(fTahunAjaran)) {
-                fTahunAjaran.setText(currentAcademicYear());
-            }
-            if (option == null || isBlank(fNim) || isBlank(fTahunAjaran)) {
+            if (option == null || isBlank(fNim) || fTahunAjaran.getSelectedItem() == null) {
                 JOptionPane.showMessageDialog(dialog, "Semua field wajib harus diisi.", "Validasi", JOptionPane.WARNING_MESSAGE);
                 return;
             }
@@ -1220,7 +1242,7 @@ public class KrsJadwalPanel extends JPanel {
             JsonObject body = new JsonObject();
             body.addProperty("nim", fNim.getText().trim());
             body.addProperty("kode_mk", option.kodeMk());
-            body.addProperty("tahun_ajaran", fTahunAjaran.getText().trim());
+            body.addProperty("tahun_ajaran", String.valueOf(fTahunAjaran.getSelectedItem()).trim());
 
             submitDialog(dialog, () -> AkademikService.createKrs(body), () -> {
                 if (JwtHelper.getInstance().isAdmin()) {
@@ -1228,8 +1250,8 @@ public class KrsJadwalPanel extends JPanel {
                         txtNimFilter.setText(fNim.getText().trim());
                     }
                 }
-                if (txtTahunAjaranFilter != null) {
-                    txtTahunAjaranFilter.setText(fTahunAjaran.getText().trim());
+                if (txtTahunAjaranFilter != null && fTahunAjaran.getSelectedItem() != null) {
+                    txtTahunAjaranFilter.setSelectedItem(fTahunAjaran.getSelectedItem());
                 }
                 loadKrs();
             });
@@ -1254,17 +1276,19 @@ public class KrsJadwalPanel extends JPanel {
 
     private String getActivePrintTahunAjaran() {
         if (txtCetakTahunAjaranFilter != null) {
-            return txtCetakTahunAjaranFilter.getText().trim();
+            return selectedAcademicYear(txtCetakTahunAjaranFilter);
         }
-        return txtTahunAjaranFilter == null ? "" : txtTahunAjaranFilter.getText().trim();
+        return txtTahunAjaranFilter == null ? "" : selectedAcademicYear(txtTahunAjaranFilter);
     }
 
     private void showInputKrsPrintPreview() {
         String nim = JwtHelper.getInstance().isMahasiswa()
                 ? JwtHelper.getInstance().getNim()
                 : txtInputNimFilter.getText().trim();
-        String tahunAjaran = selectedOrCurrentAcademicYear(txtInputTahunAjaranFilter);
-        txtInputTahunAjaranFilter.setText(tahunAjaran);
+        String tahunAjaran = selectedAcademicYear(txtInputTahunAjaranFilter);
+        if (txtInputTahunAjaranFilter != null && tahunAjaran != null && !tahunAjaran.isBlank()) {
+            txtInputTahunAjaranFilter.setSelectedItem(tahunAjaran);
+        }
 
         if (nim.isBlank() || tahunAjaran.isBlank()) {
             JOptionPane.showMessageDialog(this,
@@ -1316,14 +1340,14 @@ public class KrsJadwalPanel extends JPanel {
         if (txtNimFilter != null && !JwtHelper.getInstance().isMahasiswa()) {
             txtNimFilter.setText(nim);
         }
-        if (txtTahunAjaranFilter != null) {
-            txtTahunAjaranFilter.setText(tahunAjaran);
+        if (txtTahunAjaranFilter != null && tahunAjaran != null && !tahunAjaran.isBlank()) {
+            txtTahunAjaranFilter.setSelectedItem(tahunAjaran);
         }
         if (txtCetakNimFilter != null && !JwtHelper.getInstance().isMahasiswa()) {
             txtCetakNimFilter.setText(nim);
         }
-        if (txtCetakTahunAjaranFilter != null) {
-            txtCetakTahunAjaranFilter.setText(tahunAjaran);
+        if (txtCetakTahunAjaranFilter != null && tahunAjaran != null && !tahunAjaran.isBlank()) {
+            txtCetakTahunAjaranFilter.setSelectedItem(tahunAjaran);
         }
     }
 
@@ -2155,6 +2179,7 @@ public class KrsJadwalPanel extends JPanel {
                 new EmptyBorder(7, 10, 7, 10)));
         field.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         field.setPreferredSize(new Dimension(220, 34));
+        field.setMinimumSize(new Dimension(160, 34));
         return field;
     }
 
@@ -2188,6 +2213,7 @@ public class KrsJadwalPanel extends JPanel {
             }
         };
         btn.setPreferredSize(new Dimension(width, 36));
+        btn.setMinimumSize(new Dimension(Math.min(width, 120), 36));
         btn.setBorderPainted(false);
         btn.setContentAreaFilled(false);
         btn.setFocusPainted(false);
@@ -2199,6 +2225,24 @@ public class KrsJadwalPanel extends JPanel {
         combo.setBackground(AppTheme.input());
         combo.setForeground(TEXT_PRIMARY());
         combo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        combo.setPreferredSize(new Dimension(220, 36));
+        combo.setMinimumSize(new Dimension(160, 36));
+    }
+
+    private JComboBox<String> buildAcademicYearCombo(int width) {
+        JComboBox<String> combo = new JComboBox<>();
+        LinkedHashSet<String> options = new LinkedHashSet<>(academicYearOptions);
+        if (options.isEmpty()) {
+            options.add(defaultAcademicYear());
+        }
+        String active = activeTahunAjaran == null || activeTahunAjaran.isBlank()
+                ? options.iterator().next()
+                : activeTahunAjaran;
+        populateAcademicYearCombo(combo, options, active, active);
+        styleCombo(combo);
+        combo.setPreferredSize(new Dimension(width, 36));
+        combo.setMinimumSize(new Dimension(Math.min(width, 160), 36));
+        return combo;
     }
 
     private JDialog createDialog(String title, int width, int height) {
@@ -2279,7 +2323,7 @@ public class KrsJadwalPanel extends JPanel {
         String nim = JwtHelper.getInstance().isMahasiswa()
                 ? JwtHelper.getInstance().getNim()
                 : txtInputNimFilter.getText().trim();
-        String tahunAjaran = txtInputTahunAjaranFilter.getText().trim();
+        String tahunAjaran = selectedAcademicYear(txtInputTahunAjaranFilter);
         if (option == null || nim.isBlank() || tahunAjaran.isBlank()) {
             JOptionPane.showMessageDialog(this,
                     "NIM, tahun ajaran, dan mata kuliah wajib diisi.",
@@ -2297,7 +2341,7 @@ public class KrsJadwalPanel extends JPanel {
                 txtNimFilter.setText(nim);
             }
             if (txtTahunAjaranFilter != null) {
-                txtTahunAjaranFilter.setText(tahunAjaran);
+                txtTahunAjaranFilter.setSelectedItem(tahunAjaran);
             }
             loadKrsData(nim, tahunAjaran, false);
         });

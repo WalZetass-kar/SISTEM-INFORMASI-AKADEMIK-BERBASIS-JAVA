@@ -3,6 +3,7 @@ package com.siakad.views.panels;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.siakad.services.AcademicSearchResolver;
 import com.siakad.services.AkademikService;
 import com.siakad.services.MahasiswaService;
 import com.siakad.services.NilaiService;
@@ -33,6 +34,7 @@ public class InputKehadiranPanel extends JPanel {
     private JComboBox<Integer> cmbPertemuan;
     private JTextField txtSearch;
     private JTable table;
+    private JScrollPane tableScroll;
     private DefaultTableModel tableModel;
     private JLabel lblInfo;
     private JLabel lblCourseSummary;
@@ -65,7 +67,10 @@ public class InputKehadiranPanel extends JPanel {
 
         rootPanel.setBackground(BG);
         rootPanel.add(skeleton, "skeleton");
-        rootPanel.add(buildContent(), "content");
+        JPanel content = buildContent();
+        JScrollPane pageScroll = AcademicUi.pageScroll(content);
+        AcademicUi.relayWheelToParentScroll(tableScroll, pageScroll);
+        rootPanel.add(pageScroll, "content");
         rootPanel.add(statePanel, "state");
         add(rootPanel, BorderLayout.CENTER);
 
@@ -83,18 +88,21 @@ public class InputKehadiranPanel extends JPanel {
     }
 
     private JPanel buildContent() {
-        JPanel content = new JPanel(new BorderLayout(0, 14));
+        JPanel content = new JPanel();
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
         content.setBackground(BG);
-        content.add(buildHeader(), BorderLayout.NORTH);
-        content.add(buildTableCard(), BorderLayout.CENTER);
-        content.add(buildFooter(), BorderLayout.SOUTH);
+        content.add(AcademicUi.centeredWidth(buildHeader(), 980));
+        content.add(Box.createVerticalStrut(14));
+        content.add(AcademicUi.centeredWidth(buildTableCard(), 980));
+        content.add(Box.createVerticalStrut(14));
+        content.add(AcademicUi.centeredWidth(buildFooter(), 980));
         return content;
     }
 
     private JPanel buildHeader() {
         JPanel wrapper = new JPanel(new BorderLayout(0, 18));
         wrapper.setOpaque(false);
-        wrapper.setBorder(new EmptyBorder(26, 28, 6, 28));
+        wrapper.setBorder(new EmptyBorder(22, 28, 4, 28));
 
         JPanel titleBlock = AcademicUi.pageHeader(
                 "Input Kehadiran Mahasiswa",
@@ -105,7 +113,7 @@ public class InputKehadiranPanel extends JPanel {
 
         JPanel filterCard = AcademicUi.cardPanel(GREEN);
         filterCard.setLayout(new BorderLayout(0, 16));
-        filterCard.setBorder(new EmptyBorder(20, 22, 20, 22));
+        filterCard.setBorder(new EmptyBorder(16, 18, 16, 18));
 
         JPanel fields = new JPanel(new GridBagLayout());
         fields.setOpaque(false);
@@ -234,23 +242,28 @@ public class InputKehadiranPanel extends JPanel {
         });
 
         JScrollPane scroll = new JScrollPane(table);
+        tableScroll = scroll;
         scroll.setBorder(null);
         scroll.getViewport().setBackground(TABLE_BG);
         scroll.setBackground(TABLE_BG);
+        scroll.getVerticalScrollBar().setUnitIncrement(18);
+        scroll.getHorizontalScrollBar().setUnitIncrement(18);
+        scroll.setPreferredSize(new Dimension(0, 360));
+        scroll.setMinimumSize(new Dimension(0, 320));
 
         JPanel card = AcademicUi.cardPanel(GREEN);
         card.setLayout(new BorderLayout());
-        card.setBorder(new EmptyBorder(0, 28, 0, 28));
+        card.setBorder(new EmptyBorder(0, 18, 0, 18));
 
         JPanel tableHeader = new JPanel(new BorderLayout());
         tableHeader.setOpaque(false);
-        tableHeader.setBorder(new EmptyBorder(16, 18, 14, 18));
+        tableHeader.setBorder(new EmptyBorder(12, 14, 10, 14));
 
         JPanel headerText = new JPanel();
         headerText.setOpaque(false);
         headerText.setLayout(new BoxLayout(headerText, BoxLayout.Y_AXIS));
         JLabel tableTitle = new JLabel("Daftar Kehadiran");
-        tableTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        tableTitle.setFont(new Font("Segoe UI", Font.BOLD, 15));
         tableTitle.setForeground(TEXT);
         lblCourseSummary = new JLabel("Pilih mata kuliah dan pertemuan untuk mulai mengisi kehadiran.");
         lblCourseSummary.setFont(new Font("Segoe UI", Font.PLAIN, 12));
@@ -460,6 +473,10 @@ public class InputKehadiranPanel extends JPanel {
     }
 
     private void loadInputList() {
+        loadInputList(true);
+    }
+
+    private void loadInputList(boolean allowFallback) {
         MataKuliahItem selected = (MataKuliahItem) cmbMataKuliah.getSelectedItem();
         if (selected == null) {
             showState("Mata kuliah kosong", "Tambahkan data mata kuliah terlebih dahulu.");
@@ -469,7 +486,7 @@ public class InputKehadiranPanel extends JPanel {
             showState("Tahun ajaran kosong", "Aktifkan atau tambahkan tahun ajaran di Pengaturan Akademik.");
             return;
         }
-        String tanggal = computedAttendanceDate();
+        final String tanggal = computedAttendanceDate();
         if (tanggal.isBlank()) {
             JOptionPane.showMessageDialog(this,
                     "Tanggal mulai tahun ajaran belum diatur. Lengkapi di Pengaturan Akademik.",
@@ -478,17 +495,47 @@ public class InputKehadiranPanel extends JPanel {
             return;
         }
 
+        final String kodeMk = selected.kodeMk;
+        final String tahunAjaran = String.valueOf(cmbTahunAjaran.getSelectedItem());
+        final String search = txtSearch.getText().trim();
+        final String jurusan = selectedJurusan();
+
         rootCard.show(rootPanel, "skeleton");
         skeleton.start();
         new SwingWorker<JsonObject, Void>() {
+            private String resolvedKodeMk = "";
+            private String resolvedJurusan = "";
+
             @Override protected JsonObject doInBackground() throws Exception {
-                return AkademikService.getKehadiranInputList(
-                        selected.kodeMk,
-                        (String) cmbTahunAjaran.getSelectedItem(),
+                JsonObject response = AkademikService.getKehadiranInputList(
+                        kodeMk,
+                        tahunAjaran,
                         tanggal,
-                        txtSearch.getText().trim(),
-                        selectedJurusan()
+                        search,
+                        jurusan
                 );
+
+                if (allowFallback && search != null && !search.isBlank()) {
+                    JsonArray data = response.has("data") && response.get("data").isJsonArray()
+                            ? response.getAsJsonArray("data")
+                            : null;
+                    if (data != null && data.size() == 0) {
+                        AcademicSearchResolver.Resolution resolution = AcademicSearchResolver.resolveSingleStudentCourse(search, tahunAjaran);
+                        if (resolution != null && !resolution.kodeMk().isBlank() && !resolution.kodeMk().equals(kodeMk)) {
+                            resolvedKodeMk = resolution.kodeMk();
+                            resolvedJurusan = resolution.jurusan();
+                            response = AkademikService.getKehadiranInputList(
+                                    resolution.kodeMk(),
+                                    tahunAjaran,
+                                    tanggal,
+                                    search,
+                                    resolution.jurusan()
+                            );
+                        }
+                    }
+                }
+
+                return response;
             }
 
             @Override protected void done() {
@@ -499,6 +546,12 @@ public class InputKehadiranPanel extends JPanel {
                         showState("Gagal memuat input kehadiran", response.get("message").getAsString());
                         return;
                     }
+                    if (!resolvedKodeMk.isBlank()) {
+                        selectMataKuliahByKode(resolvedKodeMk);
+                    }
+                    if (!resolvedJurusan.isBlank()) {
+                        selectJurusanByName(resolvedJurusan);
+                    }
                     fillRows(response.getAsJsonArray("data"), response.getAsJsonObject("mata_kuliah"));
                     rootCard.show(rootPanel, "content");
                 } catch (Exception ex) {
@@ -506,6 +559,34 @@ public class InputKehadiranPanel extends JPanel {
                 }
             }
         }.execute();
+    }
+
+    private void selectMataKuliahByKode(String kodeMk) {
+        if (cmbMataKuliah == null || kodeMk == null || kodeMk.isBlank()) {
+            return;
+        }
+        for (int i = 0; i < cmbMataKuliah.getItemCount(); i++) {
+            MataKuliahItem item = cmbMataKuliah.getItemAt(i);
+            if (item != null && kodeMk.equals(item.kodeMk)) {
+                cmbMataKuliah.setSelectedIndex(i);
+                return;
+            }
+        }
+    }
+
+    private void selectJurusanByName(String jurusan) {
+        if (cmbJurusan == null || jurusan == null || jurusan.isBlank()) {
+            return;
+        }
+        for (int i = 0; i < cmbJurusan.getItemCount(); i++) {
+            String item = cmbJurusan.getItemAt(i);
+            if (jurusan.equalsIgnoreCase(String.valueOf(item).trim())) {
+                cmbJurusan.setSelectedIndex(i);
+                return;
+            }
+        }
+        cmbJurusan.addItem(jurusan);
+        cmbJurusan.setSelectedItem(jurusan);
     }
 
     private void fillRows(JsonArray data, JsonObject mataKuliah) {
@@ -660,7 +741,7 @@ public class InputKehadiranPanel extends JPanel {
     }
 
     private void styleTable(JTable target) {
-        target.setRowHeight(42);
+        target.setRowHeight(46);
         target.setShowVerticalLines(false);
         target.setShowHorizontalLines(true);
         target.setGridColor(BORDER);
@@ -669,21 +750,28 @@ public class InputKehadiranPanel extends JPanel {
         target.setSelectionBackground(new Color(59, 130, 246, 70));
         target.setSelectionForeground(TEXT);
         target.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        target.setFillsViewportHeight(true);
 
         JTableHeader header = target.getTableHeader();
         header.setBackground(HEADER_BG);
         header.setForeground(MUTED);
         header.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        header.setPreferredSize(new Dimension(header.getPreferredSize().width, 38));
+        header.setPreferredSize(new Dimension(header.getPreferredSize().width, 40));
 
         DefaultTableCellRenderer renderer = new DefaultTableCellRenderer();
         renderer.setForeground(TEXT);
-        renderer.setBorder(new EmptyBorder(0, 10, 0, 10));
+        renderer.setBorder(new EmptyBorder(0, 8, 0, 8));
         target.setDefaultRenderer(Object.class, renderer);
 
-        target.getColumnModel().getColumn(0).setMaxWidth(105);
-        target.getColumnModel().getColumn(3).setMaxWidth(105);
-        target.getColumnModel().getColumn(5).setMaxWidth(110);
+        target.getColumnModel().getColumn(0).setPreferredWidth(110);
+        target.getColumnModel().getColumn(1).setPreferredWidth(210);
+        target.getColumnModel().getColumn(2).setPreferredWidth(160);
+        target.getColumnModel().getColumn(3).setPreferredWidth(130);
+        target.getColumnModel().getColumn(4).setPreferredWidth(270);
+        target.getColumnModel().getColumn(5).setPreferredWidth(110);
+        target.getColumnModel().getColumn(0).setMaxWidth(125);
+        target.getColumnModel().getColumn(3).setMaxWidth(145);
+        target.getColumnModel().getColumn(5).setMaxWidth(120);
     }
 
     private String selectedJurusan() {

@@ -3,6 +3,7 @@ package com.siakad.views.panels;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.siakad.services.AcademicSearchResolver;
 import com.siakad.services.AkademikService;
 import com.siakad.services.MahasiswaService;
 import com.siakad.services.NilaiService;
@@ -27,6 +28,7 @@ public class AkademikPanel extends JPanel {
 
     private JComboBox<MataKuliahItem> cmbMataKuliah;
     private JComboBox<String> cmbTahunAjaran;
+    private JComboBox<String> cmbJurusan;
     private JTextField txtSearch;
     private JTable table;
     private DefaultTableModel tableModel;
@@ -93,10 +95,10 @@ public class AkademikPanel extends JPanel {
         titleBlock.setLayout(new BoxLayout(titleBlock, BoxLayout.Y_AXIS));
 
         JLabel title = new JLabel("Input Nilai Mahasiswa");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 26));
+        title.setFont(new Font("Segoe UI", Font.BOLD, 28));
         title.setForeground(TEXT());
         JLabel subtitle = new JLabel("Akademik / Nilai & Absensi / Input Nilai");
-        subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         subtitle.setForeground(MUTED());
 
         titleBlock.add(title);
@@ -139,6 +141,10 @@ public class AkademikPanel extends JPanel {
         cmbTahunAjaran = new JComboBox<>();
         styleCombo(cmbTahunAjaran, 145);
 
+        cmbJurusan = new JComboBox<>();
+        cmbJurusan.addItem("Semua Jurusan");
+        styleCombo(cmbJurusan, 180);
+
         cmbMataKuliah = new JComboBox<>();
         styleCombo(cmbMataKuliah, 300);
 
@@ -156,8 +162,10 @@ public class AkademikPanel extends JPanel {
         g.gridx = 0; g.weightx = 0;
         fields.add(labeledField("Tahun Ajaran", cmbTahunAjaran), g);
         g.gridx = 1; g.weightx = 1;
+        fields.add(labeledField("Jurusan", cmbJurusan), g);
+        g.gridx = 2; g.weightx = 0.9;
         fields.add(labeledField("Mata Kuliah", cmbMataKuliah), g);
-        g.gridx = 2; g.weightx = 0;
+        g.gridx = 3; g.weightx = 0;
         fields.add(labeledField("Cari Mahasiswa", txtSearch), g);
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 14));
@@ -321,6 +329,7 @@ public class AkademikPanel extends JPanel {
                     applyBobot(data.has("bobot_nilai") && !data.get("bobot_nilai").isJsonNull()
                             ? data.getAsJsonObject("bobot_nilai")
                             : null);
+                    loadJurusanList();
                     loadMataKuliah();
                 } catch (Exception ex) {
                     skeleton.stop();
@@ -351,6 +360,42 @@ public class AkademikPanel extends JPanel {
         if (active != null) {
             cmbTahunAjaran.setSelectedItem(active);
         }
+    }
+
+    private void loadJurusanList() {
+        new SwingWorker<JsonObject, Void>() {
+            @Override protected JsonObject doInBackground() throws Exception {
+                return MahasiswaService.getJurusanList();
+            }
+
+            @Override protected void done() {
+                try {
+                    Object previous = cmbJurusan == null ? null : cmbJurusan.getSelectedItem();
+                    cmbJurusan.removeAllItems();
+                    cmbJurusan.addItem("Semua Jurusan");
+
+                    JsonObject response = get();
+                    if (response.get("success").getAsBoolean()) {
+                        JsonArray data = response.getAsJsonArray("data");
+                        if (data != null) {
+                            for (JsonElement item : data) {
+                                String jurusan = item.getAsString();
+                                if (jurusan != null && !jurusan.isBlank()) {
+                                    cmbJurusan.addItem(jurusan);
+                                }
+                            }
+                        }
+                    }
+
+                    if (previous != null) {
+                        cmbJurusan.setSelectedItem(previous);
+                    }
+                } catch (Exception ex) {
+                    cmbJurusan.removeAllItems();
+                    cmbJurusan.addItem("Semua Jurusan");
+                }
+            }
+        }.execute();
     }
 
     private void applyBobot(JsonObject bobot) {
@@ -418,6 +463,10 @@ public class AkademikPanel extends JPanel {
     }
 
     private void loadInputList() {
+        loadInputList(true);
+    }
+
+    private void loadInputList(boolean allowFallback) {
         MataKuliahItem selected = (MataKuliahItem) cmbMataKuliah.getSelectedItem();
         if (selected == null) {
             showState("Mata kuliah kosong", "Tambahkan data mata kuliah terlebih dahulu.");
@@ -428,11 +477,33 @@ public class AkademikPanel extends JPanel {
             return;
         }
 
+        final String kodeMk = selected.kodeMk;
+        final String tahunAjaran = String.valueOf(cmbTahunAjaran.getSelectedItem());
+        final String search = txtSearch.getText().trim();
+        final String jurusan = selectedJurusan();
+
         rootCard.show(rootPanel, "skeleton");
         skeleton.start();
         new SwingWorker<JsonObject, Void>() {
+            private String resolvedKodeMk = "";
+            private String resolvedJurusan = "";
+
             @Override protected JsonObject doInBackground() throws Exception {
-                return NilaiService.getInputList(selected.kodeMk, (String) cmbTahunAjaran.getSelectedItem(), txtSearch.getText().trim());
+                JsonObject response = NilaiService.getInputList(kodeMk, tahunAjaran, search, jurusan);
+                if (allowFallback && search != null && !search.isBlank()) {
+                    JsonArray data = response.has("data") && response.get("data").isJsonArray()
+                            ? response.getAsJsonArray("data")
+                            : null;
+                    if (data != null && data.size() == 0) {
+                        AcademicSearchResolver.Resolution resolution = AcademicSearchResolver.resolveSingleStudentCourse(search, tahunAjaran);
+                        if (resolution != null && !resolution.kodeMk().isBlank() && !resolution.kodeMk().equals(kodeMk)) {
+                            resolvedKodeMk = resolution.kodeMk();
+                            resolvedJurusan = resolution.jurusan();
+                            response = NilaiService.getInputList(resolution.kodeMk(), tahunAjaran, search, jurusan);
+                        }
+                    }
+                }
+                return response;
             }
 
             @Override protected void done() {
@@ -443,6 +514,12 @@ public class AkademikPanel extends JPanel {
                         showState("Gagal memuat input nilai", response.get("message").getAsString());
                         return;
                     }
+                    if (!resolvedKodeMk.isBlank()) {
+                        selectMataKuliahByKode(resolvedKodeMk);
+                    }
+                    if (!resolvedJurusan.isBlank()) {
+                        selectJurusanByName(resolvedJurusan);
+                    }
                     JsonObject mataKuliah = response.getAsJsonObject("mata_kuliah");
                     fillRows(response.getAsJsonArray("data"), mataKuliah);
                     rootCard.show(rootPanel, "content");
@@ -451,6 +528,42 @@ public class AkademikPanel extends JPanel {
                 }
             }
         }.execute();
+    }
+
+    private void selectMataKuliahByKode(String kodeMk) {
+        if (cmbMataKuliah == null || kodeMk == null || kodeMk.isBlank()) {
+            return;
+        }
+        for (int i = 0; i < cmbMataKuliah.getItemCount(); i++) {
+            MataKuliahItem item = cmbMataKuliah.getItemAt(i);
+            if (item != null && kodeMk.equals(item.kodeMk)) {
+                cmbMataKuliah.setSelectedIndex(i);
+                return;
+            }
+        }
+    }
+
+    private void selectJurusanByName(String jurusan) {
+        if (cmbJurusan == null || jurusan == null || jurusan.isBlank()) {
+            return;
+        }
+        for (int i = 0; i < cmbJurusan.getItemCount(); i++) {
+            String item = cmbJurusan.getItemAt(i);
+            if (jurusan.equalsIgnoreCase(String.valueOf(item).trim())) {
+                cmbJurusan.setSelectedIndex(i);
+                return;
+            }
+        }
+        cmbJurusan.addItem(jurusan);
+        cmbJurusan.setSelectedItem(jurusan);
+    }
+
+    private String selectedJurusan() {
+        if (cmbJurusan == null || cmbJurusan.getSelectedItem() == null) {
+            return "";
+        }
+        String value = String.valueOf(cmbJurusan.getSelectedItem()).trim();
+        return "Semua Jurusan".equalsIgnoreCase(value) ? "" : value;
     }
 
     private void fillRows(JsonArray data, JsonObject mataKuliah) {
@@ -482,7 +595,9 @@ public class AkademikPanel extends JPanel {
         String kode = getString(mataKuliah, "kode_mk");
         String nama = getString(mataKuliah, "nama_mk");
         String semester = getString(mataKuliah, "semester");
-        lblCourseSummary.setText(kode + " - " + nama + " • Semester " + semester + " • " + cmbTahunAjaran.getSelectedItem());
+        String jurusan = selectedJurusan();
+        String jurusanInfo = jurusan.isBlank() ? "" : " • " + jurusan;
+        lblCourseSummary.setText(kode + " - " + nama + " • Semester " + semester + " • " + cmbTahunAjaran.getSelectedItem() + jurusanInfo);
         lblCountSummary.setText("  " + data.size() + " Mahasiswa  ");
         lblFormulaSummary.setText("  " + bobotText() + "  ");
         lblInfo.setText(data.size() == 0
@@ -540,10 +655,13 @@ public class AkademikPanel extends JPanel {
             return;
         }
 
-        lblInfo.setText("Memuat data mahasiswa dari master Data Mahasiswa...");
+        final String jurusan = selectedJurusan();
+        lblInfo.setText(jurusan.isBlank()
+                ? "Memuat data mahasiswa dari master Data Mahasiswa..."
+                : "Memuat data mahasiswa jurusan " + jurusan + "...");
         new SwingWorker<JsonObject, Void>() {
             @Override protected JsonObject doInBackground() throws Exception {
-                return MahasiswaService.getAll(1, 100, "");
+                return MahasiswaService.getAll(1, 1000, "", jurusan, "aktif");
             }
 
             @Override protected void done() {
@@ -552,7 +670,7 @@ public class AkademikPanel extends JPanel {
                     if (!response.get("success").getAsBoolean()) {
                         throw new Exception(response.get("message").getAsString());
                     }
-                    showTambahNilaiForm(response.getAsJsonArray("data"));
+                    showTambahNilaiForm(response.getAsJsonArray("data"), jurusan);
                 } catch (Exception ex) {
                     lblInfo.setText("Gagal memuat data mahasiswa.");
                     JOptionPane.showMessageDialog(AkademikPanel.this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
@@ -561,12 +679,18 @@ public class AkademikPanel extends JPanel {
         }.execute();
     }
 
-    private void showTambahNilaiForm(JsonArray mahasiswaData) {
+    private void showTambahNilaiForm(JsonArray mahasiswaData, String jurusanFilter) {
         JComboBox<StudentItem> cmbMahasiswa = new JComboBox<>();
         for (JsonElement element : mahasiswaData) {
             JsonObject mhs = element.getAsJsonObject();
             if (mhs.has("status") && !mhs.get("status").isJsonNull() && !"aktif".equals(mhs.get("status").getAsString())) {
                 continue;
+            }
+            if (jurusanFilter != null && !jurusanFilter.isBlank()) {
+                String jurusan = getString(mhs, "jurusan");
+                if (!jurusanFilter.equalsIgnoreCase(jurusan)) {
+                    continue;
+                }
             }
             cmbMahasiswa.addItem(new StudentItem(
                     getString(mhs, "nim"),
@@ -576,7 +700,10 @@ public class AkademikPanel extends JPanel {
         }
 
         if (cmbMahasiswa.getItemCount() == 0) {
-            JOptionPane.showMessageDialog(this, "Belum ada mahasiswa aktif di Data Mahasiswa.");
+            String message = jurusanFilter == null || jurusanFilter.isBlank()
+                    ? "Belum ada mahasiswa aktif di Data Mahasiswa."
+                    : "Belum ada mahasiswa aktif di jurusan " + jurusanFilter + ".";
+            JOptionPane.showMessageDialog(this, message);
             return;
         }
 
@@ -864,6 +991,8 @@ public class AkademikPanel extends JPanel {
         btn.setFont(new Font("Segoe UI", Font.BOLD, 12));
         btn.setForeground(TEXT());
         btn.setBackground(bg);
+        btn.setPreferredSize(new Dimension(116, 38));
+        btn.setMinimumSize(new Dimension(106, 38));
         btn.setBorder(new EmptyBorder(9, 14, 9, 14));
         btn.setFocusPainted(false);
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
@@ -879,6 +1008,7 @@ public class AkademikPanel extends JPanel {
 
     private void styleCombo(JComboBox<?> combo, int width) {
         combo.setPreferredSize(new Dimension(width, 36));
+        combo.setMinimumSize(new Dimension(Math.min(width, 160), 36));
         combo.setBackground(CARD_BG());
         combo.setForeground(TEXT());
         combo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
@@ -887,6 +1017,7 @@ public class AkademikPanel extends JPanel {
 
     private void styleTextField(JTextField field, int width) {
         field.setPreferredSize(new Dimension(width, 36));
+        field.setMinimumSize(new Dimension(Math.min(width, 160), 36));
         field.setBackground(CARD_BG());
         field.setForeground(TEXT());
         field.setCaretColor(TEXT());

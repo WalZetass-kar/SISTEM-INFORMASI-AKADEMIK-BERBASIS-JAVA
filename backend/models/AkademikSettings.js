@@ -185,6 +185,22 @@ class AkademikSettings {
     return { jurusan: normalizedJurusan, jumlah_pertemuan: jumlah };
   }
 
+  static async deleteJumlahPertemuanJurusan(jurusan) {
+    await this.ensurePertemuanJurusanTable();
+    const normalizedJurusan = String(jurusan || '').trim();
+    if (!normalizedJurusan) {
+      const error = new Error('Jurusan wajib diisi.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const [result] = await pool.execute(
+      'DELETE FROM akademik_pertemuan_jurusan WHERE jurusan = ?',
+      [normalizedJurusan]
+    );
+    return result.affectedRows > 0;
+  }
+
   static async updateBobotNilai({ bobot_tugas, bobot_uts, bobot_uas }) {
     const total = Number(bobot_tugas) + Number(bobot_uts) + Number(bobot_uas);
     if (Math.round(total * 100) / 100 !== 100) {

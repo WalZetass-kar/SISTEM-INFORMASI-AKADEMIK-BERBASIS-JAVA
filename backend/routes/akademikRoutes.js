@@ -6,6 +6,7 @@ const { verifyToken, isAdmin, isMahasiswa, isAdminOrOwner } = require('../middle
 router.use(verifyToken);
 
 router.get('/akademik/semester', akademikController.getSemester);
+router.get('/akademik/tahun-ajaran', akademikController.getTahunAjaran);
 
 // --- Modul Pengaturan Akademik (Admin Only) ---
 router.get('/akademik/settings', isAdmin, akademikController.getSettings);
@@ -28,6 +29,7 @@ router.delete('/akademik/jurusan/:id', isAdmin, akademikController.deleteJurusan
 router.put('/akademik/bobot-nilai', isAdmin, akademikController.updateBobotNilai);
 router.put('/akademik/jumlah-pertemuan', isAdmin, akademikController.updateJumlahPertemuan);
 router.put('/akademik/jumlah-pertemuan-jurusan', isAdmin, akademikController.updateJumlahPertemuanJurusan);
+router.delete('/akademik/jumlah-pertemuan-jurusan', isAdmin, akademikController.deleteJumlahPertemuanJurusan);
 router.get('/akademik/kehadiran/input-list', isAdmin, akademikController.getKehadiranInputList);
 router.get('/akademik/kehadiran/rekap', isAdmin, akademikController.getKehadiranRekap);
 router.post('/akademik/kehadiran/bulk', isAdmin, akademikController.bulkSaveKehadiran);

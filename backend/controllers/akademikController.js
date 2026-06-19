@@ -65,6 +65,23 @@ const akademikController = {
     }
   },
 
+  getTahunAjaran: async (req, res) => {
+    try {
+      const tahunAjaran = await AkademikSettings.getTahunAjaran();
+      const selectable = tahunAjaran.filter(item => String(item.status || '').toLowerCase() !== 'draft');
+
+      res.json({
+        success: true,
+        data: {
+          tahun_ajaran: selectable
+        }
+      });
+    } catch (error) {
+      console.error('Get tahun ajaran error:', error);
+      res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+    }
+  },
+
   getSemester: async (req, res) => {
     try {
       const data = await AkademikSettings.getSemester({ activeOnly: true });
@@ -221,6 +238,19 @@ const akademikController = {
         req.body.jumlah_pertemuan
       );
       res.json({ success: true, message: 'Jumlah pertemuan jurusan berhasil disimpan.', data });
+    } catch (error) {
+      res.status(error.statusCode || 500).json({ success: false, message: error.message || 'Terjadi kesalahan server.' });
+    }
+  },
+
+  deleteJumlahPertemuanJurusan: async (req, res) => {
+    try {
+      const jurusan = req.body.jurusan || req.query.jurusan;
+      const deleted = await AkademikSettings.deleteJumlahPertemuanJurusan(jurusan);
+      if (!deleted) {
+        return res.status(404).json({ success: false, message: 'Data jurusan tidak ditemukan.' });
+      }
+      res.json({ success: true, message: 'Jumlah pertemuan jurusan berhasil dihapus.' });
     } catch (error) {
       res.status(error.statusCode || 500).json({ success: false, message: error.message || 'Terjadi kesalahan server.' });
     }
@@ -406,11 +436,10 @@ const akademikController = {
         item.tahun_ajaran === tahun_ajaran && item.status !== 'draft'
       );
       if (!isKnownTahunAjaran) {
-        const activeTahunAjaran = tahunAjaranList.find(item => item.status === 'aktif')
-          || tahunAjaranList.find(item => item.status !== 'draft');
-        if (activeTahunAjaran) {
-          tahun_ajaran = activeTahunAjaran.tahun_ajaran;
-        }
+        return res.status(400).json({
+          success: false,
+          message: 'Tahun ajaran tidak valid atau belum diaktifkan. Pilih tahun ajaran yang tersedia di Pengaturan Akademik.'
+        });
       }
 
       const existing = await Krs.findByUnique(nim, kode_mk, tahun_ajaran);
