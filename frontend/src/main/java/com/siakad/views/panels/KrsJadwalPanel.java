@@ -15,6 +15,8 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import javax.swing.table.TableCellRenderer;
 import java.awt.*;
+import java.awt.print.PageFormat;
+import java.awt.print.Paper;
 import java.awt.print.PrinterJob;
 import java.time.LocalDate;
 import java.time.Year;
@@ -22,6 +24,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -56,6 +59,7 @@ public class KrsJadwalPanel extends JPanel {
     private JLabel lblSksStat;
     private JLabel lblJadwalStat;
     private JLabel lblKrsInfo;
+    private JLabel lblInputKrsInfo;
     private JLabel lblMatakuliahInfo;
     private JLabel lblJadwalInfo;
 
@@ -243,7 +247,7 @@ public class KrsJadwalPanel extends JPanel {
     }
 
     private JComponent buildInputKrsTab() {
-        JPanel panel = new JPanel(new BorderLayout());
+        JPanel panel = new JPanel(new BorderLayout(0, 14));
         panel.setOpaque(false);
 
         JPanel topCard = buildCard();
@@ -297,12 +301,17 @@ public class KrsJadwalPanel extends JPanel {
         JLabel info = makeInfoLabel("Pilih mahasiswa, tahun ajaran, dan mata kuliah untuk menambahkan KRS baru.");
         info.setBorder(new EmptyBorder(12, 4, 0, 4));
 
-        JPanel content = new JPanel();
-        content.setOpaque(false);
-        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
-        content.add(topCard);
-        content.add(info);
-        panel.add(content, BorderLayout.NORTH);
+        JPanel inputContent = new JPanel();
+        inputContent.setOpaque(false);
+        inputContent.setLayout(new BoxLayout(inputContent, BoxLayout.Y_AXIS));
+        inputContent.add(topCard);
+        inputContent.add(info);
+
+        lblInputKrsInfo = makeInfoLabel("Belum ada data KRS dimuat.");
+
+        panel.add(inputContent, BorderLayout.NORTH);
+        panel.add(buildKrsTableCard(buildKrsDataTable()), BorderLayout.CENTER);
+        panel.add(buildKrsTableFooter(lblInputKrsInfo), BorderLayout.SOUTH);
         return panel;
     }
 
@@ -352,29 +361,9 @@ public class KrsJadwalPanel extends JPanel {
         topCard.add(filters, BorderLayout.CENTER);
         topCard.add(actions, BorderLayout.EAST);
 
-        String[] columns = {"ID", "NIM", "Nama", "Kode MK", "Mata Kuliah", "SKS", "Semester", "Tahun Ajaran", "Jadwal", "Ruangan", "Dosen"};
-        krsTableModel = new DefaultTableModel(columns, 0) {
-            @Override public boolean isCellEditable(int rowIndex, int columnIndex) { return false; }
-        };
-        tableKrs = buildTable(krsTableModel);
-        tableKrs.getColumnModel().getColumn(0).setMaxWidth(55);
-        tableKrs.getColumnModel().getColumn(5).setMaxWidth(55);
-        tableKrs.getColumnModel().getColumn(6).setMaxWidth(70);
-
-        JPanel tableCard = buildCard();
-        tableCard.setLayout(new BorderLayout());
-        tableCard.setBorder(new EmptyBorder(0, 0, 0, 0));
-        tableCard.add(new JScrollPane(tableKrs) {{
-            setBorder(null);
-            getViewport().setBackground(TABLE_BG());
-        }}, BorderLayout.CENTER);
-
+        JTable dataKrsTable = buildKrsDataTable();
+        JPanel tableCard = buildKrsTableCard(dataKrsTable);
         lblKrsInfo = makeInfoLabel("Belum ada data KRS dimuat.");
-
-        JPanel footer = new JPanel(new BorderLayout());
-        footer.setOpaque(false);
-        footer.setBorder(new EmptyBorder(10, 4, 0, 4));
-        footer.add(lblKrsInfo, BorderLayout.WEST);
 
         JPanel content = new JPanel();
         content.setOpaque(false);
@@ -382,10 +371,51 @@ public class KrsJadwalPanel extends JPanel {
         content.add(topCard);
         content.add(Box.createVerticalStrut(14));
         content.add(tableCard);
-        content.add(footer);
+        content.add(buildKrsTableFooter(lblKrsInfo));
 
         panel.add(content, BorderLayout.CENTER);
         return panel;
+    }
+
+    private DefaultTableModel getKrsTableModel() {
+        if (krsTableModel == null) {
+            String[] columns = {"ID", "NIM", "Nama", "Kode MK", "Mata Kuliah", "SKS", "Semester", "Tahun Ajaran", "Jadwal", "Ruangan", "Dosen"};
+            krsTableModel = new DefaultTableModel(columns, 0) {
+                @Override public boolean isCellEditable(int rowIndex, int columnIndex) { return false; }
+            };
+        }
+        return krsTableModel;
+    }
+
+    private JTable buildKrsDataTable() {
+        JTable table = buildTable(getKrsTableModel());
+        table.getColumnModel().getColumn(0).setMaxWidth(55);
+        table.getColumnModel().getColumn(5).setMaxWidth(55);
+        table.getColumnModel().getColumn(6).setMaxWidth(70);
+        if (tableKrs == null) {
+            tableKrs = table;
+        }
+        return table;
+    }
+
+    private JPanel buildKrsTableCard(JTable table) {
+        JPanel tableCard = buildCard();
+        tableCard.setLayout(new BorderLayout());
+        tableCard.setBorder(new EmptyBorder(0, 0, 0, 0));
+        tableCard.setPreferredSize(new Dimension(0, 280));
+        tableCard.add(new JScrollPane(table) {{
+            setBorder(null);
+            getViewport().setBackground(TABLE_BG());
+        }}, BorderLayout.CENTER);
+        return tableCard;
+    }
+
+    private JPanel buildKrsTableFooter(JLabel infoLabel) {
+        JPanel footer = new JPanel(new BorderLayout());
+        footer.setOpaque(false);
+        footer.setBorder(new EmptyBorder(10, 4, 0, 4));
+        footer.add(infoLabel, BorderLayout.WEST);
+        return footer;
     }
 
     private JComponent buildMatakuliahTab() {
@@ -794,6 +824,10 @@ public class KrsJadwalPanel extends JPanel {
     }
 
     private void fillKrsTable(JsonArray data) {
+        if (krsTableModel == null) {
+            return;
+        }
+
         krsTableModel.setRowCount(0);
         int totalSks = 0;
         for (JsonElement element : data) {
@@ -815,11 +849,21 @@ public class KrsJadwalPanel extends JPanel {
             });
         }
 
-        lblKrsInfo.setText(data.size() == 0
+        String infoText = data.size() == 0
                 ? "Belum ada data KRS untuk filter aktif."
-                : data.size() + " baris KRS ditemukan");
-        lblKrsStat.setText(String.valueOf(data.size()));
-        lblSksStat.setText(totalSks + " SKS");
+                : data.size() + " baris KRS ditemukan";
+        if (lblKrsInfo != null) {
+            lblKrsInfo.setText(infoText);
+        }
+        if (lblInputKrsInfo != null) {
+            lblInputKrsInfo.setText(infoText);
+        }
+        if (lblKrsStat != null) {
+            lblKrsStat.setText(String.valueOf(data.size()));
+        }
+        if (lblSksStat != null) {
+            lblSksStat.setText(totalSks + " SKS");
+        }
     }
 
     private void showMatakuliahDialog() {
@@ -1139,6 +1183,99 @@ public class KrsJadwalPanel extends JPanel {
         return txtTahunAjaranFilter == null ? "" : txtTahunAjaranFilter.getText().trim();
     }
 
+    private void showInputKrsPrintPreview() {
+        String nim = JwtHelper.getInstance().isMahasiswa()
+                ? JwtHelper.getInstance().getNim()
+                : txtInputNimFilter.getText().trim();
+        String tahunAjaran = txtInputTahunAjaranFilter.getText().trim();
+
+        if (nim.isBlank() || tahunAjaran.isBlank()) {
+            JOptionPane.showMessageDialog(this,
+                    "Isi NIM dan Tahun Ajaran terlebih dahulu sebelum mencetak KRS.",
+                    "Validasi", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        loadKrsForPrintPreview(nim, tahunAjaran);
+    }
+
+    private void loadKrsForPrintPreview(String nim, String tahunAjaran) {
+        startBusy();
+        new SwingWorker<JsonObject, Void>() {
+            @Override protected JsonObject doInBackground() throws Exception {
+                return AkademikService.getKrs(nim, tahunAjaran, null);
+            }
+
+            @Override protected void done() {
+                try {
+                    JsonObject response = get();
+                    if (response.get("success").getAsBoolean()) {
+                        currentKrsCache = response.getAsJsonArray("data");
+                        currentKrsSummary = response.has("summary") && response.get("summary").isJsonObject()
+                                ? response.getAsJsonObject("summary")
+                                : null;
+                        fillKrsTable(currentKrsCache);
+                        syncKrsPrintFilters(nim, tahunAjaran);
+                        if (currentKrsCache.size() == 0) {
+                            JOptionPane.showMessageDialog(KrsJadwalPanel.this,
+                                    "Data KRS tidak ditemukan untuk NIM dan Tahun Ajaran tersebut.",
+                                    "Informasi", JOptionPane.INFORMATION_MESSAGE);
+                        } else {
+                            showKrsPreviewDialog(nim, tahunAjaran);
+                        }
+                    } else {
+                        showErrorMessage(response);
+                    }
+                } catch (Exception e) {
+                    showErrorMessage("Gagal memuat preview KRS: " + e.getMessage());
+                } finally {
+                    stopBusy();
+                }
+            }
+        }.execute();
+    }
+
+    private void syncKrsPrintFilters(String nim, String tahunAjaran) {
+        if (txtNimFilter != null && !JwtHelper.getInstance().isMahasiswa()) {
+            txtNimFilter.setText(nim);
+        }
+        if (txtTahunAjaranFilter != null) {
+            txtTahunAjaranFilter.setText(tahunAjaran);
+        }
+        if (txtCetakNimFilter != null && !JwtHelper.getInstance().isMahasiswa()) {
+            txtCetakNimFilter.setText(nim);
+        }
+        if (txtCetakTahunAjaranFilter != null) {
+            txtCetakTahunAjaranFilter.setText(tahunAjaran);
+        }
+    }
+
+    private void showKrsPreviewDialog(String nim, String tahunAjaran) {
+        JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(this), "Preview Cetak KRS", Dialog.ModalityType.APPLICATION_MODAL);
+        dialog.setLayout(new BorderLayout());
+        dialog.getContentPane().setBackground(BG());
+
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 8));
+        actions.setOpaque(false);
+        JButton btnPrint = buildBtn("Print", GREEN(), 110);
+        JButton btnClose = buildBtn("Tutup", BLUE(), 100);
+        btnPrint.addActionListener(e -> printKrsDocument(nim, tahunAjaran));
+        btnClose.addActionListener(e -> dialog.dispose());
+        actions.add(btnPrint);
+        actions.add(btnClose);
+
+        JScrollPane scroll = new JScrollPane(buildKrsPreviewPages(nim, tahunAjaran));
+        scroll.setBorder(null);
+        scroll.getVerticalScrollBar().setUnitIncrement(16);
+        scroll.getViewport().setBackground(new Color(226, 232, 240));
+
+        dialog.add(actions, BorderLayout.NORTH);
+        dialog.add(scroll, BorderLayout.CENTER);
+        dialog.setSize(980, 760);
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+
     private void printKrs() {
         if (currentKrsCache.size() == 0) {
             JOptionPane.showMessageDialog(this, "Tidak ada data KRS yang bisa dicetak.", "Informasi", JOptionPane.INFORMATION_MESSAGE);
@@ -1159,13 +1296,13 @@ public class KrsJadwalPanel extends JPanel {
         if ((nim == null || nim.isBlank()) && uniqueNim.size() == 1) {
             nim = uniqueNim.iterator().next();
         }
-        if (tahunAjaran.isBlank() && uniqueTa.size() == 1) {
+        if ((tahunAjaran == null || tahunAjaran.isBlank()) && uniqueTa.size() == 1) {
             tahunAjaran = uniqueTa.iterator().next();
         }
 
-        if (nim == null || nim.isBlank() || tahunAjaran.isBlank()) {
+        if (nim == null || nim.isBlank() || tahunAjaran == null || tahunAjaran.isBlank()) {
             JOptionPane.showMessageDialog(this,
-                    "Isi filter NIM dan tahun ajaran terlebih dahulu sebelum mencetak KRS.",
+                    "Isi filter NIM dan Tahun Ajaran terlebih dahulu sebelum mencetak KRS.",
                     "Validasi", JOptionPane.WARNING_MESSAGE);
             return;
         }
@@ -1177,23 +1314,35 @@ public class KrsJadwalPanel extends JPanel {
             return;
         }
 
+        printKrsDocument(nim, tahunAjaran);
+    }
+
+    private void printKrsDocument(String nim, String tahunAjaran) {
         startBusy();
         try {
-            JPanel printPanel = buildKrsPrintPanel(nim, tahunAjaran);
+            List<JPanel> pages = buildKrsPrintPages(nim, tahunAjaran);
+            for (JPanel page : pages) {
+                Dimension pageSize = page.getPreferredSize();
+                page.setSize(pageSize);
+                page.doLayout();
+            }
+
             PrinterJob job = PrinterJob.getPrinterJob();
             job.setJobName("KRS_" + nim + "_" + tahunAjaran.replace('/', '-'));
-            job.setPrintable((graphics, pageFormat, pageIndex) -> {
-                if (pageIndex > 0) return java.awt.print.Printable.NO_SUCH_PAGE;
+            PageFormat pageFormat = buildA4PortraitPageFormat(job);
+            job.setPrintable((graphics, format, pageIndex) -> {
+                if (pageIndex < 0 || pageIndex >= pages.size()) return java.awt.print.Printable.NO_SUCH_PAGE;
+                JPanel page = pages.get(pageIndex);
                 Graphics2D g2 = (Graphics2D) graphics.create();
-                g2.translate(pageFormat.getImageableX(), pageFormat.getImageableY());
-                double scaleX = pageFormat.getImageableWidth() / printPanel.getWidth();
-                double scaleY = pageFormat.getImageableHeight() / printPanel.getHeight();
+                g2.translate(format.getImageableX(), format.getImageableY());
+                double scaleX = format.getImageableWidth() / page.getWidth();
+                double scaleY = format.getImageableHeight() / page.getHeight();
                 double scale = Math.min(scaleX, scaleY);
                 g2.scale(scale, scale);
-                printPanel.printAll(g2);
+                page.printAll(g2);
                 g2.dispose();
                 return java.awt.print.Printable.PAGE_EXISTS;
-            });
+            }, pageFormat);
             if (job.printDialog()) {
                 job.print();
                 JOptionPane.showMessageDialog(this, "KRS berhasil dikirim ke printer.", "Sukses", JOptionPane.INFORMATION_MESSAGE);
@@ -1207,97 +1356,171 @@ public class KrsJadwalPanel extends JPanel {
         }
     }
 
-    private JPanel buildKrsPrintPanel(String nim, String tahunAjaran) {
+    private PageFormat buildA4PortraitPageFormat(PrinterJob job) {
+        PageFormat pageFormat = job.defaultPage();
+        Paper paper = new Paper();
+        double width = 595.2755906;
+        double height = 841.8897638;
+        double margin = 56.7;
+        paper.setSize(width, height);
+        paper.setImageableArea(margin, margin, width - (margin * 2), height - (margin * 2));
+        pageFormat.setOrientation(PageFormat.PORTRAIT);
+        pageFormat.setPaper(paper);
+        return pageFormat;
+    }
+
+    private JPanel buildKrsPreviewPages(String nim, String tahunAjaran) {
+        JPanel preview = new JPanel();
+        preview.setBackground(new Color(226, 232, 240));
+        preview.setLayout(new BoxLayout(preview, BoxLayout.Y_AXIS));
+        preview.setBorder(new EmptyBorder(18, 0, 18, 0));
+        for (JPanel page : buildKrsPrintPages(nim, tahunAjaran)) {
+            page.setAlignmentX(Component.CENTER_ALIGNMENT);
+            preview.add(page);
+            preview.add(Box.createVerticalStrut(18));
+        }
+        return preview;
+    }
+
+    private List<JPanel> buildKrsPrintPages(String nim, String tahunAjaran) {
+        PrintIdentity identity = buildPrintIdentity(nim, tahunAjaran);
+        List<String[]> krsRows = buildPrintKrsRows();
+        List<String[]> scheduleRows = buildPrintScheduleRows();
+        List<List<String[]>> scheduleChunks = splitScheduleRowsForPrint(scheduleRows);
+        List<JPanel> pages = new ArrayList<>();
+        int totalPages = Math.max(1, scheduleChunks.size());
+        for (int i = 0; i < totalPages; i++) {
+            boolean firstPage = i == 0;
+            boolean lastPage = i == totalPages - 1;
+            List<String[]> scheduleChunk = scheduleChunks.isEmpty() ? new ArrayList<>() : scheduleChunks.get(i);
+            pages.add(buildKrsPrintPage(identity, krsRows, scheduleChunk, i + 1, totalPages, firstPage, lastPage));
+        }
+        return pages;
+    }
+
+    private PrintIdentity buildPrintIdentity(String nim, String tahunAjaran) {
         JsonObject first = currentKrsCache.get(0).getAsJsonObject();
-        String nama = safe(first, "nama_mahasiswa");
-        String jurusan = "-";
-        String kelas = "-";
-        String semester = safe(first, "semester");
+        String nama = firstNonEmpty(first, "nama_mahasiswa", "nama");
+        String programStudi = firstNonEmpty(first, "program_studi", "jurusan");
+        String semesterMahasiswa = firstNonEmpty(first, "semester_mahasiswa", "semester");
+        String dosenWali = firstNonEmpty(first, "dosen_wali", "nama_dosen_wali");
         MahasiswaOption mahasiswa = findMahasiswa(nim);
         if (mahasiswa != null) {
-            jurusan = emptyDash(mahasiswa.jurusan());
-            kelas = emptyDash(mahasiswa.kelas());
-            semester = emptyDash(mahasiswa.semester());
+            if (programStudi.equals("-")) programStudi = emptyDash(mahasiswa.kelas());
+            if (semesterMahasiswa.equals("-")) semesterMahasiswa = emptyDash(mahasiswa.semester());
         }
+        return new PrintIdentity(nama, nim, programStudi, semesterMahasiswa, tahunAjaran, dosenWali, buildKrsDocumentNumber(nim, tahunAjaran));
+    }
 
-        JPanel page = new JPanel(new BorderLayout(0, 18));
-        page.setBackground(Color.WHITE);
-        page.setBorder(new EmptyBorder(34, 42, 34, 42));
-        page.setSize(794, 1123);
-        page.setPreferredSize(new Dimension(794, 1123));
-
-        JPanel top = new JPanel();
-        top.setOpaque(false);
-        top.setLayout(new BoxLayout(top, BoxLayout.Y_AXIS));
-        top.add(centerPrintLabel("POLITEKNIK LP3I PEKANBARU", 18, Font.BOLD));
-        top.add(centerPrintLabel("SISTEM INFORMASI AKADEMIK", 14, Font.BOLD));
-        top.add(centerPrintLabel("KARTU RENCANA STUDI", 16, Font.BOLD));
-        top.add(Box.createVerticalStrut(12));
-        top.add(new JSeparator());
-        top.add(Box.createVerticalStrut(14));
-
-        JPanel identity = new JPanel(new GridLayout(3, 4, 18, 7));
-        identity.setOpaque(false);
-        addPrintMeta(identity, "NIM", nim);
-        addPrintMeta(identity, "Nama", nama);
-        addPrintMeta(identity, "Jurusan", jurusan);
-        addPrintMeta(identity, "Kelas", kelas);
-        addPrintMeta(identity, "Semester", semester);
-        addPrintMeta(identity, "Tahun Ajaran", tahunAjaran);
-        top.add(identity);
-
-        String[] columns = {"No", "Kode MK", "Mata Kuliah", "SKS", "Hari", "Jam", "Ruangan", "Dosen"};
-        DefaultTableModel model = new DefaultTableModel(columns, 0);
+    private List<String[]> buildPrintKrsRows() {
+        List<String[]> rows = new ArrayList<>();
         int no = 1;
-        int totalSks = 0;
         for (JsonElement element : currentKrsCache) {
             JsonObject item = element.getAsJsonObject();
-            totalSks += parseInteger(safe(item, "sks"));
-            String[] schedule = splitSchedule(safe(item, "jadwal"));
-            model.addRow(new Object[]{
-                    no++,
-                    safe(item, "kode_mk"),
-                    safe(item, "nama_mk"),
-                    safe(item, "sks"),
-                    schedule[0],
-                    schedule[1],
-                    safe(item, "ruangan"),
-                    safe(item, "dosen")
-            });
+            rows.add(new String[]{String.valueOf(no++), safe(item, "kode_mk"), safe(item, "nama_mk"), safe(item, "sks"), firstNonEmpty(item, "semester_mata_kuliah", "semester")});
         }
+        return rows;
+    }
 
-        JTable printTable = new JTable(model);
-        printTable.setRowHeight(28);
-        printTable.setFont(new Font("Serif", Font.PLAIN, 11));
-        printTable.getTableHeader().setFont(new Font("Serif", Font.BOLD, 11));
-        printTable.setGridColor(Color.BLACK);
-        printTable.setForeground(Color.BLACK);
-        printTable.setBackground(Color.WHITE);
+    private List<String[]> buildPrintScheduleRows() {
+        List<String[]> rows = new ArrayList<>();
+        int no = 1;
+        for (JsonElement element : currentKrsCache) {
+            JsonObject item = element.getAsJsonObject();
+            String kodeMk = safe(item, "kode_mk");
+            String namaMk = safe(item, "nama_mk");
+            String[] schedules = splitPipeValues(safe(item, "jadwal"));
+            String[] rooms = splitCommaValues(safe(item, "ruangan"));
+            String lecturer = emptyDash(safe(item, "dosen"));
+            if (schedules.length == 0) {
+                rows.add(new String[]{String.valueOf(no++), kodeMk, namaMk, "-", "-", "-", lecturer});
+                continue;
+            }
+            for (int i = 0; i < schedules.length; i++) {
+                String[] schedule = splitSchedule(schedules[i]);
+                rows.add(new String[]{String.valueOf(no++), kodeMk, namaMk, schedule[0], schedule[1], valueAtOrLast(rooms, i), lecturer});
+            }
+        }
+        if (rows.isEmpty()) rows.add(new String[]{"1", "-", "Belum ada jadwal perkuliahan terdaftar", "-", "-", "-", "-"});
+        return rows;
+    }
 
-        JPanel bottom = new JPanel(new BorderLayout());
-        bottom.setOpaque(false);
-        JPanel printInfo = new JPanel(new GridLayout(2, 1, 0, 4));
-        printInfo.setOpaque(false);
-        printInfo.add(printText("Total SKS: " + totalSks, 12, Font.BOLD));
-        printInfo.add(printText("Tanggal Cetak: " + LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")), 11, Font.PLAIN));
-        bottom.add(printInfo, BorderLayout.NORTH);
+    private List<List<String[]>> splitScheduleRowsForPrint(List<String[]> scheduleRows) {
+        List<List<String[]>> chunks = new ArrayList<>();
+        if (scheduleRows.isEmpty()) {
+            chunks.add(new ArrayList<>());
+            return chunks;
+        }
+        int index = 0;
+        while (index < scheduleRows.size()) {
+            int maxRows = chunks.isEmpty() ? 10 : 12;
+            int end = Math.min(scheduleRows.size(), index + maxRows);
+            chunks.add(new ArrayList<>(scheduleRows.subList(index, end)));
+            index = end;
+        }
+        return chunks;
+    }
 
-        JPanel signatures = new JPanel(new GridLayout(1, 2, 80, 0));
-        signatures.setOpaque(false);
-        signatures.setBorder(new EmptyBorder(36, 0, 0, 0));
-        signatures.add(signatureBlock("Mahasiswa", nama, ""));
-        signatures.add(signatureBlock("Pekanbaru, " + LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
-                "Ibu Rina Marlina, S.Kom., M.Kom.", "Kepala Akademik"));
-        bottom.add(signatures, BorderLayout.CENTER);
+    private JPanel buildKrsPrintPage(PrintIdentity identity, List<String[]> krsRows, List<String[]> scheduleRows,
+                                     int pageNumber, int totalPages, boolean firstPage, boolean lastPage) {
+        JPanel page = new JPanel(new BorderLayout(0, 12));
+        page.setBackground(Color.WHITE);
+        page.setBorder(new EmptyBorder(36, 46, 28, 46));
+        page.setSize(794, 1123);
+        page.setPreferredSize(new Dimension(794, 1123));
+        page.add(buildOfficialPrintHeader(), BorderLayout.NORTH);
 
-        page.add(top, BorderLayout.NORTH);
-        page.add(new JScrollPane(printTable) {{
-            setBorder(BorderFactory.createLineBorder(Color.BLACK));
-            getViewport().setBackground(Color.WHITE);
-        }}, BorderLayout.CENTER);
-        page.add(bottom, BorderLayout.SOUTH);
+        JPanel body = new JPanel();
+        body.setOpaque(false);
+        body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
+        if (firstPage) {
+            body.add(buildIdentitySection(identity));
+            body.add(Box.createVerticalStrut(12));
+            body.add(buildSectionTitle("DAFTAR MATA KULIAH KRS"));
+            body.add(buildPrintTable(new String[]{"No", "Kode MK", "Nama Mata Kuliah", "SKS", "Semester"},
+                    new int[]{38, 100, 370, 56, 82}, krsRows,
+                    new boolean[]{true, true, false, true, true}, new Color(235, 237, 240)));
+            body.add(Box.createVerticalStrut(14));
+        }
+        body.add(buildSectionTitle(firstPage ? "JADWAL PERKULIAHAN" : "JADWAL PERKULIAHAN (LANJUTAN)"));
+        body.add(buildPrintTable(new String[]{"No", "Kode MK", "Nama Mata Kuliah", "Hari", "Jam", "Ruangan", "Dosen Pengampu"},
+                new int[]{34, 70, 190, 66, 86, 74, 166}, scheduleRows,
+                new boolean[]{true, true, false, true, true, true, false}, new Color(228, 232, 238)));
+        if (lastPage) {
+            body.add(Box.createVerticalStrut(16));
+            body.add(buildKrsSummaryBox(krsRows.size(), calculateTotalSks(currentKrsCache)));
+            body.add(Box.createVerticalStrut(18));
+            body.add(buildApprovalSection(identity));
+        }
+        page.add(body, BorderLayout.CENTER);
+        page.add(buildOfficialPrintFooter(identity.documentNumber(), pageNumber, totalPages), BorderLayout.SOUTH);
         page.doLayout();
         return page;
+    }
+
+    private JPanel buildOfficialPrintHeader() {
+        JPanel wrap = new JPanel(new BorderLayout(16, 0));
+        wrap.setOpaque(false);
+        wrap.add(buildCampusLogo(72), BorderLayout.WEST);
+        JPanel center = new JPanel();
+        center.setOpaque(false);
+        center.setLayout(new BoxLayout(center, BoxLayout.Y_AXIS));
+        center.add(centerPrintLabel("SIAKAD", 22, Font.BOLD));
+        center.add(centerPrintLabel("Sistem Informasi Akademik", 12, Font.PLAIN));
+        center.add(Box.createVerticalStrut(4));
+        center.add(centerPrintLabel("KARTU RENCANA STUDI (KRS)", 18, Font.BOLD));
+        wrap.add(center, BorderLayout.CENTER);
+        JPanel spacer = new JPanel();
+        spacer.setOpaque(false);
+        spacer.setPreferredSize(new Dimension(72, 72));
+        wrap.add(spacer, BorderLayout.EAST);
+        JPanel header = new JPanel();
+        header.setOpaque(false);
+        header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
+        header.add(wrap);
+        header.add(Box.createVerticalStrut(10));
+        header.add(buildDoubleRule());
+        return header;
     }
 
     private void updatePrintPreview() {
@@ -1320,15 +1543,267 @@ public class KrsJadwalPanel extends JPanel {
                 uniqueTa.add(safe(item, "tahun_ajaran"));
             }
             if ((nim == null || nim.isBlank()) && uniqueNim.size() == 1) nim = uniqueNim.iterator().next();
-            if (tahunAjaran.isBlank() && uniqueTa.size() == 1) tahunAjaran = uniqueTa.iterator().next();
-            JPanel page = buildKrsPrintPanel(nim, tahunAjaran);
-            JPanel center = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
-            center.setOpaque(false);
-            center.add(page);
-            printPreviewHost.add(center, BorderLayout.CENTER);
+            if ((tahunAjaran == null || tahunAjaran.isBlank()) && uniqueTa.size() == 1) tahunAjaran = uniqueTa.iterator().next();
+            printPreviewHost.add(buildKrsPreviewPages(nim, tahunAjaran), BorderLayout.CENTER);
         }
         printPreviewHost.revalidate();
         printPreviewHost.repaint();
+    }
+
+    private JComponent buildCampusLogo(int size) {
+        java.net.URL logoUrl = KrsJadwalPanel.class.getResource("/images/Logo_LP3I.png");
+        final Image logo = logoUrl == null ? null : new ImageIcon(logoUrl).getImage();
+        return new JComponent() {
+            @Override public Dimension getPreferredSize() { return new Dimension(size, size); }
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+                g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                if (logo != null) {
+                    int pad = 1;
+                    int boxW = getWidth() - pad * 2;
+                    int boxH = getHeight() - pad * 2;
+                    int iw = logo.getWidth(this);
+                    int ih = logo.getHeight(this);
+                    if (iw > 0 && ih > 0) {
+                        double scale = Math.min((double) boxW / iw, (double) boxH / ih);
+                        int drawW = Math.max(1, (int) Math.round(iw * scale));
+                        int drawH = Math.max(1, (int) Math.round(ih * scale));
+                        int x = (getWidth() - drawW) / 2;
+                        int y = (getHeight() - drawH) / 2;
+                        g2.drawImage(logo, x, y, drawW, drawH, this);
+                        g2.dispose();
+                        return;
+                    }
+                }
+
+                int pad = 3;
+                int d = Math.min(getWidth(), getHeight()) - pad * 2;
+                int x = (getWidth() - d) / 2;
+                int y = (getHeight() - d) / 2;
+                g2.setColor(new Color(245, 247, 250));
+                g2.fillOval(x, y, d, d);
+                g2.setColor(new Color(31, 41, 55));
+                g2.setStroke(new BasicStroke(2.2f));
+                g2.drawOval(x, y, d, d);
+                g2.setColor(new Color(79, 70, 229));
+                g2.fillOval(x + 10, y + 10, d - 20, d - 20);
+                g2.setColor(Color.WHITE);
+                g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int bx = x + d / 2 - 15;
+                int by = y + d / 2 - 10;
+                g2.drawRoundRect(bx, by, 30, 24, 5, 5);
+                g2.drawLine(bx + 15, by, bx + 15, by + 24);
+                g2.drawLine(bx + 5, by + 8, bx + 12, by + 8);
+                g2.drawLine(bx + 18, by + 8, bx + 25, by + 8);
+                g2.dispose();
+            }
+        };
+    }
+
+    private JComponent buildDoubleRule() {
+        return new JComponent() {
+            @Override public Dimension getPreferredSize() { return new Dimension(1, 8); }
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setColor(Color.BLACK);
+                g2.setStroke(new BasicStroke(2f));
+                g2.drawLine(0, 1, getWidth(), 1);
+                g2.setStroke(new BasicStroke(1f));
+                g2.drawLine(0, 6, getWidth(), 6);
+                g2.dispose();
+            }
+        };
+    }
+
+    private JPanel buildIdentitySection(PrintIdentity identity) {
+        JPanel section = new JPanel();
+        section.setOpaque(false);
+        section.setLayout(new BoxLayout(section, BoxLayout.Y_AXIS));
+        section.setAlignmentX(Component.LEFT_ALIGNMENT);
+        section.add(buildSectionTitle("IDENTITAS MAHASISWA"));
+        JPanel grid = new JPanel(new GridLayout(6, 2, 0, 0));
+        grid.setOpaque(false);
+        grid.setBorder(BorderFactory.createLineBorder(Color.BLACK));
+        addIdentityRow(grid, "Nama Mahasiswa", identity.nama());
+        addIdentityRow(grid, "NIM", identity.nim());
+        addIdentityRow(grid, "Program Studi", identity.programStudi());
+        addIdentityRow(grid, "Semester", identity.semester());
+        addIdentityRow(grid, "Tahun Akademik", identity.tahunAjaran());
+        addIdentityRow(grid, "Dosen Wali", identity.dosenWali());
+        section.add(grid);
+        return section;
+    }
+
+    private void addIdentityRow(JPanel grid, String label, String value) {
+        grid.add(buildPrintInfoCell(label + " :", true, true));
+        grid.add(buildPrintInfoCell(emptyDash(value), false, false));
+    }
+
+    private JLabel buildSectionTitle(String title) {
+        JLabel label = printText(title, 11, Font.BOLD);
+        label.setAlignmentX(Component.LEFT_ALIGNMENT);
+        label.setBorder(new EmptyBorder(0, 0, 6, 0));
+        return label;
+    }
+
+    private JPanel buildPrintTable(String[] columns, int[] widths, List<String[]> rows, boolean[] centerColumns, Color headerColor) {
+        JPanel table = new JPanel(new GridBagLayout());
+        table.setOpaque(false);
+        table.setAlignmentX(Component.LEFT_ALIGNMENT);
+        GridBagConstraints g = new GridBagConstraints();
+        g.fill = GridBagConstraints.BOTH;
+        g.gridy = 0;
+        for (int i = 0; i < columns.length; i++) {
+            g.gridx = i;
+            g.weightx = widths[i];
+            table.add(buildPrintTableCell(columns[i], widths[i], true, true, headerColor), g);
+        }
+        for (int row = 0; row < rows.size(); row++) {
+            String[] data = rows.get(row);
+            g.gridy = row + 1;
+            for (int col = 0; col < columns.length; col++) {
+                g.gridx = col;
+                g.weightx = widths[col];
+                String value = col < data.length ? data[col] : "-";
+                table.add(buildPrintTableCell(value, widths[col], false, centerColumns[col], Color.WHITE), g);
+            }
+        }
+        return table;
+    }
+
+    private JPanel buildPrintTableCell(String text, int width, boolean header, boolean center, Color background) {
+        JPanel cell = new JPanel(new BorderLayout());
+        cell.setBackground(background);
+        cell.setBorder(BorderFactory.createLineBorder(Color.BLACK));
+        cell.setPreferredSize(new Dimension(width, header ? 28 : 30));
+        JLabel label = new JLabel(toHtml(text, Math.max(30, width - 10), center));
+        label.setFont(new Font("Times New Roman", header ? Font.BOLD : Font.PLAIN, 10));
+        label.setForeground(Color.BLACK);
+        label.setBorder(new EmptyBorder(5, 5, 5, 5));
+        label.setVerticalAlignment(SwingConstants.CENTER);
+        cell.add(label, BorderLayout.CENTER);
+        return cell;
+    }
+
+    private JPanel buildPrintInfoCell(String text, boolean header, boolean labelCell) {
+        JPanel cell = new JPanel(new BorderLayout());
+        cell.setBackground(labelCell ? new Color(248, 249, 250) : Color.WHITE);
+        cell.setBorder(BorderFactory.createLineBorder(Color.BLACK));
+        JLabel label = new JLabel(toHtml(text, labelCell ? 180 : 420, false));
+        label.setFont(new Font("Times New Roman", header ? Font.BOLD : Font.PLAIN, 10));
+        label.setForeground(Color.BLACK);
+        label.setBorder(new EmptyBorder(5, 8, 5, 8));
+        cell.add(label, BorderLayout.CENTER);
+        return cell;
+    }
+
+    private JPanel buildKrsSummaryBox(int jumlahMk, int totalSks) {
+        JPanel box = new JPanel(new GridLayout(2, 2, 12, 4));
+        box.setOpaque(true);
+        box.setBackground(new Color(248, 249, 250));
+        box.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Color.BLACK), new EmptyBorder(10, 12, 10, 12)));
+        box.setAlignmentX(Component.LEFT_ALIGNMENT);
+        addPrintMeta(box, "Jumlah Mata Kuliah", String.valueOf(jumlahMk));
+        addPrintMeta(box, "Total SKS", totalSks + " SKS");
+        return box;
+    }
+
+    private JPanel buildApprovalSection(PrintIdentity identity) {
+        JPanel wrap = new JPanel(new BorderLayout(0, 10));
+        wrap.setOpaque(false);
+        wrap.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel date = printText("Pekanbaru, " + formatPrintDate(), 11, Font.PLAIN);
+        date.setHorizontalAlignment(SwingConstants.RIGHT);
+        wrap.add(date, BorderLayout.NORTH);
+
+        JPanel center = new JPanel(new BorderLayout(0, 6));
+        center.setOpaque(false);
+
+        JLabel knowing = printText("Mengetahui,", 11, Font.PLAIN);
+        knowing.setHorizontalAlignment(SwingConstants.CENTER);
+        center.add(knowing, BorderLayout.NORTH);
+
+        JPanel signatures = new JPanel(new GridLayout(1, 2, 120, 0));
+        signatures.setOpaque(false);
+        signatures.add(signatureBlock("Mahasiswa,", identity.nama(), "", true, false));
+        signatures.add(signatureBlock("Ketua Akademik,", "Dr. H. Ahmad Syafii, M.Kom", "", false, true));
+        center.add(signatures, BorderLayout.CENTER);
+        wrap.add(center, BorderLayout.CENTER);
+        return wrap;
+    }
+
+    private JPanel buildOfficialPrintFooter(String documentNumber, int pageNumber, int totalPages) {
+        JPanel footer = new JPanel(new BorderLayout(8, 3));
+        footer.setOpaque(false);
+        footer.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, Color.BLACK));
+        JLabel note = printText("Dokumen ini dicetak secara otomatis oleh Sistem Informasi Akademik (SIAKAD)", 9, Font.ITALIC);
+        note.setHorizontalAlignment(SwingConstants.CENTER);
+        footer.add(note, BorderLayout.NORTH);
+        JPanel meta = new JPanel(new GridLayout(1, 3, 8, 0));
+        meta.setOpaque(false);
+        meta.add(printText("No. Dokumen: " + documentNumber, 8, Font.PLAIN));
+        JLabel date = printText("Tanggal Cetak: " + formatPrintDate(), 8, Font.PLAIN);
+        date.setHorizontalAlignment(SwingConstants.CENTER);
+        meta.add(date);
+        JLabel page = printText("Page " + pageNumber + " of " + totalPages, 8, Font.PLAIN);
+        page.setHorizontalAlignment(SwingConstants.RIGHT);
+        meta.add(page);
+        footer.add(meta, BorderLayout.SOUTH);
+        return footer;
+    }
+
+    private String[] splitPipeValues(String value) {
+        if (value == null || value.isBlank() || "-".equals(value)) return new String[0];
+        String[] raw = value.split("\\|");
+        List<String> values = new ArrayList<>();
+        for (String item : raw) {
+            String clean = item.trim();
+            if (!clean.isBlank() && !"-".equals(clean)) values.add(clean);
+        }
+        return values.toArray(new String[0]);
+    }
+
+    private String[] splitCommaValues(String value) {
+        if (value == null || value.isBlank() || "-".equals(value)) return new String[0];
+        String[] raw = value.split(",");
+        List<String> values = new ArrayList<>();
+        for (String item : raw) {
+            String clean = item.trim();
+            if (!clean.isBlank() && !"-".equals(clean)) values.add(clean);
+        }
+        return values.toArray(new String[0]);
+    }
+
+    private String valueAtOrLast(String[] values, int index) {
+        if (values.length == 0) return "-";
+        return values[Math.min(index, values.length - 1)];
+    }
+
+    private String buildKrsDocumentNumber(String nim, String tahunAjaran) {
+        String cleanTa = tahunAjaran == null ? "TA" : tahunAjaran.replaceAll("[^0-9]", "");
+        String cleanNim = nim == null ? "NIM" : nim.replaceAll("[^A-Za-z0-9]", "");
+        return "KRS/" + cleanTa + "/" + cleanNim + "/" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
+    }
+
+    private String formatPrintDate() {
+        return LocalDate.now().format(DateTimeFormatter.ofPattern("dd MMMM yyyy", Locale.forLanguageTag("id-ID")));
+    }
+
+    private String toHtml(String value, int width, boolean center) {
+        String align = center ? "center" : "left";
+        return "<html><body style='width:" + width + "px;text-align:" + align + ";'>" + escapeHtml(emptyDash(value)) + "</body></html>";
+    }
+
+    private String escapeHtml(String value) {
+        return value == null ? "" : value
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
     }
 
     private void submitDialog(JDialog dialog, RequestAction requestAction, Runnable afterSuccess) {
@@ -1772,16 +2247,65 @@ public class KrsJadwalPanel extends JPanel {
     }
 
     private JPanel signatureBlock(String top, String name, String role) {
+        return signatureBlock(top, name, role, true, false);
+    }
+
+    private JPanel signatureBlock(String top, String name, String role, boolean wrapNameInParentheses) {
+        return signatureBlock(top, name, role, wrapNameInParentheses, false);
+    }
+
+    private JPanel signatureBlock(String top, String name, String role, boolean wrapNameInParentheses, boolean digitalSignature) {
         JPanel panel = new JPanel();
         panel.setOpaque(false);
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.add(centerPrintLabel(top, 11, Font.PLAIN));
-        panel.add(Box.createVerticalStrut(64));
-        panel.add(centerPrintLabel("(" + emptyDash(name) + ")", 11, Font.BOLD));
+        panel.setPreferredSize(new Dimension(286, 132));
+        panel.setMinimumSize(new Dimension(286, 132));
+
+        JLabel title = centerPrintLabel(top, 11, Font.PLAIN);
+        title.setAlignmentX(Component.CENTER_ALIGNMENT);
+        panel.add(title);
+
+        JPanel signatureArea = new JPanel(new GridBagLayout());
+        signatureArea.setOpaque(false);
+        signatureArea.setPreferredSize(new Dimension(286, 74));
+        signatureArea.setMaximumSize(new Dimension(286, 74));
+        if (digitalSignature) {
+            signatureArea.add(buildDigitalSignature());
+        }
+        panel.add(signatureArea);
+
+        String displayName = wrapNameInParentheses ? "(" + emptyDash(name) + ")" : emptyDash(name);
+        JLabel nameLabel = centerPrintLabel(displayName, 11, Font.BOLD);
+        nameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        panel.add(nameLabel);
         if (role != null && !role.isBlank()) {
-            panel.add(centerPrintLabel(role, 11, Font.PLAIN));
+            JLabel roleLabel = centerPrintLabel(role, 11, Font.PLAIN);
+            roleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+            panel.add(roleLabel);
         }
         return panel;
+    }
+
+    private JComponent buildDigitalSignature() {
+        return new JComponent() {
+            @Override public Dimension getPreferredSize() { return new Dimension(178, 50); }
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(29, 78, 216));
+                g2.setStroke(new BasicStroke(2.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                int y = getHeight() / 2 + 8;
+                g2.drawArc(18, y - 24, 38, 26, 180, -230);
+                g2.drawLine(47, y - 13, 64, y + 6);
+                g2.drawArc(57, y - 22, 46, 28, 200, 240);
+                g2.drawArc(93, y - 20, 40, 26, 190, -230);
+                g2.drawLine(125, y - 8, 153, y - 20);
+                g2.drawLine(153, y - 20, 169, y + 4);
+                g2.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g2.drawLine(24, y + 14, 171, y + 14);
+                g2.dispose();
+            }
+        };
     }
 
     private void startBusy() {
@@ -1808,6 +2332,16 @@ public class KrsJadwalPanel extends JPanel {
         return object.has(key) && !object.get(key).isJsonNull()
                 ? object.get(key).getAsString()
                 : "-";
+    }
+
+    private String firstNonEmpty(JsonObject object, String... keys) {
+        for (String key : keys) {
+            String value = safe(object, key);
+            if (value != null && !value.isBlank() && !"-".equals(value)) {
+                return value;
+            }
+        }
+        return "-";
     }
 
     private boolean isBlank(JTextField field) {
@@ -1850,6 +2384,9 @@ public class KrsJadwalPanel extends JPanel {
     private interface RequestAction {
         JsonObject execute() throws Exception;
     }
+
+    private record PrintIdentity(String nama, String nim, String programStudi, String semester,
+                                 String tahunAjaran, String dosenWali, String documentNumber) {}
 
     private record MatakuliahOption(String kodeMk, String namaMk, int sks, int semester, String dosen) {
         @Override public String toString() {
