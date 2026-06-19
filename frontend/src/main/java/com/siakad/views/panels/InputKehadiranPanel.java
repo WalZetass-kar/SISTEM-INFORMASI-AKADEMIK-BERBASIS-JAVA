@@ -96,33 +96,15 @@ public class InputKehadiranPanel extends JPanel {
         wrapper.setOpaque(false);
         wrapper.setBorder(new EmptyBorder(26, 28, 6, 28));
 
-        JPanel titleBlock = new JPanel();
-        titleBlock.setOpaque(false);
-        titleBlock.setLayout(new BoxLayout(titleBlock, BoxLayout.Y_AXIS));
+        JPanel titleBlock = AcademicUi.pageHeader(
+                "Input Kehadiran Mahasiswa",
+                "Akademik / Nilai & Absensi / Input Kehadiran",
+                "Pertemuan otomatis",
+                GREEN
+        );
 
-        JLabel title = new JLabel("Input Kehadiran Mahasiswa");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 26));
-        title.setForeground(TEXT);
-        JLabel subtitle = new JLabel("Akademik / Nilai & Absensi / Input Kehadiran");
-        subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        subtitle.setForeground(MUTED);
-        titleBlock.add(title);
-        titleBlock.add(Box.createVerticalStrut(2));
-        titleBlock.add(subtitle);
-
-        JPanel filterCard = new JPanel(new BorderLayout(0, 16)) {
-            @Override protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(CARD_BG);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
-                g2.setColor(BORDER);
-                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 12, 12);
-                g2.dispose();
-            }
-        };
-        filterCard.setOpaque(false);
+        JPanel filterCard = AcademicUi.cardPanel(GREEN);
+        filterCard.setLayout(new BorderLayout(0, 16));
         filterCard.setBorder(new EmptyBorder(20, 22, 20, 22));
 
         JPanel fields = new JPanel(new GridBagLayout());
@@ -191,6 +173,10 @@ public class InputKehadiranPanel extends JPanel {
         actionRow.add(hint, BorderLayout.WEST);
         actionRow.add(actions, BorderLayout.EAST);
 
+        filterCard.add(AcademicUi.sectionIntro(
+                "Filter Kehadiran",
+                "Pilih periode, jurusan, mata kuliah, dan pertemuan untuk membuat daftar absensi."
+        ), BorderLayout.NORTH);
         filterCard.add(fields, BorderLayout.CENTER);
         filterCard.add(actionRow, BorderLayout.SOUTH);
 
@@ -252,19 +238,8 @@ public class InputKehadiranPanel extends JPanel {
         scroll.getViewport().setBackground(TABLE_BG);
         scroll.setBackground(TABLE_BG);
 
-        JPanel card = new JPanel(new BorderLayout()) {
-            @Override protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(CARD_BG);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
-                g2.setColor(BORDER);
-                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 12, 12);
-                g2.dispose();
-            }
-        };
-        card.setOpaque(false);
+        JPanel card = AcademicUi.cardPanel(GREEN);
+        card.setLayout(new BorderLayout());
         card.setBorder(new EmptyBorder(0, 28, 0, 28));
 
         JPanel tableHeader = new JPanel(new BorderLayout());
@@ -646,14 +621,7 @@ public class InputKehadiranPanel extends JPanel {
     }
 
     private JLabel metricLabel(String text) {
-        JLabel label = new JLabel("  " + text + "  ");
-        label.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        label.setForeground(new Color(203, 213, 225));
-        label.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(BORDER),
-                new EmptyBorder(7, 8, 7, 8)
-        ));
-        return label;
+        return AcademicUi.metric(text);
     }
 
     private JButton buildButton(String text, Color bg) {

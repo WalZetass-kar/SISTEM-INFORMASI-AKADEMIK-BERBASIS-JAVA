@@ -79,7 +79,7 @@ public class PengaturanAkademikPanel extends JPanel {
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
         content.setBorder(new EmptyBorder(26, 28, 14, 28));
 
-        JPanel header = new JPanel(new BorderLayout());
+        JPanel header = new JPanel(new BorderLayout(18, 0));
         header.setOpaque(false);
         header.setAlignmentX(Component.LEFT_ALIGNMENT);
         header.setMaximumSize(new Dimension(Integer.MAX_VALUE, 96));
@@ -87,7 +87,7 @@ public class PengaturanAkademikPanel extends JPanel {
         titleBlock.setOpaque(false);
         titleBlock.setLayout(new BoxLayout(titleBlock, BoxLayout.Y_AXIS));
         JLabel title = new JLabel("Pengaturan Akademik");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 30));
+        title.setFont(new Font("Segoe UI", Font.BOLD, 28));
         title.setForeground(TEXT);
         JLabel subtitle = new JLabel("Kelola tahun ajaran, semester, bobot nilai, jurusan, dan jumlah pertemuan per jurusan");
         subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
@@ -103,8 +103,12 @@ public class PengaturanAkademikPanel extends JPanel {
 
         JButton refresh = button("Refresh", BLUE);
         refresh.addActionListener(e -> loadSettings());
+        JPanel headerActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 8));
+        headerActions.setOpaque(false);
+        headerActions.add(AcademicUi.pill("Admin Akademik", BLUE));
+        headerActions.add(refresh);
         header.add(titleBlock, BorderLayout.WEST);
-        header.add(refresh, BorderLayout.EAST);
+        header.add(headerActions, BorderLayout.EAST);
 
         JPanel cards = new JPanel(new GridLayout(1, 4, 14, 0));
         cards.setOpaque(false);
@@ -307,7 +311,7 @@ public class PengaturanAkademikPanel extends JPanel {
     }
 
     private JPanel metricCard(String icon, String title, String desc, JLabel value) {
-        JPanel panel = cardPanel();
+        JPanel panel = AcademicUi.cardPanel(BLUE);
         panel.setLayout(new BorderLayout(14, 0));
         panel.setBorder(new EmptyBorder(18, 18, 18, 18));
         JLabel iconLabel = new JLabel(icon);
@@ -368,7 +372,7 @@ public class PengaturanAkademikPanel extends JPanel {
     private JPanel section(String title, String addText, java.awt.event.ActionListener add,
                            String editText, java.awt.event.ActionListener edit,
                            String delText, java.awt.event.ActionListener del, JTable table) {
-        JPanel panel = cardPanel();
+        JPanel panel = AcademicUi.cardPanel(BLUE);
         panel.setLayout(new BorderLayout());
         JPanel head = new JPanel(new BorderLayout());
         head.setOpaque(false);
@@ -399,7 +403,7 @@ public class PengaturanAkademikPanel extends JPanel {
     }
 
     private JPanel readOnlySection(String title, String note, JTable table) {
-        JPanel panel = cardPanel();
+        JPanel panel = AcademicUi.cardPanel(new Color(99, 102, 241));
         panel.setLayout(new BorderLayout());
         JPanel head = new JPanel(new BorderLayout());
         head.setOpaque(false);
@@ -821,20 +825,7 @@ public class PengaturanAkademikPanel extends JPanel {
     }
 
     private JPanel cardPanel() {
-        JPanel panel = new JPanel() {
-            @Override protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(CARD);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
-                g2.setColor(BORDER);
-                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 12, 12);
-                g2.dispose();
-            }
-        };
-        panel.setOpaque(false);
-        return panel;
+        return AcademicUi.cardPanel(BLUE);
     }
 
     private JButton button(String text, Color color) {

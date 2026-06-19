@@ -91,65 +91,25 @@ public class AkademikPanel extends JPanel {
         wrapper.setOpaque(false);
         wrapper.setBorder(new EmptyBorder(26, 28, 18, 28));
 
-        JPanel top = new JPanel(new BorderLayout());
-        top.setOpaque(false);
-
-        JPanel titleBlock = new JPanel();
-        titleBlock.setOpaque(false);
-        titleBlock.setLayout(new BoxLayout(titleBlock, BoxLayout.Y_AXIS));
-
-        JLabel title = new JLabel("Input Nilai Mahasiswa");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 26));
-        title.setForeground(TEXT);
-        JLabel subtitle = new JLabel("Akademik / Nilai & Absensi / Input Nilai");
-        subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        subtitle.setForeground(MUTED);
-
-        titleBlock.add(title);
-        titleBlock.add(Box.createVerticalStrut(2));
-        titleBlock.add(subtitle);
-
-        lblBobotBadge = new JLabel(bobotText());
-        lblBobotBadge.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        lblBobotBadge.setForeground(new Color(191, 219, 254));
-        lblBobotBadge.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(59, 130, 246, 90)),
-                new EmptyBorder(8, 10, 8, 10)
-        ));
-
-        top.add(titleBlock, BorderLayout.WEST);
+        lblBobotBadge = AcademicUi.pill(bobotText(), BLUE);
+        JPanel top = AcademicUi.pageHeader(
+                "Input Nilai Mahasiswa",
+                "Akademik / Nilai & Absensi / Input Nilai",
+                "",
+                BLUE
+        );
         top.add(lblBobotBadge, BorderLayout.EAST);
 
-        JPanel filterCard = new JPanel(new BorderLayout(0, 14)) {
-            @Override protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(CARD_BG);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
-                g2.setColor(BORDER);
-                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 12, 12);
-                g2.dispose();
-            }
-        };
-        filterCard.setOpaque(false);
+        JPanel filterCard = AcademicUi.cardPanel(BLUE);
+        filterCard.setLayout(new BorderLayout(0, 14));
         filterCard.setBorder(new EmptyBorder(18, 20, 18, 20));
 
         JPanel filterHeader = new JPanel(new BorderLayout());
         filterHeader.setOpaque(false);
-        JPanel filterText = new JPanel();
-        filterText.setOpaque(false);
-        filterText.setLayout(new BoxLayout(filterText, BoxLayout.Y_AXIS));
-        JLabel filterTitle = new JLabel("Filter Input Nilai");
-        filterTitle.setFont(new Font("Segoe UI", Font.BOLD, 15));
-        filterTitle.setForeground(TEXT);
-        JLabel filterNote = new JLabel("Pilih periode, jurusan, mata kuliah, lalu batasi mahasiswa jika diperlukan.");
-        filterNote.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        filterNote.setForeground(MUTED);
-        filterText.add(filterTitle);
-        filterText.add(Box.createVerticalStrut(3));
-        filterText.add(filterNote);
-        filterHeader.add(filterText, BorderLayout.WEST);
+        filterHeader.add(AcademicUi.sectionIntro(
+                "Filter Input Nilai",
+                "Pilih periode, jurusan, mata kuliah, lalu batasi mahasiswa jika diperlukan."
+        ), BorderLayout.WEST);
 
         JPanel fields = new JPanel(new GridBagLayout());
         fields.setOpaque(false);
@@ -337,19 +297,8 @@ public class AkademikPanel extends JPanel {
         scroll.getViewport().setBackground(TABLE_BG);
         scroll.setBackground(TABLE_BG);
 
-        JPanel card = new JPanel(new BorderLayout()) {
-            @Override protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(CARD_BG);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
-                g2.setColor(BORDER);
-                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 12, 12);
-                g2.dispose();
-            }
-        };
-        card.setOpaque(false);
+        JPanel card = AcademicUi.cardPanel(BLUE);
+        card.setLayout(new BorderLayout());
         card.setBorder(new EmptyBorder(0, 28, 0, 28));
 
         JPanel tableHeader = new JPanel(new BorderLayout());
@@ -423,14 +372,7 @@ public class AkademikPanel extends JPanel {
     }
 
     private JLabel metricLabel(String text) {
-        JLabel label = new JLabel("  " + text + "  ");
-        label.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        label.setForeground(new Color(203, 213, 225));
-        label.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(BORDER),
-                new EmptyBorder(7, 8, 7, 8)
-        ));
-        return label;
+        return AcademicUi.metric(text);
     }
 
     private void loadMataKuliah() {

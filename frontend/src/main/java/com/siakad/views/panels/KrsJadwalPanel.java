@@ -95,25 +95,16 @@ public class KrsJadwalPanel extends JPanel {
     }
 
     private JPanel buildHeader() {
-        JPanel header = new JPanel(new BorderLayout());
+        JPanel header = new JPanel(new BorderLayout(18, 0));
         header.setOpaque(false);
         header.setBorder(new EmptyBorder(28, 28, 16, 28));
 
-        JPanel titleBlock = new JPanel();
-        titleBlock.setOpaque(false);
-        titleBlock.setLayout(new BoxLayout(titleBlock, BoxLayout.Y_AXIS));
-
-        JLabel lblTitle = new JLabel("KRS & Jadwal Kuliah");
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 26));
-        lblTitle.setForeground(TEXT_PRIMARY);
-
-        JLabel lblSub = new JLabel("Kelola input KRS, mata kuliah, jadwal kuliah, dan cetak KRS");
-        lblSub.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        lblSub.setForeground(TEXT_MUTED);
-
-        titleBlock.add(lblTitle);
-        titleBlock.add(Box.createVerticalStrut(2));
-        titleBlock.add(lblSub);
+        JPanel titleBlock = AcademicUi.pageHeader(
+                "KRS & Jadwal Kuliah",
+                "Kelola input KRS, mata kuliah, jadwal kuliah, dan cetak KRS",
+                JwtHelper.getInstance().isAdmin() ? "Mode Admin" : "Mode Mahasiswa",
+                JwtHelper.getInstance().isAdmin() ? BLUE : GREEN
+        );
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         actions.setOpaque(false);
@@ -143,23 +134,7 @@ public class KrsJadwalPanel extends JPanel {
     }
 
     private JPanel buildStatCard(String title, String desc, JLabel valueLabel, Color accent) {
-        JPanel card = new JPanel() {
-            @Override protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(CARD_BG);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
-                g2.setColor(BORDER_COLOR);
-                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 14, 14);
-                GradientPaint gradient = new GradientPaint(0, 0, accent, getWidth(), 0,
-                        new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 40));
-                g2.setPaint(gradient);
-                g2.fillRoundRect(0, 0, getWidth(), 3, 3, 3);
-                g2.dispose();
-            }
-        };
-        card.setOpaque(false);
+        JPanel card = AcademicUi.cardPanel(accent);
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
         card.setBorder(new EmptyBorder(18, 20, 18, 20));
         card.setPreferredSize(new Dimension(0, 120));
@@ -988,20 +963,7 @@ public class KrsJadwalPanel extends JPanel {
     }
 
     private JPanel buildCard() {
-        JPanel card = new JPanel() {
-            @Override protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(CARD_BG);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
-                g2.setColor(BORDER_COLOR);
-                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 14, 14);
-                g2.dispose();
-            }
-        };
-        card.setOpaque(false);
-        return card;
+        return AcademicUi.cardPanel(BLUE);
     }
 
     private JTable buildTable(DefaultTableModel model) {
