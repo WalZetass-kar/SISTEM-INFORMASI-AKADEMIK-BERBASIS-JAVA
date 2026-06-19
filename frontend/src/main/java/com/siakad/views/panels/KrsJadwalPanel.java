@@ -109,7 +109,7 @@ public class KrsJadwalPanel extends JPanel {
     }
 
     private JPanel buildHeader() {
-        JPanel header = new JPanel(new BorderLayout());
+        JPanel header = new JPanel(new BorderLayout(18, 0));
         header.setOpaque(false);
         header.setBorder(new EmptyBorder(28, 28, 16, 28));
 

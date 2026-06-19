@@ -53,7 +53,7 @@ public class PengaturanAkademikPanel extends JPanel {
         content.setBackground(BG());
         content.setBorder(new EmptyBorder(26, 28, 14, 28));
 
-        JPanel header = new JPanel(new BorderLayout());
+        JPanel header = new JPanel(new BorderLayout(18, 0));
         header.setOpaque(false);
         JPanel titleBlock = new JPanel();
         titleBlock.setOpaque(false);
@@ -70,8 +70,12 @@ public class PengaturanAkademikPanel extends JPanel {
 
         JButton refresh = button("Refresh", BLUE());
         refresh.addActionListener(e -> loadSettings());
+        JPanel headerActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 8));
+        headerActions.setOpaque(false);
+        headerActions.add(AcademicUi.pill("Admin Akademik", BLUE));
+        headerActions.add(refresh);
         header.add(titleBlock, BorderLayout.WEST);
-        header.add(refresh, BorderLayout.EAST);
+        header.add(headerActions, BorderLayout.EAST);
 
         JPanel cards = new JPanel(new GridLayout(1, 3, 12, 0));
         cards.setOpaque(false);
@@ -179,7 +183,7 @@ public class PengaturanAkademikPanel extends JPanel {
     private JPanel section(String title, String addText, java.awt.event.ActionListener add,
                            String editText, java.awt.event.ActionListener edit,
                            String delText, java.awt.event.ActionListener del, JTable table) {
-        JPanel panel = cardPanel();
+        JPanel panel = AcademicUi.cardPanel(BLUE);
         panel.setLayout(new BorderLayout());
         JPanel head = new JPanel(new BorderLayout());
         head.setOpaque(false);
