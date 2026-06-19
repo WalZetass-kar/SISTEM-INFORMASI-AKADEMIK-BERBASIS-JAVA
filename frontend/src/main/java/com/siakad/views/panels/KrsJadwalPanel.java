@@ -73,6 +73,7 @@ public class KrsJadwalPanel extends JPanel {
     private JsonObject currentKrsSummary = null;
 
     private int activeLoads = 0;
+    private String activeTahunAjaran = "";
     private final PageMode mode;
 
     private static Color BG() { return AppTheme.bg(); }
@@ -267,6 +268,7 @@ public class KrsJadwalPanel extends JPanel {
 
         txtInputNimFilter = makeField();
         txtInputTahunAjaranFilter = makeField();
+        txtInputTahunAjaranFilter.setText(currentAcademicYear());
         cmbKrsMatakuliah = new JComboBox<>();
         styleCombo(cmbKrsMatakuliah);
 
@@ -336,6 +338,7 @@ public class KrsJadwalPanel extends JPanel {
 
         txtNimFilter = makeField();
         txtTahunAjaranFilter = makeField();
+        txtTahunAjaranFilter.setText(currentAcademicYear());
 
         if (JwtHelper.getInstance().isMahasiswa()) {
             txtNimFilter.setText(JwtHelper.getInstance().getNim());
@@ -568,6 +571,7 @@ public class KrsJadwalPanel extends JPanel {
 
         txtCetakNimFilter = makeField();
         txtCetakTahunAjaranFilter = makeField();
+        txtCetakTahunAjaranFilter.setText(currentAcademicYear());
         if (JwtHelper.getInstance().isMahasiswa()) {
             txtCetakNimFilter.setText(JwtHelper.getInstance().getNim());
             txtCetakNimFilter.setEnabled(false);
@@ -622,6 +626,7 @@ public class KrsJadwalPanel extends JPanel {
     }
 
     private void refreshAllData() {
+        loadAcademicSettings();
         switch (mode) {
             case INPUT_KRS -> {
                 loadMahasiswa();
@@ -636,6 +641,71 @@ public class KrsJadwalPanel extends JPanel {
             }
             case CETAK_KRS -> loadMahasiswa();
         }
+    }
+
+    private void loadAcademicSettings() {
+        new SwingWorker<JsonObject, Void>() {
+            @Override protected JsonObject doInBackground() throws Exception {
+                return AkademikService.getSettings();
+            }
+
+            @Override protected void done() {
+                try {
+                    JsonObject response = get();
+                    if (!response.get("success").getAsBoolean()) {
+                        return;
+                    }
+                    JsonObject data = response.getAsJsonObject("data");
+                    String tahunAjaran = findActiveTahunAjaran(data.getAsJsonArray("tahun_ajaran"));
+                    if (!tahunAjaran.isBlank()) {
+                        activeTahunAjaran = tahunAjaran;
+                        fillTahunAjaranIfBlank(txtInputTahunAjaranFilter);
+                        fillTahunAjaranIfBlank(txtTahunAjaranFilter);
+                        fillTahunAjaranIfBlank(txtCetakTahunAjaranFilter);
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+        }.execute();
+    }
+
+    private String findActiveTahunAjaran(JsonArray tahunAjaranData) {
+        if (tahunAjaranData == null) return "";
+        String firstAvailable = "";
+        for (JsonElement element : tahunAjaranData) {
+            JsonObject item = element.getAsJsonObject();
+            String label = safe(item, "tahun_ajaran");
+            if (label.isBlank() || "-".equals(label) || "draft".equalsIgnoreCase(safe(item, "status"))) {
+                continue;
+            }
+            if (firstAvailable.isBlank()) {
+                firstAvailable = label;
+            }
+            if ("aktif".equalsIgnoreCase(safe(item, "status"))) {
+                return label;
+            }
+        }
+        return firstAvailable;
+    }
+
+    private void fillTahunAjaranIfBlank(JTextField field) {
+        if (field == null) {
+            return;
+        }
+        String value = field.getText().trim();
+        if (value.isBlank() || value.equals(defaultAcademicYear())) {
+            field.setText(currentAcademicYear());
+        }
+    }
+
+    private String selectedOrCurrentAcademicYear(JTextField field) {
+        if (field == null) {
+            return currentAcademicYear();
+        }
+        String value = field.getText().trim();
+        return value.isBlank() || value.equals(defaultAcademicYear())
+                ? currentAcademicYear()
+                : value;
     }
 
     private void loadMahasiswa() {
@@ -1078,10 +1148,7 @@ public class KrsJadwalPanel extends JPanel {
             field.setEnabled(false);
         }
         JTextField fTahunAjaran = makeField();
-        String activeTahunAjaran = txtTahunAjaranFilter == null ? "" : txtTahunAjaranFilter.getText().trim();
-        fTahunAjaran.setText(activeTahunAjaran.isEmpty()
-                ? defaultAcademicYear()
-                : activeTahunAjaran);
+        fTahunAjaran.setText(selectedOrCurrentAcademicYear(txtTahunAjaranFilter));
 
         JLabel lblPreview = new JLabel("Total SKS maksimal 24.");
         lblPreview.setFont(new Font("Segoe UI", Font.PLAIN, 11));
@@ -1142,6 +1209,9 @@ public class KrsJadwalPanel extends JPanel {
 
         btnSave.addActionListener(e -> {
             MatakuliahOption option = (MatakuliahOption) cmbMatakuliah.getSelectedItem();
+            if (isBlank(fTahunAjaran)) {
+                fTahunAjaran.setText(currentAcademicYear());
+            }
             if (option == null || isBlank(fNim) || isBlank(fTahunAjaran)) {
                 JOptionPane.showMessageDialog(dialog, "Semua field wajib harus diisi.", "Validasi", JOptionPane.WARNING_MESSAGE);
                 return;
@@ -1193,7 +1263,8 @@ public class KrsJadwalPanel extends JPanel {
         String nim = JwtHelper.getInstance().isMahasiswa()
                 ? JwtHelper.getInstance().getNim()
                 : txtInputNimFilter.getText().trim();
-        String tahunAjaran = txtInputTahunAjaranFilter.getText().trim();
+        String tahunAjaran = selectedOrCurrentAcademicYear(txtInputTahunAjaranFilter);
+        txtInputTahunAjaranFilter.setText(tahunAjaran);
 
         if (nim.isBlank() || tahunAjaran.isBlank()) {
             JOptionPane.showMessageDialog(this,
@@ -2549,6 +2620,12 @@ public class KrsJadwalPanel extends JPanel {
     private String defaultAcademicYear() {
         int year = Year.now().getValue();
         return year + "/" + (year + 1);
+    }
+
+    private String currentAcademicYear() {
+        return activeTahunAjaran == null || activeTahunAjaran.isBlank()
+                ? defaultAcademicYear()
+                : activeTahunAjaran;
     }
 
     private String capitalize(String value) {

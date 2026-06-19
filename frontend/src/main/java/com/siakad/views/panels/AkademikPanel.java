@@ -3,6 +3,7 @@ package com.siakad.views.panels;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.siakad.services.AkademikService;
 import com.siakad.services.MahasiswaService;
 import com.siakad.services.NilaiService;
 import com.siakad.utils.AppTheme;
@@ -33,8 +34,12 @@ public class AkademikPanel extends JPanel {
     private JLabel lblCourseSummary;
     private JLabel lblCountSummary;
     private JLabel lblFormulaSummary;
+    private JLabel lblBobotBadge;
     private JButton btnSave;
     private boolean recalculating = false;
+    private double bobotTugas = 30.0;
+    private double bobotUts = 30.0;
+    private double bobotUas = 40.0;
 
     private static Color BG() { return AppTheme.bg(); }
     private static Color CARD_BG() { return AppTheme.card(); }
@@ -60,7 +65,7 @@ public class AkademikPanel extends JPanel {
         add(rootPanel, BorderLayout.CENTER);
 
         if (JwtHelper.getInstance().isAdmin()) {
-            loadMataKuliah();
+            loadAcademicSettings();
         } else {
             showState("Akses terbatas", "Input nilai hanya tersedia untuk admin.");
         }
@@ -98,16 +103,16 @@ public class AkademikPanel extends JPanel {
         titleBlock.add(Box.createVerticalStrut(2));
         titleBlock.add(subtitle);
 
-        JLabel badge = new JLabel("  Tugas 30%  •  UTS 30%  •  UAS 40%  ");
-        badge.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        badge.setForeground(new Color(191, 219, 254));
-        badge.setBorder(BorderFactory.createCompoundBorder(
+        lblBobotBadge = new JLabel("  " + bobotText() + "  ");
+        lblBobotBadge.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        lblBobotBadge.setForeground(new Color(191, 219, 254));
+        lblBobotBadge.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(59, 130, 246, 90)),
                 new EmptyBorder(8, 10, 8, 10)
         ));
 
         top.add(titleBlock, BorderLayout.WEST);
-        top.add(badge, BorderLayout.EAST);
+        top.add(lblBobotBadge, BorderLayout.EAST);
 
         JPanel filterCard = new JPanel(new BorderLayout(18, 0)) {
             @Override protected void paintComponent(Graphics g) {
@@ -131,7 +136,7 @@ public class AkademikPanel extends JPanel {
         g.fill = GridBagConstraints.HORIZONTAL;
         g.gridy = 0;
 
-        cmbTahunAjaran = new JComboBox<>(new String[]{"2024/2025", "2025/2026"});
+        cmbTahunAjaran = new JComboBox<>();
         styleCombo(cmbTahunAjaran, 145);
 
         cmbMataKuliah = new JComboBox<>();
@@ -145,7 +150,7 @@ public class AkademikPanel extends JPanel {
         btnLoad.addActionListener(e -> loadInputList());
         btnRefresh.addActionListener(e -> {
             txtSearch.setText("");
-            loadMataKuliah();
+            loadAcademicSettings();
         });
 
         g.gridx = 0; g.weightx = 0;
@@ -239,11 +244,8 @@ public class AkademikPanel extends JPanel {
         stats.setOpaque(false);
         lblCountSummary = metricLabel("0 Mahasiswa");
         lblFormulaSummary = metricLabel("Otomatis");
-        JButton btnTambahNilai = buildButton("+ Tambah Nilai", GREEN());
-        btnTambahNilai.addActionListener(e -> showTambahNilaiDialog());
         stats.add(lblCountSummary);
         stats.add(lblFormulaSummary);
-        stats.add(btnTambahNilai);
 
         tableHeader.add(headerText, BorderLayout.WEST);
         tableHeader.add(stats, BorderLayout.EAST);
@@ -299,9 +301,83 @@ public class AkademikPanel extends JPanel {
         return label;
     }
 
-    private void loadMataKuliah() {
+    private void loadAcademicSettings() {
         rootCard.show(rootPanel, "skeleton");
         skeleton.start();
+        new SwingWorker<JsonObject, Void>() {
+            @Override protected JsonObject doInBackground() throws Exception {
+                return AkademikService.getSettings();
+            }
+
+            @Override protected void done() {
+                try {
+                    JsonObject response = get();
+                    if (!response.get("success").getAsBoolean()) {
+                        showState("Gagal memuat pengaturan akademik", response.get("message").getAsString());
+                        return;
+                    }
+                    JsonObject data = response.getAsJsonObject("data");
+                    populateTahunAjaran(data.getAsJsonArray("tahun_ajaran"));
+                    applyBobot(data.has("bobot_nilai") && !data.get("bobot_nilai").isJsonNull()
+                            ? data.getAsJsonObject("bobot_nilai")
+                            : null);
+                    loadMataKuliah();
+                } catch (Exception ex) {
+                    skeleton.stop();
+                    showState("Gagal memuat pengaturan akademik", ex.getMessage());
+                }
+            }
+        }.execute();
+    }
+
+    private void populateTahunAjaran(JsonArray data) {
+        cmbTahunAjaran.removeAllItems();
+        String active = null;
+        if (data != null) {
+            for (JsonElement item : data) {
+                JsonObject tahun = item.getAsJsonObject();
+                if ("draft".equalsIgnoreCase(getString(tahun, "status"))) {
+                    continue;
+                }
+                String label = getString(tahun, "tahun_ajaran");
+                if (!label.isBlank()) {
+                    cmbTahunAjaran.addItem(label);
+                    if ("aktif".equalsIgnoreCase(getString(tahun, "status"))) {
+                        active = label;
+                    }
+                }
+            }
+        }
+        if (active != null) {
+            cmbTahunAjaran.setSelectedItem(active);
+        }
+    }
+
+    private void applyBobot(JsonObject bobot) {
+        if (bobot != null) {
+            bobotTugas = getDoubleOrDefault(bobot, "bobot_tugas", 30.0);
+            bobotUts = getDoubleOrDefault(bobot, "bobot_uts", 30.0);
+            bobotUas = getDoubleOrDefault(bobot, "bobot_uas", 40.0);
+        }
+        if (lblBobotBadge != null) {
+            lblBobotBadge.setText("  " + bobotText() + "  ");
+        }
+        if (lblFormulaSummary != null) {
+            lblFormulaSummary.setText("  " + bobotText() + "  ");
+        }
+    }
+
+    private String bobotText() {
+        return "Tugas " + formatPercent(bobotTugas) + "%  •  UTS " + formatPercent(bobotUts) + "%  •  UAS " + formatPercent(bobotUas) + "%";
+    }
+
+    private String formatPercent(double value) {
+        return value == Math.rint(value)
+                ? String.valueOf((int) value)
+                : String.format(java.util.Locale.US, "%.2f", value);
+    }
+
+    private void loadMataKuliah() {
         new SwingWorker<JsonObject, Void>() {
             @Override protected JsonObject doInBackground() throws Exception {
                 return NilaiService.getMataKuliah("", "");
@@ -315,7 +391,6 @@ public class AkademikPanel extends JPanel {
                         showState("Gagal memuat mata kuliah", response.get("message").getAsString());
                         return;
                     }
-
                     cmbMataKuliah.removeAllItems();
                     JsonArray data = response.getAsJsonArray("data");
                     for (JsonElement item : data) {
@@ -346,6 +421,10 @@ public class AkademikPanel extends JPanel {
         MataKuliahItem selected = (MataKuliahItem) cmbMataKuliah.getSelectedItem();
         if (selected == null) {
             showState("Mata kuliah kosong", "Tambahkan data mata kuliah terlebih dahulu.");
+            return;
+        }
+        if (cmbTahunAjaran.getSelectedItem() == null) {
+            showState("Tahun ajaran kosong", "Aktifkan atau tambahkan tahun ajaran di Pengaturan Akademik.");
             return;
         }
 
@@ -405,8 +484,10 @@ public class AkademikPanel extends JPanel {
         String semester = getString(mataKuliah, "semester");
         lblCourseSummary.setText(kode + " - " + nama + " • Semester " + semester + " • " + cmbTahunAjaran.getSelectedItem());
         lblCountSummary.setText("  " + data.size() + " Mahasiswa  ");
-        lblFormulaSummary.setText("  Nilai akhir & grade otomatis  ");
-        lblInfo.setText("Edit nilai langsung di kolom Tugas, UTS, dan UAS. Nilai akhir dihitung otomatis sebelum disimpan.");
+        lblFormulaSummary.setText("  " + bobotText() + "  ");
+        lblInfo.setText(data.size() == 0
+                ? "Belum ada mahasiswa aktif yang mengambil mata kuliah ini di KRS."
+                : "Mahasiswa yang tampil hanya yang sudah mengambil KRS. Edit nilai Tugas, UTS, dan UAS lalu simpan.");
     }
 
     private void saveAll() {
@@ -742,7 +823,11 @@ public class AkademikPanel extends JPanel {
     }
 
     private double calculateFinal(double tugas, double uts, double uas) {
-        return Math.round(((tugas * 0.3) + (uts * 0.3) + (uas * 0.4)) * 100.0) / 100.0;
+        return Math.round((
+                (tugas * (bobotTugas / 100.0)) +
+                (uts * (bobotUts / 100.0)) +
+                (uas * (bobotUas / 100.0))
+        ) * 100.0) / 100.0;
     }
 
     private String calculateGrade(double value) {
@@ -770,7 +855,7 @@ public class AkademikPanel extends JPanel {
 
     private void showState(String title, String message) {
         skeleton.stop();
-        statePanel.showState("!", title, message, "Muat ulang", this::loadMataKuliah);
+        statePanel.showState("!", title, message, "Muat ulang", this::loadAcademicSettings);
         rootCard.show(rootPanel, "state");
     }
 
@@ -845,6 +930,10 @@ public class AkademikPanel extends JPanel {
 
     private static double getDouble(JsonObject object, String key) {
         return hasValue(object, key) ? object.get(key).getAsDouble() : 0;
+    }
+
+    private static double getDoubleOrDefault(JsonObject object, String key, double defaultValue) {
+        return hasValue(object, key) ? object.get(key).getAsDouble() : defaultValue;
     }
 
     private static class MataKuliahItem {
