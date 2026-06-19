@@ -37,11 +37,15 @@ router.get('/akademik/info-saya', isMahasiswa, akademikController.getInfoAkademi
 // --- Modul KRS & Jadwal Kuliah ---
 router.get('/matakuliah', akademikController.getMatakuliah);
 router.post('/matakuliah', isAdmin, akademikController.createMatakuliah);
+router.put('/matakuliah/:kode_mk', isAdmin, akademikController.updateMatakuliah);
+router.delete('/matakuliah/:kode_mk', isAdmin, akademikController.deleteMatakuliah);
 
 router.get('/krs', akademikController.getKrs);
 router.post('/krs', isAdminOrOwner, akademikController.createKrs);
 
 router.get('/jadwal', akademikController.getJadwal);
 router.post('/jadwal', isAdmin, akademikController.createJadwal);
+router.put('/jadwal/:id', isAdmin, akademikController.updateJadwal);
+router.delete('/jadwal/:id', isAdmin, akademikController.deleteJadwal);
 
 module.exports = router;

@@ -3,6 +3,7 @@ package com.siakad.views.panels;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.siakad.services.LaporanService;
+import com.siakad.utils.AppTheme;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -22,24 +23,23 @@ public class LaporanPanel extends JPanel {
     private JPanel centerPanel;
     private StatePanel statePanel;
 
-    // Warna tema
-    private static final Color BG           = new Color(13, 19, 38);
-    private static final Color CARD_BG      = new Color(18, 26, 48);
-    private static final Color TABLE_BG     = new Color(15, 22, 42);
-    private static final Color HEADER_BG    = new Color(10, 15, 30);
-    private static final Color BORDER_COLOR = new Color(25, 36, 65);
-    private static final Color ROW_ALT      = new Color(20, 29, 52);
-    private static final Color TEXT_PRIMARY = new Color(248, 250, 252);
-    private static final Color TEXT_MUTED   = new Color(148, 163, 184);
-    private static final Color TEXT_DIM     = new Color(71, 85, 105);
-    private static final Color BLUE         = new Color(59, 130, 246);
-    private static final Color GREEN        = new Color(34, 197, 94);
-    private static final Color YELLOW       = new Color(234, 179, 8);
-    private static final Color RED          = new Color(239, 68, 68);
-    private static final Color PURPLE       = new Color(168, 85, 247);
+    private static Color BG() { return AppTheme.bg(); }
+    private static Color CARD_BG() { return AppTheme.card(); }
+    private static Color TABLE_BG() { return AppTheme.table(); }
+    private static Color HEADER_BG() { return AppTheme.header(); }
+    private static Color BORDER_COLOR() { return AppTheme.border(); }
+    private static Color ROW_ALT() { return AppTheme.rowAlt(); }
+    private static Color TEXT_PRIMARY() { return AppTheme.text(); }
+    private static Color TEXT_MUTED() { return AppTheme.muted(); }
+    private static Color TEXT_DIM() { return AppTheme.dim(); }
+    private static Color BLUE() { return AppTheme.blue(); }
+    private static Color GREEN() { return AppTheme.green(); }
+    private static Color YELLOW() { return AppTheme.yellow(); }
+    private static Color RED() { return AppTheme.red(); }
+    private static Color PURPLE() { return AppTheme.purple(); }
 
     public LaporanPanel() {
-        setBackground(BG);
+        setBackground(BG());
         setLayout(new BorderLayout());
         initUI();
         loadData();
@@ -56,10 +56,10 @@ public class LaporanPanel extends JPanel {
         titleBlock.setLayout(new BoxLayout(titleBlock, BoxLayout.Y_AXIS));
         JLabel lblTitle = new JLabel("Laporan & Cetak");
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 26));
-        lblTitle.setForeground(TEXT_PRIMARY);
+        lblTitle.setForeground(TEXT_PRIMARY());
         JLabel lblSub = new JLabel("Generate dan unduh laporan akademik & keuangan");
         lblSub.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        lblSub.setForeground(TEXT_MUTED);
+        lblSub.setForeground(TEXT_MUTED());
         titleBlock.add(lblTitle);
         titleBlock.add(Box.createVerticalStrut(2));
         titleBlock.add(lblSub);
@@ -67,7 +67,7 @@ public class LaporanPanel extends JPanel {
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         actions.setOpaque(false);
-        JButton btnRefresh = buildBtn("🔄  Refresh", CARD_BG, 110);
+        JButton btnRefresh = buildBtn("🔄  Refresh", CARD_BG(), 110);
         btnRefresh.addActionListener(e -> loadData());
         actions.add(btnRefresh);
         header.add(actions, BorderLayout.EAST);
@@ -80,17 +80,17 @@ public class LaporanPanel extends JPanel {
         genCards.add(buildGenerateCard(
             "📊", "Laporan Pembayaran",
             "Generate laporan transaksi pembayaran UKT berdasarkan periode dan tahun ajaran.",
-            BLUE, e -> showGeneratePembayaranDialog()
+            BLUE(), e -> showGeneratePembayaranDialog()
         ));
         genCards.add(buildGenerateCard(
             "👨‍🎓", "Laporan Mahasiswa",
             "Generate laporan data seluruh mahasiswa terdaftar beserta status akademik.",
-            GREEN, e -> generateMahasiswa()
+            GREEN(), e -> generateMahasiswa()
         ));
         genCards.add(buildGenerateCard(
             "💰", "Laporan Keuangan",
             "Generate ringkasan keuangan dan rekapitulasi pendapatan per tahun ajaran.",
-            YELLOW, e -> showGenerateKeuanganDialog()
+            YELLOW(), e -> showGenerateKeuanganDialog()
         ));
 
         // ── Table ──
@@ -101,7 +101,7 @@ public class LaporanPanel extends JPanel {
         table = new JTable(tableModel) {
             @Override public Component prepareRenderer(TableCellRenderer renderer, int row, int col) {
                 Component c = super.prepareRenderer(renderer, row, col);
-                if (!isRowSelected(row)) c.setBackground(row % 2 == 0 ? TABLE_BG : ROW_ALT);
+                if (!isRowSelected(row)) c.setBackground(row % 2 == 0 ? TABLE_BG() : ROW_ALT());
                 return c;
             }
         };
@@ -115,16 +115,16 @@ public class LaporanPanel extends JPanel {
 
         JScrollPane sp = new JScrollPane(table);
         sp.setBorder(null);
-        sp.getViewport().setBackground(TABLE_BG);
+        sp.getViewport().setBackground(TABLE_BG());
 
         JPanel tableCard = new JPanel(new BorderLayout()) {
             @Override protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(CARD_BG);
+                g2.setColor(CARD_BG());
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
-                g2.setColor(BORDER_COLOR);
+                g2.setColor(BORDER_COLOR());
                 g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 12, 12);
                 g2.dispose();
             }
@@ -139,7 +139,7 @@ public class LaporanPanel extends JPanel {
         footer.setBorder(new EmptyBorder(10, 28, 14, 28));
         lblTotal = new JLabel("Total: 0 laporan");
         lblTotal.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        lblTotal.setForeground(TEXT_DIM);
+        lblTotal.setForeground(TEXT_DIM());
         footer.add(lblTotal);
 
         // ── Body ──
@@ -175,9 +175,9 @@ public class LaporanPanel extends JPanel {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(CARD_BG);
+                g2.setColor(CARD_BG());
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
-                g2.setColor(BORDER_COLOR);
+                g2.setColor(BORDER_COLOR());
                 g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 14, 14);
                 // Top accent
                 GradientPaint gp = new GradientPaint(0, 0, accent,
@@ -213,12 +213,12 @@ public class LaporanPanel extends JPanel {
 
         JLabel lblTitle = new JLabel(title);
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        lblTitle.setForeground(TEXT_PRIMARY);
+        lblTitle.setForeground(TEXT_PRIMARY());
         lblTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JLabel lblDesc = new JLabel("<html><body style='width:180px'>" + desc + "</body></html>");
         lblDesc.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        lblDesc.setForeground(TEXT_MUTED);
+        lblDesc.setForeground(TEXT_MUTED());
         lblDesc.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JButton btnGen = new JButton("Generate  →") {
@@ -317,7 +317,7 @@ public class LaporanPanel extends JPanel {
         JTextField fTA      = makeField("2024/2025");
 
         JPanel panel = new JPanel(new GridLayout(3, 2, 8, 10));
-        panel.setBackground(CARD_BG);
+        panel.setBackground(CARD_BG());
         panel.setBorder(new EmptyBorder(8, 4, 8, 4));
         panel.add(makeLabel("Periode Mulai")); panel.add(fMulai);
         panel.add(makeLabel("Periode Selesai")); panel.add(fSelesai);
@@ -398,8 +398,8 @@ public class LaporanPanel extends JPanel {
                         JTextArea area = new JTextArea(info);
                         area.setEditable(false);
                         area.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-                        area.setBackground(CARD_BG);
-                        area.setForeground(TEXT_PRIMARY);
+                        area.setBackground(CARD_BG());
+                        area.setForeground(TEXT_PRIMARY());
                         area.setBorder(new EmptyBorder(8, 8, 8, 8));
                         JOptionPane.showMessageDialog(LaporanPanel.this, new JScrollPane(area),
                                 "Detail Laporan #" + id, JOptionPane.PLAIN_MESSAGE);
@@ -432,7 +432,7 @@ public class LaporanPanel extends JPanel {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(getModel().isRollover() ? bg.brighter() : bg);
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
-                g2.setColor(TEXT_MUTED);
+                g2.setColor(TEXT_MUTED());
                 g2.setFont(new Font("Segoe UI", Font.PLAIN, 12));
                 FontMetrics fm = g2.getFontMetrics();
                 g2.drawString(getText(), (getWidth() - fm.stringWidth(getText())) / 2,
@@ -450,11 +450,11 @@ public class LaporanPanel extends JPanel {
 
     private JTextField makeField(String hint) {
         JTextField f = new JTextField(14);
-        f.setBackground(new Color(13, 19, 38));
-        f.setForeground(TEXT_PRIMARY);
-        f.setCaretColor(TEXT_PRIMARY);
+        f.setBackground(AppTheme.input());
+        f.setForeground(TEXT_PRIMARY());
+        f.setCaretColor(TEXT_PRIMARY());
         f.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(BORDER_COLOR, 1), new EmptyBorder(6, 10, 6, 10)));
+                BorderFactory.createLineBorder(BORDER_COLOR(), 1), new EmptyBorder(6, 10, 6, 10)));
         f.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         f.setToolTipText(hint);
         return f;
@@ -463,13 +463,13 @@ public class LaporanPanel extends JPanel {
     private JLabel makeLabel(String text) {
         JLabel l = new JLabel(text);
         l.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        l.setForeground(TEXT_MUTED);
+        l.setForeground(TEXT_MUTED());
         return l;
     }
 
     private void styleTable(JTable t) {
-        t.setBackground(TABLE_BG);
-        t.setForeground(TEXT_PRIMARY);
+        t.setBackground(TABLE_BG());
+        t.setForeground(TEXT_PRIMARY());
         t.setSelectionBackground(new Color(59, 130, 246, 60));
         t.setSelectionForeground(Color.WHITE);
         t.setGridColor(new Color(20, 30, 55));
@@ -479,10 +479,10 @@ public class LaporanPanel extends JPanel {
         t.setIntercellSpacing(new Dimension(0, 1));
         t.setFillsViewportHeight(true);
         JTableHeader h = t.getTableHeader();
-        h.setBackground(HEADER_BG);
-        h.setForeground(TEXT_MUTED);
+        h.setBackground(HEADER_BG());
+        h.setForeground(TEXT_MUTED());
         h.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        h.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, BORDER_COLOR));
+        h.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, BORDER_COLOR()));
         h.setReorderingAllowed(false);
         h.setPreferredSize(new Dimension(0, 40));
     }
@@ -492,10 +492,10 @@ public class LaporanPanel extends JPanel {
         @Override public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean foc, int r, int c) {
             String status = String.valueOf(v);
             Color badgeColor = switch (status.toLowerCase()) {
-                case "selesai"    -> GREEN;
-                case "diproses"   -> YELLOW;
-                case "gagal"      -> RED;
-                default           -> BLUE;
+                case "selesai"    -> GREEN();
+                case "diproses"   -> YELLOW();
+                case "gagal"      -> RED();
+                default           -> BLUE();
             };
             JLabel lbl = new JLabel(status.toUpperCase(), SwingConstants.CENTER) {
                 @Override protected void paintComponent(Graphics g) {
@@ -510,7 +510,7 @@ public class LaporanPanel extends JPanel {
             lbl.setFont(new Font("Segoe UI", Font.BOLD, 10));
             lbl.setForeground(badgeColor);
             lbl.setOpaque(false);
-            lbl.setBackground(sel ? new Color(59, 130, 246, 60) : (r % 2 == 0 ? TABLE_BG : ROW_ALT));
+            lbl.setBackground(sel ? new Color(59, 130, 246, 60) : (r % 2 == 0 ? TABLE_BG() : ROW_ALT()));
             return lbl;
         }
     }
@@ -523,9 +523,9 @@ public class LaporanPanel extends JPanel {
         }
         @Override public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean foc, int r, int c) {
             removeAll();
-            add(makeSmallBtn("👁 Detail", BLUE));
-            add(makeSmallBtn("🗑", RED));
-            setBackground(sel ? new Color(59, 130, 246, 40) : (r % 2 == 0 ? TABLE_BG : ROW_ALT));
+            add(makeSmallBtn("👁 Detail", BLUE()));
+            add(makeSmallBtn("🗑", RED()));
+            setBackground(sel ? new Color(59, 130, 246, 40) : (r % 2 == 0 ? TABLE_BG() : ROW_ALT()));
             return this;
         }
         private JButton makeSmallBtn(String text, Color bg) {
@@ -543,13 +543,13 @@ public class LaporanPanel extends JPanel {
     // ── Action Editor ─────────────────────────────────────────────────────────
     class ActionEditor extends DefaultCellEditor {
         private final JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 6));
-        private final JButton bView = makeSmallBtn("👁 Detail", BLUE);
-        private final JButton bDel  = makeSmallBtn("🗑", RED);
+        private final JButton bView = makeSmallBtn("👁 Detail", BLUE());
+        private final JButton bDel  = makeSmallBtn("🗑", RED());
         private int rowId;
 
         ActionEditor() {
             super(new JCheckBox());
-            panel.setBackground(TABLE_BG);
+            panel.setBackground(TABLE_BG());
             panel.add(bView);
             panel.add(bDel);
             bView.addActionListener(e -> { fireEditingStopped(); viewDetail(rowId); });

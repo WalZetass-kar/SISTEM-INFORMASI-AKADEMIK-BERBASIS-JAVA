@@ -22,17 +22,21 @@ public class SplashTransition extends JDialog {
     private int   tick        = 0;
     private String loadingMessage = "Menyiapkan sesi";
     private final String username;
+    private final boolean darkMode;
 
     private final List<Particle> particles = new ArrayList<>();
     private static final Random RNG = new Random();
 
-    private static final Color BG     = new Color(10, 15, 30);
-    private static final Color BLUE   = new Color(59, 130, 246);
-    private static final Color INDIGO = new Color(99, 102, 241);
-    private static final Color CYAN   = new Color(34, 211, 238);
-    private static final Color GREEN  = new Color(34, 197, 94);
-    private static final Color TEXT   = new Color(248, 250, 252);
-    private static final Color MUTED  = new Color(148, 163, 184);
+    private static final Color DARK_BG     = new Color(10, 15, 30);
+    private static final Color LIGHT_BG    = new Color(241, 245, 249);
+    private static final Color BLUE        = new Color(59, 130, 246);
+    private static final Color INDIGO      = new Color(99, 102, 241);
+    private static final Color CYAN        = new Color(34, 211, 238);
+    private static final Color GREEN       = new Color(34, 197, 94);
+    private static final Color DARK_TEXT   = new Color(248, 250, 252);
+    private static final Color LIGHT_TEXT  = new Color(15, 23, 42);
+    private static final Color DARK_MUTED  = new Color(148, 163, 184);
+    private static final Color LIGHT_MUTED = new Color(71, 85, 105);
 
     private static float clamp(float value) {
         return Math.max(0f, Math.min(1f, value));
@@ -69,13 +73,18 @@ public class SplashTransition extends JDialog {
     }
 
     public SplashTransition(Frame owner) {
+        this(owner, true);
+    }
+
+    public SplashTransition(Frame owner, boolean darkMode) {
         super(owner, true);
         this.username = JwtHelper.getInstance().getUsername();
+        this.darkMode = darkMode;
         setUndecorated(true);
         Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
         setSize(screen.width, screen.height);
         setLocation(0, 0);
-        setBackground(BG);
+        setBackground(darkMode ? DARK_BG : LIGHT_BG);
     }
 
     @Override public void paint(Graphics g) {
@@ -86,7 +95,10 @@ public class SplashTransition extends JDialog {
         int w = getWidth(), h = getHeight();
 
         // Background
-        g2.setColor(BG);
+        Color bg = darkMode ? DARK_BG : LIGHT_BG;
+        Color text = darkMode ? DARK_TEXT : LIGHT_TEXT;
+        Color muted = darkMode ? DARK_MUTED : LIGHT_MUTED;
+        g2.setColor(bg);
         g2.fillRect(0, 0, w, h);
         g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, clamp(alpha)));
 
@@ -94,15 +106,15 @@ public class SplashTransition extends JDialog {
         int slowDrift = (int) (Math.cos(tick * 0.022) * 34);
 
         // Soft moving light fields
-        g2.setColor(new Color(59, 130, 246, 24));
+        g2.setColor(new Color(59, 130, 246, darkMode ? 24 : 32));
         g2.fillOval(-90 + drift, -80 + slowDrift, 500, 500);
-        g2.setColor(new Color(99, 102, 241, 18));
+        g2.setColor(new Color(99, 102, 241, darkMode ? 18 : 28));
         g2.fillOval(w - 420 - slowDrift, h - 420 + drift, 640, 640);
-        g2.setColor(new Color(34, 197, 94, 12));
+        g2.setColor(new Color(34, 197, 94, darkMode ? 12 : 20));
         g2.fillOval(w / 2 - 240 + slowDrift, h / 2 - 210, 520, 520);
 
         // Grid dots
-        g2.setColor(new Color(255, 255, 255, 7));
+        g2.setColor(darkMode ? new Color(255, 255, 255, 7) : new Color(15, 23, 42, 10));
         for (int x = 16; x < w; x += 28)
             for (int y = 16; y < h; y += 28)
                 g2.fillOval(x, y, 2, 2);
@@ -140,21 +152,29 @@ public class SplashTransition extends JDialog {
         g2.setColor(new Color(255, 255, 255, 30));
         g2.fillOval(cx - 50, cy - 62, 80, 48);
 
-        // Icon
+        // Icon - Custom Drawn Toga Hat
         g2.setColor(Color.WHITE);
-        g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 56));
-        FontMetrics fm = g2.getFontMetrics();
-        g2.drawString("🎓", cx - fm.stringWidth("🎓") / 2, cy + 20);
+        g2.setStroke(new BasicStroke(3f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        int sw = 60, sh = 40;
+        int[] hx = {cx - sw/2, cx, cx + sw/2, cx};
+        int[] hy = {cy - 5, cy - sh/2 - 5, cy - 5, cy + sh/2 - 5};
+        g2.fillPolygon(hx, hy, 4);
+        g2.setColor(new Color(255, 255, 255, 180));
+        g2.drawPolygon(hx, hy, 4);
+        g2.setColor(Color.WHITE);
+        g2.fillRoundRect(cx - 15, cy + 10, 30, 15, 6, 6);
+        g2.drawLine(cx + sw/2, cy - 5, cx + sw/2 + 10, cy + 15);
+        g2.fillOval(cx + sw/2 + 8, cy + 13, 6, 8);
 
         // App name
-        g2.setColor(TEXT);
+        g2.setColor(text);
         g2.setFont(new Font("Segoe UI", Font.BOLD, 42));
-        fm = g2.getFontMetrics();
+        FontMetrics fm = g2.getFontMetrics();
         g2.drawString("SIAKAD", cx - fm.stringWidth("SIAKAD") / 2, cy + 110);
 
         // Welcome
         String welcome = "Selamat datang, " + username + "!";
-        g2.setColor(MUTED);
+        g2.setColor(muted);
         g2.setFont(new Font("Segoe UI", Font.PLAIN, 18));
         fm = g2.getFontMetrics();
         g2.drawString(welcome, cx - fm.stringWidth(welcome) / 2, cy + 142);
@@ -162,7 +182,7 @@ public class SplashTransition extends JDialog {
         // Bar track
         int barW = 480, barH = 6;
         int bx = cx - barW / 2, by = cy + 168;
-        g2.setColor(new Color(30, 41, 70));
+        g2.setColor(darkMode ? new Color(30, 41, 70) : new Color(203, 213, 225));
         g2.fillRoundRect(bx, by, barW, barH, barH, barH);
 
         // Bar fill
@@ -193,7 +213,7 @@ public class SplashTransition extends JDialog {
 
         // Loading dots
         String[] dots = {loadingMessage, loadingMessage + ".", loadingMessage + "..", loadingMessage + "..."};
-        g2.setColor(new Color(71, 85, 105));
+        g2.setColor(muted);
         g2.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         String loadTxt = dots[tick / 8 % 4];
         fm = g2.getFontMetrics();
