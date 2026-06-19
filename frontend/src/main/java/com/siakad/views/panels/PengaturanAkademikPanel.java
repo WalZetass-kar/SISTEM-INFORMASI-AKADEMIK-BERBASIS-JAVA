@@ -72,7 +72,7 @@ public class PengaturanAkademikPanel extends JPanel {
         refresh.addActionListener(e -> loadSettings());
         JPanel headerActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 8));
         headerActions.setOpaque(false);
-        headerActions.add(AcademicUi.pill("Admin Akademik", BLUE));
+        headerActions.add(AcademicUi.pill("Admin Akademik", BLUE()));
         headerActions.add(refresh);
         header.add(titleBlock, BorderLayout.WEST);
         header.add(headerActions, BorderLayout.EAST);
@@ -183,7 +183,7 @@ public class PengaturanAkademikPanel extends JPanel {
     private JPanel section(String title, String addText, java.awt.event.ActionListener add,
                            String editText, java.awt.event.ActionListener edit,
                            String delText, java.awt.event.ActionListener del, JTable table) {
-        JPanel panel = AcademicUi.cardPanel(BLUE);
+        JPanel panel = AcademicUi.cardPanel(BLUE());
         panel.setLayout(new BorderLayout());
         JPanel head = new JPanel(new BorderLayout());
         head.setOpaque(false);
