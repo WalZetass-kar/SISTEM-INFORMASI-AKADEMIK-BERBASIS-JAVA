@@ -148,6 +148,14 @@ public class AkademikService {
         return ApiService.post(Config.MATAKULIAH_URL, data);
     }
 
+    public static JsonObject updateMatakuliah(String kodeMk, JsonObject data) throws Exception {
+        return ApiService.put(Config.MATAKULIAH_URL + "/" + ApiService.encodeQueryParam(kodeMk), data);
+    }
+
+    public static JsonObject deleteMatakuliah(String kodeMk) throws Exception {
+        return ApiService.delete(Config.MATAKULIAH_URL + "/" + ApiService.encodeQueryParam(kodeMk));
+    }
+
     public static JsonObject getKrs(String nim, String tahunAjaran, String kodeMk) throws Exception {
         StringBuilder url = new StringBuilder(Config.KRS_URL);
         boolean hasQuery = false;
@@ -202,5 +210,13 @@ public class AkademikService {
 
     public static JsonObject createJadwal(JsonObject data) throws Exception {
         return ApiService.post(Config.JADWAL_URL, data);
+    }
+
+    public static JsonObject updateJadwal(String id, JsonObject data) throws Exception {
+        return ApiService.put(Config.JADWAL_URL + "/" + ApiService.encodeQueryParam(id), data);
+    }
+
+    public static JsonObject deleteJadwal(String id) throws Exception {
+        return ApiService.delete(Config.JADWAL_URL + "/" + ApiService.encodeQueryParam(id));
     }
 }
