@@ -82,8 +82,14 @@ class Kehadiran {
 
       const placeholders = nimList.map(() => '?').join(', ');
       const [krsRows] = await connection.execute(
-        `SELECT nim FROM krs
-         WHERE kode_mk = ? AND tahun_ajaran = ? AND status <> 'batal' AND nim IN (${placeholders})`,
+        `SELECT DISTINCT k.nim
+         FROM krs k
+         INNER JOIN mahasiswa m ON m.nim = k.nim
+         WHERE k.kode_mk = ?
+           AND k.tahun_ajaran = ?
+           AND k.status <> 'batal'
+           AND m.status = 'aktif'
+           AND k.nim IN (${placeholders})`,
         [kode_mk, tahun_ajaran, ...nimList]
       );
       const allowedNim = new Set(krsRows.map(row => row.nim));

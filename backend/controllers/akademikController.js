@@ -383,7 +383,8 @@ const akademikController = {
   createKrs: async (req, res) => {
     try {
       const nim = normalizeText(req.body.nim);
-      const { kode_mk, tahun_ajaran } = req.body;
+      const { kode_mk } = req.body;
+      let tahun_ajaran = normalizeText(req.body.tahun_ajaran);
       if (!nim || !kode_mk || !tahun_ajaran) return res.status(400).json({ success: false, message: 'NIM, kode MK, dan tahun ajaran wajib diisi.' });
 
       if (req.user.role !== 'admin') {
@@ -399,6 +400,18 @@ const akademikController = {
       
       const matakuliah = await Matakuliah.findByKode(kode_mk);
       if (!matakuliah) return res.status(404).json({ success: false, message: 'Mata kuliah tidak ditemukan.' });
+
+      const tahunAjaranList = await AkademikSettings.getTahunAjaran();
+      const isKnownTahunAjaran = tahunAjaranList.some(item =>
+        item.tahun_ajaran === tahun_ajaran && item.status !== 'draft'
+      );
+      if (!isKnownTahunAjaran) {
+        const activeTahunAjaran = tahunAjaranList.find(item => item.status === 'aktif')
+          || tahunAjaranList.find(item => item.status !== 'draft');
+        if (activeTahunAjaran) {
+          tahun_ajaran = activeTahunAjaran.tahun_ajaran;
+        }
+      }
 
       const existing = await Krs.findByUnique(nim, kode_mk, tahun_ajaran);
       if (existing) return res.status(409).json({ success: false, message: 'Data KRS untuk NIM, mata kuliah, dan tahun ajaran ini sudah ada.' });

@@ -22,6 +22,9 @@ public class MainFrame extends JFrame {
     private JButton btnThemeToggle;
     private JPanel topbarClock;
     private Timer clockTimer;
+    private InputKehadiranPanel inputKehadiranPanel;
+    private LihatNilaiMahasiswaPanel lihatNilaiMahasiswaPanel;
+    private RekapAkademikSayaPanel rekapAkademikSayaPanel;
 
     public static final String PANEL_DASHBOARD  = "dashboard";
     public static final String PANEL_MAHASISWA  = "mahasiswa";
@@ -36,6 +39,7 @@ public class MainFrame extends JFrame {
     public static final String PANEL_PENGATURAN_AKADEMIK = "akademik.pengaturan";
     public static final String PANEL_NILAI_SAYA = "akademik.nilaiSaya";
     public static final String PANEL_KEHADIRAN_SAYA = "akademik.kehadiranSaya";
+    public static final String PANEL_REKAP_AKADEMIK_SAYA = "akademik.rekapAkademikSaya";
     public static final String PANEL_INFO_AKADEMIK = "akademik.infoAkademik";
     public static final String PANEL_LAPORAN    = "laporan";
 
@@ -81,12 +85,16 @@ public class MainFrame extends JFrame {
         contentPanel.add(new KrsJadwalPanel(KrsJadwalPanel.PageMode.MATA_KULIAH), PANEL_MATA_KULIAH);
         contentPanel.add(new KrsJadwalPanel(KrsJadwalPanel.PageMode.JADWAL_KULIAH), PANEL_JADWAL_KULIAH);
         contentPanel.add(new AkademikPanel(), PANEL_INPUT_NILAI);
-        contentPanel.add(new InputKehadiranPanel(), PANEL_INPUT_KEHADIRAN);
-        contentPanel.add(new LihatNilaiMahasiswaPanel(), PANEL_LIHAT_NILAI);
+        inputKehadiranPanel = new InputKehadiranPanel();
+        contentPanel.add(inputKehadiranPanel, PANEL_INPUT_KEHADIRAN);
+        lihatNilaiMahasiswaPanel = new LihatNilaiMahasiswaPanel();
+        contentPanel.add(lihatNilaiMahasiswaPanel, PANEL_LIHAT_NILAI);
         contentPanel.add(new RekapAbsensiPanel(), PANEL_REKAP_ABSENSI);
         contentPanel.add(new PengaturanAkademikPanel(), PANEL_PENGATURAN_AKADEMIK);
         contentPanel.add(new NilaiSayaPanel(), PANEL_NILAI_SAYA);
         contentPanel.add(new KehadiranSayaPanel(), PANEL_KEHADIRAN_SAYA);
+        rekapAkademikSayaPanel = new RekapAkademikSayaPanel();
+        contentPanel.add(rekapAkademikSayaPanel, PANEL_REKAP_AKADEMIK_SAYA);
         contentPanel.add(new InfoAkademikPanel(), PANEL_INFO_AKADEMIK);
         contentPanel.add(new LaporanPanel(), PANEL_LAPORAN);
 
@@ -462,6 +470,8 @@ public class MainFrame extends JFrame {
             submenu.add(Box.createVerticalStrut(2));
             submenu.add(buildSubNavButton(NavIcon.ABSENSI, "Kehadiran Saya", PANEL_KEHADIRAN_SAYA));
             submenu.add(Box.createVerticalStrut(2));
+            submenu.add(buildSubNavButton(NavIcon.DASHBOARD, "Rekap Akademik Saya", PANEL_REKAP_AKADEMIK_SAYA));
+            submenu.add(Box.createVerticalStrut(2));
             submenu.add(buildSubNavButton(NavIcon.INFO, "Info Akademik", PANEL_INFO_AKADEMIK));
         }
         submenu.setVisible(false);
@@ -742,6 +752,15 @@ public class MainFrame extends JFrame {
 
     public void showPanel(String panelName) {
         cardLayout.show(contentPanel, panelName);
+        if (PANEL_INPUT_KEHADIRAN.equals(panelName) && inputKehadiranPanel != null) {
+            inputKehadiranPanel.onPanelShown();
+        }
+        if (PANEL_LIHAT_NILAI.equals(panelName) && lihatNilaiMahasiswaPanel != null) {
+            lihatNilaiMahasiswaPanel.onPanelShown();
+        }
+        if (PANEL_REKAP_AKADEMIK_SAYA.equals(panelName) && rekapAkademikSayaPanel != null) {
+            rekapAkademikSayaPanel.onPanelShown();
+        }
     }
 
     private void doLogout() {
