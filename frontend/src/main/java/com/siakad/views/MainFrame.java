@@ -8,6 +8,7 @@ import com.siakad.views.panels.*;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.plaf.basic.BasicScrollBarUI;
 import java.awt.*;
 import java.awt.event.*;
 import java.time.LocalTime;
@@ -28,7 +29,6 @@ public class MainFrame extends JFrame {
     public static final String PANEL_INPUT_KRS = "input_krs";
     public static final String PANEL_MATA_KULIAH = "mata_kuliah";
     public static final String PANEL_JADWAL_KULIAH = "jadwal_kuliah";
-    public static final String PANEL_CETAK_KRS = "cetak_krs";
     public static final String PANEL_INPUT_NILAI = "akademik.inputNilai";
     public static final String PANEL_INPUT_KEHADIRAN = "akademik.inputKehadiran";
     public static final String PANEL_LIHAT_NILAI = "akademik.lihatNilai";
@@ -80,7 +80,6 @@ public class MainFrame extends JFrame {
         contentPanel.add(new KrsJadwalPanel(KrsJadwalPanel.PageMode.INPUT_KRS), PANEL_INPUT_KRS);
         contentPanel.add(new KrsJadwalPanel(KrsJadwalPanel.PageMode.MATA_KULIAH), PANEL_MATA_KULIAH);
         contentPanel.add(new KrsJadwalPanel(KrsJadwalPanel.PageMode.JADWAL_KULIAH), PANEL_JADWAL_KULIAH);
-        contentPanel.add(new KrsJadwalPanel(KrsJadwalPanel.PageMode.CETAK_KRS), PANEL_CETAK_KRS);
         contentPanel.add(new AkademikPanel(), PANEL_INPUT_NILAI);
         contentPanel.add(new AkademikComingSoonPanel("Input Kehadiran", "Fitur pencatatan kehadiran per mata kuliah dan pertemuan akan segera hadir."), PANEL_INPUT_KEHADIRAN);
         contentPanel.add(new AkademikComingSoonPanel("Lihat Nilai Mahasiswa", "Fitur untuk melihat nilai berdasarkan mahasiswa, semester, dan mata kuliah akan segera hadir."), PANEL_LIHAT_NILAI);
@@ -330,7 +329,6 @@ public class MainFrame extends JFrame {
         JButton btnInputKrs  = buildNavButton(NavIcon.KRS, "Input KRS", PANEL_INPUT_KRS);
         JButton btnMataKuliah  = buildNavButton(NavIcon.KRS, "Mata Kuliah", PANEL_MATA_KULIAH);
         JButton btnJadwalKuliah  = buildNavButton(NavIcon.KRS, "Jadwal Kuliah", PANEL_JADWAL_KULIAH);
-        JButton btnCetakKrs  = buildNavButton(NavIcon.KRS, "Cetak KRS", PANEL_CETAK_KRS);
         JPanel akademikSubmenu = buildAkademikSubmenu();
         JButton btnAkademik   = buildNavButton(NavIcon.AKADEMIK, "Akademik", null);
         setNavChevron(btnAkademik, false);
@@ -355,8 +353,6 @@ public class MainFrame extends JFrame {
         navPanel.add(Box.createVerticalStrut(3));
         navPanel.add(btnJadwalKuliah);
         navPanel.add(Box.createVerticalStrut(3));
-        navPanel.add(btnCetakKrs);
-        navPanel.add(Box.createVerticalStrut(3));
         navPanel.add(btnAkademik);
         navPanel.add(akademikSubmenu);
         navPanel.add(Box.createVerticalStrut(3));
@@ -364,20 +360,58 @@ public class MainFrame extends JFrame {
             navPanel.add(btnLaporan);
             navPanel.add(Box.createVerticalStrut(3));
         }
-
-        navPanel.add(Box.createVerticalGlue());
-
         btnThemeToggle = buildThemeButton();
-        navPanel.add(btnThemeToggle);
-        navPanel.add(Box.createVerticalStrut(8));
-
         JButton btnLogoutNav = buildLogoutNavButton();
-        navPanel.add(btnLogoutNav);
+
+        JScrollPane navScroll = new JScrollPane(navPanel);
+        navScroll.setBorder(null);
+        navScroll.setOpaque(false);
+        navScroll.getViewport().setOpaque(false);
+        navScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        navScroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
+        navScroll.getVerticalScrollBar().setUnitIncrement(14);
+        styleSidebarScrollBar(navScroll.getVerticalScrollBar());
+
+        JPanel bottomPanel = new JPanel();
+        bottomPanel.setOpaque(false);
+        bottomPanel.setLayout(new BoxLayout(bottomPanel, BoxLayout.Y_AXIS));
+        bottomPanel.setBorder(new EmptyBorder(8, 10, 12, 10));
+        bottomPanel.add(btnThemeToggle);
+        bottomPanel.add(Box.createVerticalStrut(8));
+        bottomPanel.add(btnLogoutNav);
         setActiveButton(btnDashboard);
 
         sidebar.add(logoPanel, BorderLayout.NORTH);
-        sidebar.add(navPanel, BorderLayout.CENTER);
+        sidebar.add(navScroll, BorderLayout.CENTER);
+        sidebar.add(bottomPanel, BorderLayout.SOUTH);
         return sidebar;
+    }
+
+    private void styleSidebarScrollBar(JScrollBar scrollBar) {
+        scrollBar.setPreferredSize(new Dimension(8, 0));
+        scrollBar.setOpaque(false);
+        scrollBar.setUI(new BasicScrollBarUI() {
+            @Override protected void configureScrollBarColors() {
+                thumbColor = new Color(100, 116, 139, 130);
+                trackColor = SIDEBAR_BG();
+            }
+
+            @Override protected JButton createDecreaseButton(int orientation) {
+                return createZeroButton();
+            }
+
+            @Override protected JButton createIncreaseButton(int orientation) {
+                return createZeroButton();
+            }
+
+            private JButton createZeroButton() {
+                JButton button = new JButton();
+                button.setPreferredSize(new Dimension(0, 0));
+                button.setMinimumSize(new Dimension(0, 0));
+                button.setMaximumSize(new Dimension(0, 0));
+                return button;
+            }
+        });
     }
 
     private JLabel makeMenuSection(String text) {
