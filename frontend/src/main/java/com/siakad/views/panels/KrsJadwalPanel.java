@@ -15,9 +15,12 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import javax.swing.table.TableCellRenderer;
 import java.awt.*;
+import java.awt.image.BufferedImage;
 import java.awt.print.PageFormat;
 import java.awt.print.Paper;
 import java.awt.print.PrinterJob;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.time.LocalDate;
 import java.time.Year;
 import java.time.format.DateTimeFormatter;
@@ -584,9 +587,12 @@ public class KrsJadwalPanel extends JPanel {
         actions.setOpaque(false);
         JButton btnLoad = buildBtn("Muat KRS", BLUE(), 120);
         btnLoad.addActionListener(e -> loadPrintKrs());
+        JButton btnPdf = buildBtn("Export PDF", BLUE(), 120);
+        btnPdf.addActionListener(e -> exportKrsPdf());
         JButton btnPrint = buildBtn("Cetak", GREEN(), 110);
         btnPrint.addActionListener(e -> printKrs());
         actions.add(btnLoad);
+        actions.add(btnPdf);
         actions.add(btnPrint);
 
         topCard.add(filters, BorderLayout.CENTER);
@@ -1257,10 +1263,13 @@ public class KrsJadwalPanel extends JPanel {
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 8));
         actions.setOpaque(false);
+        JButton btnPdf = buildBtn("Export PDF", BLUE(), 120);
         JButton btnPrint = buildBtn("Print", GREEN(), 110);
         JButton btnClose = buildBtn("Tutup", BLUE(), 100);
+        btnPdf.addActionListener(e -> exportKrsPdfDocument(nim, tahunAjaran));
         btnPrint.addActionListener(e -> printKrsDocument(nim, tahunAjaran));
         btnClose.addActionListener(e -> dialog.dispose());
+        actions.add(btnPdf);
         actions.add(btnPrint);
         actions.add(btnClose);
 
@@ -1276,45 +1285,109 @@ public class KrsJadwalPanel extends JPanel {
         dialog.setVisible(true);
     }
 
-    private void printKrs() {
-        if (currentKrsCache.size() == 0) {
-            JOptionPane.showMessageDialog(this, "Tidak ada data KRS yang bisa dicetak.", "Informasi", JOptionPane.INFORMATION_MESSAGE);
-            return;
-        }
-
+    private void exportKrsPdf() {
         String nim = getActivePrintNim();
         String tahunAjaran = getActivePrintTahunAjaran();
 
-        Set<String> uniqueNim = new LinkedHashSet<>();
-        Set<String> uniqueTa = new LinkedHashSet<>();
-        for (JsonElement element : currentKrsCache) {
-            JsonObject item = element.getAsJsonObject();
-            uniqueNim.add(safe(item, "nim"));
-            uniqueTa.add(safe(item, "tahun_ajaran"));
+        if (nim == null || nim.isBlank() || tahunAjaran == null || tahunAjaran.isBlank()) {
+            JOptionPane.showMessageDialog(this,
+                    "Isi NIM dan Tahun Ajaran terlebih dahulu sebelum export PDF KRS.",
+                    "Validasi", JOptionPane.WARNING_MESSAGE);
+            return;
         }
 
-        if ((nim == null || nim.isBlank()) && uniqueNim.size() == 1) {
-            nim = uniqueNim.iterator().next();
-        }
-        if ((tahunAjaran == null || tahunAjaran.isBlank()) && uniqueTa.size() == 1) {
-            tahunAjaran = uniqueTa.iterator().next();
-        }
+        loadKrsForDirectPdfExport(nim, tahunAjaran);
+    }
+
+    private void loadKrsForDirectPdfExport(String nim, String tahunAjaran) {
+        startBusy();
+        new SwingWorker<JsonObject, Void>() {
+            @Override protected JsonObject doInBackground() throws Exception {
+                return AkademikService.getKrs(nim, tahunAjaran, null);
+            }
+
+            @Override protected void done() {
+                try {
+                    JsonObject response = get();
+                    if (response.get("success").getAsBoolean()) {
+                        currentKrsCache = response.getAsJsonArray("data");
+                        currentKrsSummary = response.has("summary") && response.get("summary").isJsonObject()
+                                ? response.getAsJsonObject("summary")
+                                : null;
+                        if (krsTableModel != null) {
+                            fillKrsTable(currentKrsCache);
+                        }
+                        syncKrsPrintFilters(nim, tahunAjaran);
+                        updatePrintPreview();
+                        if (currentKrsCache.size() == 0) {
+                            JOptionPane.showMessageDialog(KrsJadwalPanel.this,
+                                    "Data KRS tidak ditemukan untuk NIM dan Tahun Ajaran tersebut.",
+                                    "Informasi", JOptionPane.INFORMATION_MESSAGE);
+                        } else {
+                            exportKrsPdfDocument(nim, tahunAjaran);
+                        }
+                    } else {
+                        showErrorMessage(response);
+                    }
+                } catch (Exception e) {
+                    showErrorMessage("Gagal memuat data Export PDF KRS: " + e.getMessage());
+                } finally {
+                    stopBusy();
+                }
+            }
+        }.execute();
+    }
+    private void printKrs() {
+        String nim = getActivePrintNim();
+        String tahunAjaran = getActivePrintTahunAjaran();
 
         if (nim == null || nim.isBlank() || tahunAjaran == null || tahunAjaran.isBlank()) {
             JOptionPane.showMessageDialog(this,
-                    "Isi filter NIM dan Tahun Ajaran terlebih dahulu sebelum mencetak KRS.",
+                    "Isi NIM dan Tahun Ajaran terlebih dahulu sebelum mencetak KRS.",
                     "Validasi", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        if (uniqueNim.size() > 1 || uniqueTa.size() > 1) {
-            JOptionPane.showMessageDialog(this,
-                    "Filter KRS harus mengarah ke satu mahasiswa dan satu tahun ajaran sebelum dicetak.",
-                    "Validasi", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
+        loadKrsForDirectPrint(nim, tahunAjaran);
+    }
 
-        printKrsDocument(nim, tahunAjaran);
+    private void loadKrsForDirectPrint(String nim, String tahunAjaran) {
+        startBusy();
+        new SwingWorker<JsonObject, Void>() {
+            @Override protected JsonObject doInBackground() throws Exception {
+                return AkademikService.getKrs(nim, tahunAjaran, null);
+            }
+
+            @Override protected void done() {
+                try {
+                    JsonObject response = get();
+                    if (response.get("success").getAsBoolean()) {
+                        currentKrsCache = response.getAsJsonArray("data");
+                        currentKrsSummary = response.has("summary") && response.get("summary").isJsonObject()
+                                ? response.getAsJsonObject("summary")
+                                : null;
+                        if (krsTableModel != null) {
+                            fillKrsTable(currentKrsCache);
+                        }
+                        syncKrsPrintFilters(nim, tahunAjaran);
+                        updatePrintPreview();
+                        if (currentKrsCache.size() == 0) {
+                            JOptionPane.showMessageDialog(KrsJadwalPanel.this,
+                                    "Data KRS tidak ditemukan untuk NIM dan Tahun Ajaran tersebut.",
+                                    "Informasi", JOptionPane.INFORMATION_MESSAGE);
+                        } else {
+                            printKrsDocument(nim, tahunAjaran);
+                        }
+                    } else {
+                        showErrorMessage(response);
+                    }
+                } catch (Exception e) {
+                    showErrorMessage("Gagal memuat data Cetak KRS: " + e.getMessage());
+                } finally {
+                    stopBusy();
+                }
+            }
+        }.execute();
     }
 
     private void printKrsDocument(String nim, String tahunAjaran) {
@@ -1348,11 +1421,120 @@ public class KrsJadwalPanel extends JPanel {
                 JOptionPane.showMessageDialog(this, "KRS berhasil dikirim ke printer.", "Sukses", JOptionPane.INFORMATION_MESSAGE);
             }
         } catch (Exception e) {
+            offerPdfFallback(nim, tahunAjaran, e);
+        } finally {
+            stopBusy();
+        }
+    }
+
+    private void offerPdfFallback(String nim, String tahunAjaran, Exception cause) {
+        if (GraphicsEnvironment.isHeadless()) {
+            try {
+                File outputFile = defaultPdfFile(nim, tahunAjaran);
+                writeKrsPdf(buildKrsPrintPages(nim, tahunAjaran), outputFile);
+                System.out.println("KRS PDF berhasil dibuat: " + outputFile.getAbsolutePath());
+            } catch (Exception pdfError) {
+                System.err.println("Gagal mencetak dan gagal membuat PDF KRS: " + pdfError.getMessage());
+            }
+            return;
+        }
+
+        int choice = JOptionPane.showConfirmDialog(this,
+                "Gagal membuka printer: " + cause.getMessage() + "\n\nSimpan KRS sebagai PDF sebagai alternatif?",
+                "Cetak KRS", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+        if (choice == JOptionPane.YES_OPTION) {
+            exportKrsPdfDocument(nim, tahunAjaran);
+        }
+    }
+
+    private void exportKrsPdfDocument(String nim, String tahunAjaran) {
+        startBusy();
+        try {
+            List<JPanel> pages = buildKrsPrintPages(nim, tahunAjaran);
+            File outputFile = choosePdfOutputFile(nim, tahunAjaran);
+            if (outputFile == null) {
+                return;
+            }
+            writeKrsPdf(pages, outputFile);
             JOptionPane.showMessageDialog(this,
-                    "Gagal mencetak KRS: " + e.getMessage(),
+                    "PDF KRS berhasil dibuat:\n" + outputFile.getAbsolutePath(),
+                    "Export PDF", JOptionPane.INFORMATION_MESSAGE);
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this,
+                    "Gagal export PDF KRS: " + e.getMessage(),
                     "Error", JOptionPane.ERROR_MESSAGE);
         } finally {
             stopBusy();
+        }
+    }
+
+    private File choosePdfOutputFile(String nim, String tahunAjaran) {
+        if (GraphicsEnvironment.isHeadless()) {
+            return defaultPdfFile(nim, tahunAjaran);
+        }
+
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Simpan PDF KRS");
+        chooser.setSelectedFile(defaultPdfFile(nim, tahunAjaran));
+        if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
+            return null;
+        }
+
+        File selected = chooser.getSelectedFile();
+        if (!selected.getName().toLowerCase(Locale.ROOT).endsWith(".pdf")) {
+            selected = new File(selected.getParentFile(), selected.getName() + ".pdf");
+        }
+        if (selected.exists()) {
+            int overwrite = JOptionPane.showConfirmDialog(this,
+                    "File sudah ada. Timpa file ini?",
+                    "Konfirmasi Export PDF", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+            if (overwrite != JOptionPane.YES_OPTION) {
+                return null;
+            }
+        }
+        return selected;
+    }
+
+    private File defaultPdfFile(String nim, String tahunAjaran) {
+        String fileName = "KRS_" + sanitizeFileName(nim) + "_" + sanitizeFileName(tahunAjaran) + ".pdf";
+        return new File(System.getProperty("user.home"), fileName);
+    }
+
+    private String sanitizeFileName(String value) {
+        String clean = value == null ? "" : value.replaceAll("[^A-Za-z0-9._-]", "_");
+        return clean.isBlank() ? "KRS" : clean;
+    }
+
+    private void writeKrsPdf(List<JPanel> pages, File outputFile) throws Exception {
+        com.itextpdf.text.Document document = new com.itextpdf.text.Document(com.itextpdf.text.PageSize.A4, 0, 0, 0, 0);
+        com.itextpdf.text.pdf.PdfWriter.getInstance(document, new FileOutputStream(outputFile));
+        document.open();
+        try {
+            for (int i = 0; i < pages.size(); i++) {
+                JPanel page = pages.get(i);
+                Dimension pageSize = page.getPreferredSize();
+                page.setSize(pageSize);
+                page.doLayout();
+
+                BufferedImage image = new BufferedImage(page.getWidth(), page.getHeight(), BufferedImage.TYPE_INT_RGB);
+                Graphics2D g2 = image.createGraphics();
+                g2.setColor(Color.WHITE);
+                g2.fillRect(0, 0, image.getWidth(), image.getHeight());
+                page.printAll(g2);
+                g2.dispose();
+
+                com.itextpdf.text.Image pdfImage = com.itextpdf.text.Image.getInstance(image, null);
+                pdfImage.scaleToFit(com.itextpdf.text.PageSize.A4.getWidth(), com.itextpdf.text.PageSize.A4.getHeight());
+                pdfImage.setAbsolutePosition(
+                        (com.itextpdf.text.PageSize.A4.getWidth() - pdfImage.getScaledWidth()) / 2,
+                        (com.itextpdf.text.PageSize.A4.getHeight() - pdfImage.getScaledHeight()) / 2);
+                document.add(pdfImage);
+                if (i < pages.size() - 1) {
+                    document.newPage();
+                }
+            }
+        } finally {
+            document.close();
         }
     }
 
