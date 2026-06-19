@@ -326,9 +326,16 @@ public class MainFrame extends JFrame {
         JButton btnDashboard  = buildNavButton(NavIcon.DASHBOARD, "Dashboard", PANEL_DASHBOARD);
         JButton btnMahasiswa  = buildNavButton(NavIcon.MAHASISWA, "Data Mahasiswa", PANEL_MAHASISWA);
         JButton btnPembayaran = buildNavButton(NavIcon.PEMBAYARAN, "Pembayaran UKT", PANEL_PEMBAYARAN);
-        JButton btnInputKrs  = buildNavButton(NavIcon.KRS, "Input KRS", PANEL_INPUT_KRS);
-        JButton btnMataKuliah  = buildNavButton(NavIcon.KRS, "Mata Kuliah", PANEL_MATA_KULIAH);
-        JButton btnJadwalKuliah  = buildNavButton(NavIcon.KRS, "Jadwal Kuliah", PANEL_JADWAL_KULIAH);
+        JPanel krsJadwalSubmenu = buildKrsJadwalSubmenu();
+        JButton btnKrsJadwal = buildNavButton(NavIcon.KRS, "KRS & Jadwal", null);
+        setNavChevron(btnKrsJadwal, false);
+        btnKrsJadwal.addActionListener(e -> {
+            boolean expanded = !krsJadwalSubmenu.isVisible();
+            krsJadwalSubmenu.setVisible(expanded);
+            setNavChevron(btnKrsJadwal, expanded);
+            navPanel.revalidate();
+            navPanel.repaint();
+        });
         JPanel akademikSubmenu = buildAkademikSubmenu();
         JButton btnAkademik   = buildNavButton(NavIcon.AKADEMIK, "Akademik", null);
         setNavChevron(btnAkademik, false);
@@ -347,11 +354,8 @@ public class MainFrame extends JFrame {
         navPanel.add(Box.createVerticalStrut(3));
         navPanel.add(btnPembayaran);
         navPanel.add(Box.createVerticalStrut(3));
-        navPanel.add(btnInputKrs);
-        navPanel.add(Box.createVerticalStrut(3));
-        navPanel.add(btnMataKuliah);
-        navPanel.add(Box.createVerticalStrut(3));
-        navPanel.add(btnJadwalKuliah);
+        navPanel.add(btnKrsJadwal);
+        navPanel.add(krsJadwalSubmenu);
         navPanel.add(Box.createVerticalStrut(3));
         navPanel.add(btnAkademik);
         navPanel.add(akademikSubmenu);
@@ -420,6 +424,21 @@ public class MainFrame extends JFrame {
         l.setForeground(TEXT_DIM());
         l.setAlignmentX(Component.LEFT_ALIGNMENT);
         return l;
+    }
+
+    private JPanel buildKrsJadwalSubmenu() {
+        JPanel submenu = new JPanel();
+        submenu.setOpaque(false);
+        submenu.setLayout(new BoxLayout(submenu, BoxLayout.Y_AXIS));
+        submenu.setBorder(new EmptyBorder(2, 18, 6, 0));
+        submenu.setAlignmentX(Component.LEFT_ALIGNMENT);
+        submenu.add(buildSubNavButton(NavIcon.KRS, "Input KRS", PANEL_INPUT_KRS));
+        submenu.add(Box.createVerticalStrut(2));
+        submenu.add(buildSubNavButton(NavIcon.KRS, "Mata Kuliah", PANEL_MATA_KULIAH));
+        submenu.add(Box.createVerticalStrut(2));
+        submenu.add(buildSubNavButton(NavIcon.KRS, "Jadwal Kuliah", PANEL_JADWAL_KULIAH));
+        submenu.setVisible(false);
+        return submenu;
     }
 
     private JPanel buildAkademikSubmenu() {
